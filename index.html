@@ -7,6 +7,7 @@
     <meta name="description" content="台灣 16 張麻將教練練習系統" />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="enhancements.css" />
     <title>牌桌教練｜台灣麻將練習</title>
   </head>
   <body>
@@ -40,12 +41,12 @@
                 <div class="opponent opponent-top"><span class="avatar">林</span><div><strong>林小安</strong><small>南家・初級</small></div><span class="back-tiles">▦ ▦ ▦ ▦</span></div>
                 <div class="opponent opponent-left"><span class="avatar">陳</span><div><strong>陳大文</strong><small>東家・初級</small></div><span class="back-tiles">▦ ▦</span></div>
                 <div class="opponent opponent-right"><span class="avatar">周</span><div><strong>周美玲</strong><small>西家・初級</small></div><span class="back-tiles">▦ ▦</span></div>
-                <div class="table-center"><div class="wind">東</div><div class="round">局數 1　｜　剩餘 68 張</div></div>
+                <div class="table-center"><div class="wind">東</div><div class="round">東一局　｜　牌牆剩餘 <b id="wallCount">68</b> 張</div></div>
                 <div class="discard-river" id="discardRiver"><span>🀙</span><span>🀐</span><span>🀀</span><span>🀒</span><span>🀇</span><span>🀅</span></div>
                 <div class="player-seat"><div class="player-label"><span class="avatar you">你</span><div><strong>我的手牌</strong><small>北家・輪到你</small></div></div><div class="hand" id="hand" aria-label="你的手牌"></div></div>
               </div>
             </div>
-            <div class="action-row"><button class="secondary-button" id="hintButton">✦ 看提示</button><button class="secondary-button" id="sortButton">↕ 整理手牌</button><button class="primary-button" id="drawButton">摸牌</button></div>
+            <div class="action-row"><button class="secondary-button" id="hintButton">✦ 看提示</button><button class="secondary-button" id="sortButton">↕ 整理手牌</button><button class="secondary-button" id="meldButton" disabled>吃／碰／槓</button><button class="primary-button" id="drawButton">摸牌</button></div>
           </div>
 
           <aside class="coach-card">
@@ -55,7 +56,7 @@
           </aside>
         </section>
 
-        <section class="lesson-view hidden" id="lessonView"><div class="lesson-card"><p class="eyebrow">LESSON 01</p><h2>從牌桌開始認識麻將</h2><p>完成五個小步驟，就能掌握一局牌的開場流程。</p><div class="lesson-list"><button class="lesson-item done"><span>✓</span><div><strong>認識牌面</strong><small>萬、筒、索、字牌與花牌</small></div><b>已完成</b></button><button class="lesson-item current"><span>2</span><div><strong>五組加一對</strong><small>理解胡牌的基本結構</small></div><b>開始</b></button><button class="lesson-item"><span>3</span><div><strong>抓位與擲骰</strong><small>學會從哪裡開門</small></div><b>未開始</b></button><button class="lesson-item"><span>4</span><div><strong>摸牌與出牌</strong><small>認識一巡的節奏</small></div><b>未開始</b></button></div></div></section>
+        <section class="lesson-view hidden" id="lessonView"><div class="lesson-card"><div class="lesson-kicker"><p class="eyebrow">新手學堂・第 <span id="lessonStepNumber">1</span> / 5 步</p><span class="lesson-time">約 3 分鐘</span></div><h2 id="lessonTitle">先認識一張牌</h2><p id="lessonDescription">麻將牌不是一整副要背起來的符號。先分清楚花色，之後看牌效率才不會迷路。</p><div class="lesson-demo" id="lessonDemo"><span class="demo-tile">🀇</span><span class="demo-tile">🀐</span><span class="demo-tile">🀑</span><span class="demo-tile">🀀</span><span class="demo-tile flower">🀢</span></div><div class="lesson-progress"><i id="lessonProgressBar"></i></div><div class="lesson-actions"><button class="secondary-button" id="lessonBack" disabled>上一步</button><button class="primary-button" id="lessonNext">下一步</button></div><div class="lesson-map"><span class="lesson-node active">1</span><span>認牌</span><span class="lesson-node">2</span><span>胡牌結構</span><span class="lesson-node">3</span><span>開局流程</span><span class="lesson-node">4</span><span>摸打節奏</span><span class="lesson-node">5</span><span>開始實戰</span></div></div></section>
 
         <section class="review-view hidden" id="reviewView"><div class="review-card"><div><p class="eyebrow">REVIEW CENTER</p><h2>最近的牌局</h2><p>完成一局後，這裡會整理值得回看的決策。</p></div><div class="empty-review"><span>◌</span><strong>還沒有可覆盤的牌局</strong><small>完成目前這一局後，就能看到你的選擇與教練建議。</small></div></div></section>
 
