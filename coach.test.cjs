@@ -16,4 +16,24 @@ for(let suit=0;suit<3;suit++)for(const pattern of C.patterns){
  assert.ok(C.patternHints(fragment).length);
 }
 assert.equal(C.patternHints([0,3,6]).length,0);
+assert.equal(white.outs.reduce((n,o)=>n+o.remaining,0),19);
+for(const o of white.outs)assert.equal(o.remaining,4-[...hand,...visible].filter(t=>t===o.tile).length);
+assert.match(C.compare(hand,options,33),/未見/);
+const g=E.create(123);
+assert.match(C.contextualAnswer('現在做什麼',g),/先按「摸牌」/);
+g.hands[0]=hand.slice();g.rivers=[[30,31],[12,15],[1,5],[12,9]];g.phase='discard';
+assert.match(C.contextualAnswer('打白板',g),/19 張/);
+assert.match(C.contextualAnswer('可以碰嗎',g),/不能吃碰/);
+assert.match(C.contextualAnswer('可以槓嗎',g),/沒有可暗槓/);
+g.hands[0]=[0,1,2,3,4,5,9,10,11,18,19,27,27,27,31,31];
+g.phase='claim';g.pending={from:3,tile:27,decisions:{3:{type:'pass'}}};
+const snapshot=JSON.stringify(g);
+assert.match(C.contextualAnswer('碰好嗎',g),/碰後再出一張/);
+assert.match(C.contextualAnswer('槓好嗎',g),/補牌結果未知/);
+assert.match(C.contextualAnswer('吃好嗎',g),/目前不能吃/);
+assert.equal(JSON.stringify(g),snapshot,'Questions must not change game state');
+g.pending.decisions[0]={type:'pass'};assert.match(C.contextualAnswer('碰嗎',g),/已完成回應/);
+g.phase='discard';g.hands[0].push(27);assert.match(C.contextualAnswer('槓嗎',g),/暗槓 東/);
+g.turn=1;assert.match(C.contextualAnswer('打白板',g),/輪到其他玩家/);
+g.phase='ended';assert.match(C.contextualAnswer('打白板',g),/本局已結束/);
 console.log('PASS: screenshot white tile tie, nonrecommended discard, questions, absent tiles, and all nine three-sided waiting examples.');

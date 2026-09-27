@@ -22,7 +22,7 @@ function analyze(hand,publicTiles=[],open=0){
  const options=[...new Set(hand)].map(tile=>{
   const rest=hand.slice();rest.splice(rest.indexOf(tile),1);const s=value(rest);const improving=[];let remaining=0;
   for(let t=0;t<34;t++)if(known[t]<4&&value([...rest,t])<s){improving.push(t);remaining+=4-known[t];}
-  return {tile,shanten:s,remaining,improving};
+  return {tile,shanten:s,remaining,improving,outs:improving.map(t=>({tile:t,remaining:4-known[t]}))};
  });return options.sort((a,b)=>a.shanten-b.shanten||b.remaining-a.remaining||a.tile-b.tile);
 }
 function create(seed=Date.now()){

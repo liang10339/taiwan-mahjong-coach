@@ -8,14 +8,14 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="enhancements.css" />
-    <link rel="stylesheet" href="state.css?v=7" />
+    <link rel="stylesheet" href="state.css?v=8" />
     <title>牌桌教練｜台灣麻將練習</title>
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
         <div class="brand"><span class="brand-mark">牌</span><span>牌桌教練</span></div>
-        <div class="topbar-actions"><span class="status-dot"></span><span>教練練習 v0.7</span><button class="icon-button" id="resetButton" title="重新開始">↻</button></div>
+        <div class="topbar-actions"><span class="status-dot"></span><span>教練練習 v0.8</span><button class="icon-button" id="resetButton" title="重新開始">↻</button></div>
       </header>
 
       <main class="page">
@@ -57,7 +57,7 @@
             <section class="coach-questions" aria-label="問教練">
               <h4>問教練</h4>
               <button class="secondary-button" id="askSelected" disabled>打我選的這張，可以嗎？</button>
-              <form id="askForm"><label for="askInput">依目前牌局提問（本機計算）</label><input id="askInput" maxlength="160" placeholder="例如：打白板可以嗎？147是什麼？" /><button class="primary-button" type="submit">詢問</button></form>
+              <form id="askForm"><label for="askInput">依目前牌局提問（本機計算）</label><input id="askInput" maxlength="160" placeholder="例如：打白板可以嗎？碰好嗎？槓好嗎？" /><button class="primary-button" type="submit">詢問</button></form>
               <p id="askAnswer" role="status"></p>
             </section>
           </aside>
@@ -71,9 +71,9 @@
       </main>
     </div>
     <div class="toast" id="toast" role="status"></div>
-    <script src="engine.js?v=7"></script>
-    <script src="coach.js?v=7"></script>
-    <script src="lessons.js?v=7"></script>
-    <script src="app.js?v=7"></script>
+    <script src="engine.js?v=8"></script>
+    <script src="coach.js?v=8"></script>
+    <script src="lessons.js?v=8"></script>
+    <script src="app.js?v=8"></script>
   </body>
 </html>

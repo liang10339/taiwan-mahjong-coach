@@ -17,6 +17,9 @@ vm.runInContext("game.hands[0]=[2,3,6,8,8,9,12,15,17,18,19,21,23,27,27,27,33];ga
 get('#hand').children[16].onclick();get('#askSelected').onclick();assert.match(get('#askAnswer').textContent,/並列/);assert.equal(get('#hand').children.length,17);
 get('#askInput').value='打白板可以嗎';get('#askForm').onsubmit({preventDefault(){}});assert.match(get('#askAnswer').textContent,/19 張/);
 get('#sortButton').onclick();assert.equal(get('#askSelected').disabled,true);assert.equal(get('#askAnswer').textContent,'');
+vm.runInContext("game.phase='claim';game.pending={from:3,tile:27,decisions:{3:{type:'pass'}}};render();",c);
+get('#askInput').value='碰好嗎';get('#askForm').onsubmit({preventDefault(){}});assert.match(get('#askAnswer').textContent,/碰後再出一張/);
+assert.equal(vm.runInContext('game.phase',c),'claim');
 vm.runInContext("game.hands[0]=[0,1,2,3,4,5,9,10,11,18,19,20,27,27,27,31,31];game.turn=0;game.phase='discard';render();",c);
 get('#winButton').onclick();assert.equal(get('#winButton').disabled,true);assert.equal(get('#drawButton').disabled,true);assert.equal(get('#discardButton').disabled,true);
 console.log('PASS: real UI handlers, repeat draw, select/confirm, complete AI round, stale timer after reset and ended-game locks.');

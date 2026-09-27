@@ -23,7 +23,7 @@ function coach(){
  copy.textContent='先比較哪種打法能更快聽牌，再看摸到哪些牌能讓手牌更進一步。「一進聽」表示再進一張合適的牌、出牌後就有機會聽牌，不是再摸一次就一定聽。張數只扣除你看得到的牌，也可能包含對手手上的牌，並非牌牆實際剩餘數量。尚未考慮台數與防守。';
  for(const option of suggestions.slice(0,3)){
   const row=document.createElement('p');row.className='coach-option';
-  row.textContent='打 '+tile(option.tile)+' → '+readiness(option.shanten)+'；'+(option.shanten===0?'可胡的牌':'摸到能更接近聽牌的牌')+'：'+(option.improving.map(tile).join('、')||'目前沒有')+'（尚未看見 '+option.remaining+' 張）';
+  row.textContent='打 '+tile(option.tile)+' → '+readiness(option.shanten)+'；'+(option.shanten===0?'可胡的牌':'摸到能更接近聽牌的牌')+'：'+Coach.outSummary(option)+'（合計未見 '+option.remaining+' 張）';
   body.append(row);
  }
  const tied=suggestions.filter(o=>Coach.same(o,suggestions[0]));
@@ -86,8 +86,7 @@ $('#resetButton').onclick=()=>{generation++;clearTimeout(timer);game=E.create();
 $('#hintButton').onclick=()=>{analyze();coach();};
 $('#explainButton').onclick=()=>notify('一進聽：再進一張合適的牌、出牌後就有機會聽牌；兩進聽則還要改善兩步。這不是保證摸幾次就會聽牌。');
 function askCoach(question){
- if(game.turn!==0||game.phase!=='discard'){$('#askAnswer').textContent='請在輪到你出牌時詢問，才能比較目前手牌。';return;}
- analyze();$('#askAnswer').textContent=Coach.answer(question,game.hands[0],suggestions,selected===null?null:game.hands[0][selected]);
+ $('#askAnswer').textContent=Coach.contextualAnswer(question,game,selected===null?null:game.hands[0][selected]);
 }
 $('#askSelected').onclick=()=>askCoach('這張可以嗎');
 $('#askForm').onsubmit=e=>{e.preventDefault();askCoach($('#askInput').value);};
