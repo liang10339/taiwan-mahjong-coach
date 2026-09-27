@@ -3,7 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f6f1e8" />
+    <meta name="theme-color" content="#fbfaf5" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
     <meta name="description" content="台灣 16 張麻將教練練習系統" />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="stylesheet" href="styles.css" />
@@ -14,7 +16,7 @@
     <div class="app-shell">
       <header class="topbar">
         <div class="brand"><span class="brand-mark">牌</span><span>牌桌教練</span></div>
-        <div class="topbar-actions"><span class="status-dot"></span><span>本機練習模式</span><button class="icon-button" id="resetButton" title="重新開始">↻</button></div>
+        <div class="topbar-actions"><span class="status-dot"></span><span>本機練習模式</span><button class="icon-button" id="resetButton" title="重新開始" aria-label="重新開始">↻</button></div>
       </header>
 
       <main class="page">
@@ -38,27 +40,27 @@
             <div class="section-heading"><div><p class="eyebrow">LIVE TABLE</p><h2>第 1 局・東一局</h2></div><span class="pill">教練開啟</span></div>
             <div class="mahjong-table">
               <div class="table-felt">
-                <div class="opponent opponent-top"><span class="avatar">林</span><div><strong>林小安</strong><small>南家・初級</small></div><span class="back-tiles">▦ ▦ ▦ ▦</span></div>
-                <div class="opponent opponent-left"><span class="avatar">陳</span><div><strong>陳大文</strong><small>東家・初級</small></div><span class="back-tiles">▦ ▦</span></div>
-                <div class="opponent opponent-right"><span class="avatar">周</span><div><strong>周美玲</strong><small>西家・初級</small></div><span class="back-tiles">▦ ▦</span></div>
-                <div class="table-center"><div class="wind">東</div><div class="round">東一局　｜　牌牆剩餘 <b id="wallCount">68</b> 張</div></div>
-                <div class="discard-river" id="discardRiver"><span>🀙</span><span>🀐</span><span>🀀</span><span>🀒</span><span>🀇</span><span>🀅</span></div>
-                <div class="player-seat"><div class="player-label"><span class="avatar you">你</span><div><strong>我的手牌</strong><small>北家・輪到你</small></div></div><div class="hand" id="hand" aria-label="你的手牌"></div></div>
+                <div class="opponent opponent-top"><span class="avatar">林</span><div><strong>林小安</strong><small>西家・對家・初級 <span id="seat2Flowers"></span></small></div><span class="back-tiles" id="seat2Tiles">▦ × 16</span></div>
+                <div class="opponent opponent-left"><span class="avatar">陳</span><div><strong>陳大文</strong><small>北家・上家・初級 <span id="seat3Flowers"></span></small></div><span class="back-tiles" id="seat3Tiles">▦ × 16</span></div>
+                <div class="opponent opponent-right"><span class="avatar">周</span><div><strong>周美玲</strong><small>南家・下家・初級 <span id="seat1Flowers"></span></small></div><span class="back-tiles" id="seat1Tiles">▦ × 16</span></div>
+                <div class="table-center"><div class="wind">東</div><div class="round">東一局　｜　牌牆剩餘 <b id="wallCount">0</b> 張</div></div>
+                <div class="discard-river" id="discardRiver" aria-label="牌河"></div>
+                <div class="player-seat"><div class="player-label"><span class="avatar you">你</span><div><strong>我的手牌</strong><small id="playerStatus">東家・莊・輪到你</small></div><span class="player-flowers" id="playerFlowers"></span></div><div class="hand" id="hand" aria-label="你的手牌"></div></div>
               </div>
             </div>
-            <div class="action-row"><button class="secondary-button" id="hintButton">✦ 看提示</button><button class="secondary-button" id="sortButton">↕ 整理手牌</button><button class="secondary-button" id="meldButton" disabled>吃／碰／槓</button><button class="secondary-button" id="winButton" disabled>胡牌</button><button class="primary-button" id="drawButton">摸牌</button></div>
+            <div class="action-row"><button class="secondary-button" id="hintButton">✦ 看提示</button><button class="secondary-button" id="sortButton">↕ 整理手牌</button><button class="secondary-button" id="meldButton" disabled title="吃、碰、槓尚未開放">吃／碰／槓</button><button class="secondary-button" id="winButton" disabled>胡牌</button><button class="primary-button" id="drawButton">摸牌</button></div>
           </div>
 
           <aside class="coach-card">
-            <div class="coach-header"><div class="coach-icon">✦</div><div><p class="eyebrow">COACH INSIGHT</p><h3>教練觀察</h3></div><button class="more-button">···</button></div>
-            <div class="coach-body" id="coachBody"><div class="coach-tag">這一手先想想</div><h4>你想保留哪一組搭子？</h4><p>先觀察手牌中的兩面搭子。兩面搭子可以等到兩張牌，通常比孤張更有延伸空間。</p><div class="coach-divider"></div><div class="stat-grid"><div><span>目前向聽</span><strong id="shantenValue">2 向聽</strong></div><div><span>有效進張</span><strong id="effectiveValue">18 張</strong></div></div></div>
+            <div class="coach-header"><div class="coach-icon">✦</div><div><p class="eyebrow">COACH INSIGHT</p><h3>教練觀察</h3></div></div>
+            <div class="coach-body" id="coachBody"><div class="coach-tag">這一手先想想</div><h4>你想保留哪一組搭子？</h4><p>先觀察手牌中的兩面搭子。兩面搭子可以等到兩張牌，通常比孤張更有延伸空間。</p><div class="coach-divider"></div><div class="stat-grid"><div><span>目前向聽</span><strong id="shantenValue">—</strong></div><div><span>有效進張</span><strong id="effectiveValue">—</strong></div></div></div>
             <div class="coach-footer"><button class="text-button" id="explainButton">為什麼？ <span>→</span></button><span class="coach-level">基礎教練</span></div>
           </aside>
         </section>
 
-        <section class="lesson-view hidden" id="lessonView"><div class="lesson-card"><div class="lesson-kicker"><p class="eyebrow">新手學堂・第 <span id="lessonStepNumber">1</span> / 5 步</p><span class="lesson-time">約 3 分鐘</span></div><h2 id="lessonTitle">先認識一張牌</h2><p id="lessonDescription">麻將牌不是一整副要背起來的符號。先分清楚花色，之後看牌效率才不會迷路。</p><div class="lesson-demo" id="lessonDemo"><span class="demo-tile">🀇</span><span class="demo-tile">🀐</span><span class="demo-tile">🀑</span><span class="demo-tile">🀀</span><span class="demo-tile flower">🀢</span></div><div class="lesson-progress"><i id="lessonProgressBar"></i></div><div class="lesson-actions"><button class="secondary-button" id="lessonBack" disabled>上一步</button><button class="primary-button" id="lessonNext">下一步</button></div><div class="lesson-map"><span class="lesson-node active">1</span><span>認牌</span><span class="lesson-node">2</span><span>胡牌結構</span><span class="lesson-node">3</span><span>開局流程</span><span class="lesson-node">4</span><span>摸打節奏</span><span class="lesson-node">5</span><span>開始實戰</span></div></div></section>
+        <section class="lesson-view hidden" id="lessonView"><div class="lesson-card"><div class="lesson-kicker"><p class="eyebrow">新手學堂・第 <span id="lessonStepNumber">1</span> / 5 步</p><span class="lesson-time">約 3 分鐘</span></div><h2 id="lessonTitle">先認識一張牌</h2><p id="lessonDescription"></p><div class="lesson-demo" id="lessonDemo"></div><div class="lesson-progress"><i id="lessonProgressBar"></i></div><div class="lesson-actions"><button class="secondary-button" id="lessonBack" disabled>上一步</button><button class="primary-button" id="lessonNext">下一步</button></div><div class="lesson-map"><span class="lesson-node active">1</span><span>認牌</span><span class="lesson-node">2</span><span>胡牌結構</span><span class="lesson-node">3</span><span>開局流程</span><span class="lesson-node">4</span><span>摸打節奏</span><span class="lesson-node">5</span><span>開始實戰</span></div></div></section>
 
-        <section class="review-view hidden" id="reviewView"><div class="review-card"><div><p class="eyebrow">REVIEW CENTER</p><h2>最近的牌局</h2><p>完成一局後，這裡會整理值得回看的決策。</p></div><div class="empty-review"><span>◌</span><strong>還沒有可覆盤的牌局</strong><small>完成目前這一局後，就能看到你的選擇與教練建議。</small></div></div></section>
+        <section class="review-view hidden" id="reviewView"><div class="review-card"><div><p class="eyebrow">REVIEW CENTER</p><h2>最近的牌局</h2><p>完成一局後，這裡會整理值得回看的決策。</p></div><div id="reviewContent"><div class="empty-review"><span>◌</span><strong>還沒有可覆盤的牌局</strong><small>完成目前這一局後，就能看到你的選擇與教練建議。</small></div></div></div></section>
 
         <section class="bottom-grid"><div class="tip-strip"><span class="tip-icon">i</span><div><strong>小提醒</strong><p>教練會比較多個合理選擇，不會把每一次不同選擇都判定為錯誤。</p></div></div><div class="rule-card"><p class="eyebrow">CURRENT RULESET</p><div class="rule-row"><strong>一般台灣 16 張</strong><span>查看規則 →</span></div><div class="rule-meta"><span>144 張牌</span><span>五組加一對</span><span>8 張花牌</span></div></div></section>
       </main>
