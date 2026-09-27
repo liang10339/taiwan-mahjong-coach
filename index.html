@@ -8,6 +8,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="enhancements.css" />
+    <link rel="stylesheet" href="state.css" />
     <title>牌桌教練｜台灣麻將練習</title>
   </head>
   <body>
@@ -41,12 +42,12 @@
                 <div class="opponent opponent-top"><span class="avatar">林</span><div><strong>林小安</strong><small>南家・初級</small></div><span class="back-tiles">▦ ▦ ▦ ▦</span></div>
                 <div class="opponent opponent-left"><span class="avatar">陳</span><div><strong>陳大文</strong><small>東家・初級</small></div><span class="back-tiles">▦ ▦</span></div>
                 <div class="opponent opponent-right"><span class="avatar">周</span><div><strong>周美玲</strong><small>西家・初級</small></div><span class="back-tiles">▦ ▦</span></div>
-                <div class="table-center"><div class="wind">東</div><div class="round">東一局　｜　牌牆剩餘 <b id="wallCount">68</b> 張</div></div>
+                <div class="table-center"><div class="wind">東</div><div class="round">東一局　｜　牌牆剩餘 <b id="wallCount">68</b> 張</div><div class="turn-status" id="turnStatus">輪到你摸牌</div></div>
                 <div class="discard-river" id="discardRiver"><span>🀙</span><span>🀐</span><span>🀀</span><span>🀒</span><span>🀇</span><span>🀅</span></div>
                 <div class="player-seat"><div class="player-label"><span class="avatar you">你</span><div><strong>我的手牌</strong><small>北家・輪到你</small></div></div><div class="hand" id="hand" aria-label="你的手牌"></div></div>
               </div>
             </div>
-            <div class="action-row"><button class="secondary-button" id="hintButton">✦ 看提示</button><button class="secondary-button" id="sortButton">↕ 整理手牌</button><button class="secondary-button" id="meldButton" disabled>吃／碰／槓</button><button class="secondary-button" id="winButton" disabled>胡牌</button><button class="primary-button" id="drawButton">摸牌</button></div>
+            <div class="action-row"><button class="secondary-button" id="hintButton">✦ 看提示</button><button class="secondary-button" id="sortButton">↕ 整理手牌</button><button class="secondary-button" id="meldButton" disabled>吃／碰／槓</button><button class="secondary-button" id="winButton" disabled>胡牌</button><button class="primary-button" id="drawButton">摸牌</button></div><p class="phase-help" id="phaseHelp">先摸一張牌；摸牌後請從 17 張牌中選一張打出。</p>
           </div>
 
           <aside class="coach-card">
