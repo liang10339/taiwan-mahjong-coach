@@ -3,19 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f6f1e8" />
+    <meta name="theme-color" content="#fbfaf5" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
     <meta name="description" content="台灣 16 張麻將教練練習系統" />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="enhancements.css" />
-    <link rel="stylesheet" href="state.css?v=8" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@900&display=swap" />
+    <link rel="stylesheet" href="state.css?v=9" />
+    <link rel="stylesheet" href="tiles.css?v=9" />
     <title>牌桌教練｜台灣麻將練習</title>
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
         <div class="brand"><span class="brand-mark">牌</span><span>牌桌教練</span></div>
-        <div class="topbar-actions"><span class="status-dot"></span><span>教練練習 v0.8</span><button class="icon-button" id="resetButton" title="重新開始">↻</button></div>
+        <div class="topbar-actions"><span class="status-dot"></span><span>教練練習 v0.9</span><button class="icon-button" id="resetButton" title="重新開始">↻</button></div>
       </header>
 
       <main class="page">
@@ -39,21 +44,27 @@
             <div class="section-heading"><div><p class="eyebrow">LIVE TABLE</p><h2>第 1 局・東一局</h2></div><span class="pill">教練開啟</span></div>
             <div class="mahjong-table">
               <div class="table-felt">
-                <div class="opponent opponent-top"><span class="avatar">林</span><div><strong>林小安</strong><small>西家・牌效率</small></div><span class="back-tiles">▦ ▦ ▦ ▦</span></div>
-                <div class="opponent opponent-left"><span class="avatar">陳</span><div><strong>陳大文</strong><small>北家・牌效率</small></div><span class="back-tiles">▦ ▦</span></div>
-                <div class="opponent opponent-right"><span class="avatar">周</span><div><strong>周美玲</strong><small>南家・牌效率</small></div><span class="back-tiles">▦ ▦</span></div>
+                <div class="opponent opponent-top"><span class="avatar">林</span><div><strong>林小安</strong><small>西家・牌效率</small></div><span class="back-tiles" data-seat="2"></span></div>
+                <div class="opponent opponent-left"><span class="avatar">陳</span><div><strong>陳大文</strong><small>北家・牌效率</small></div><span class="back-tiles" data-seat="3"></span></div>
+                <div class="opponent opponent-right"><span class="avatar">周</span><div><strong>周美玲</strong><small>南家・牌效率</small></div><span class="back-tiles" data-seat="1"></span></div>
                 <div class="table-center"><div class="wind">東</div><div class="round">東一局　｜　牌牆剩餘 <b id="wallCount">68</b> 張</div><div class="turn-status" id="turnStatus" role="status">輪到你摸牌</div></div>
-                <div class="discard-river" id="discardRiver"><span>🀙</span><span>🀐</span><span>🀀</span><span>🀒</span><span>🀇</span><span>🀅</span></div>
-                <div class="player-seat"><div class="player-label"><span class="avatar you">你</span><div><strong>我的手牌</strong><small>北家・輪到你</small></div></div><div class="hand" id="hand" aria-label="你的手牌"></div></div>
+                <div class="discard-river" id="discardRiver"></div>
+                <div class="player-seat"><div class="player-label"><span class="avatar you">你</span><div><strong>我的手牌</strong><small>你（東家・莊家）</small></div></div><div class="hand" id="hand" aria-label="你的手牌"></div></div>
               </div>
             </div>
             <div class="action-row"><button class="secondary-button" id="hintButton">✦ 看提示</button><button class="secondary-button" id="sortButton">↕ 整理手牌</button><button class="primary-button" id="discardButton" disabled>確認出牌</button><button class="secondary-button" id="winButton" disabled>胡牌</button><button class="primary-button" id="drawButton">摸牌</button></div><div id="claimActions" class="action-row" aria-label="吃碰槓胡回應"></div><div id="meldInfo"></div><p id="flowerInfo"></p><p class="phase-help" id="phaseHelp" aria-live="polite">先摸一張牌；摸牌後請從 17 張牌中選一張打出。</p>
           </div>
 
           <aside class="coach-card">
-            <div class="coach-header"><div class="coach-icon">✦</div><div><p class="eyebrow">COACH INSIGHT</p><h3>教練觀察</h3></div><button class="more-button">···</button></div>
+            <div class="coach-header"><div class="coach-icon">✦</div><div><p class="eyebrow">COACH INSIGHT</p><h3>教練觀察</h3></div></div>
             <div class="coach-body" id="coachBody" aria-live="polite"></div>
-            <div class="coach-footer"><button class="text-button" id="explainButton">為什麼？ <span>→</span></button><span class="coach-level">基礎教練</span></div>
+            <div class="coach-footer"><button class="text-button" id="explainButton" aria-expanded="false" aria-controls="coachGlossary">名詞說明 <span>▾</span></button><span class="coach-level">基礎教練</span></div>
+            <div class="coach-glossary hidden" id="coachGlossary">
+              <p><b>進聽數</b>：離聽牌還差幾步。「一進聽」是再進一張合適的牌、打出一張後就有機會聽牌，不是再摸一次就一定聽。</p>
+              <p><b>有效牌</b>：摸到後能讓進聽數減少的牌。張數只扣除你看得到的牌（自己手牌、牌河、攤牌），可能有些在對手手上，並非牌牆實際剩餘。</p>
+              <p><b>搭子</b>：差一張就成組的兩張牌。兩面（如 34 等 2、5）最好，嵌張（如 46 等 5）與邊張（如 12 等 3）只能等一種。</p>
+              <p><b>範圍</b>：教練目前只比較牌效率，尚未考慮台數與防守（放槍風險）。</p>
+            </div>
             <section class="coach-questions" aria-label="問教練">
               <h4>問教練</h4>
               <button class="secondary-button" id="askSelected" disabled>打我選的這張，可以嗎？</button>
@@ -71,9 +82,10 @@
       </main>
     </div>
     <div class="toast" id="toast" role="status"></div>
-    <script src="engine.js?v=8"></script>
-    <script src="coach.js?v=8"></script>
-    <script src="lessons.js?v=8"></script>
-    <script src="app.js?v=8"></script>
+    <script src="engine.js?v=9"></script>
+    <script src="tiles.js?v=9"></script>
+    <script src="coach.js?v=9"></script>
+    <script src="lessons.js?v=9"></script>
+    <script src="app.js?v=9"></script>
   </body>
 </html>

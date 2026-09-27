@@ -13,9 +13,7 @@ function compare(hand,options,t){
  if(same(candidate,best))answer+='和目前第一名打'+label(best.tile)+'並列，這是牌效率上的合理選擇。'+(options.indexOf(candidate)>=3?'沒列在前三名只是畫面截斷與排序，不是判定它比較差。':'');
  else if(candidate.shanten>best.shanten)answer+='相較打'+label(best.tile)+'（'+progress(best.shanten)+'），距離聽牌多 '+(candidate.shanten-best.shanten)+' 步。不同進聽數的牌不能只比張數大小。';
  else answer+='進聽數和打'+label(best.tile)+'相同，但有幫助的牌少 '+(best.remaining-candidate.remaining)+' 張。';
- const count=hand.filter(x=>x===t).length;
- if(t>=27)answer+=count===1?'這張是單張字牌，不能接成順子；打掉它不會拆掉目前的對子或刻子。':count===2?'這張字牌已有一對，打掉會拆對。':'這張字牌已有刻子，打掉會拆組。';
- answer+='有幫助的牌：'+outSummary(candidate)+'。每種牌最多四張，扣除自己手牌與公開可見牌；剛打出的牌仍算已見，不會加回。未見牌可能在對手手上，不是摸中機率。這裡只比較進聽數與張數，沒有計入台數或放槍風險；並列也不代表所有策略價值相同。';return answer;
+ answer+='有幫助的牌：'+outSummary(candidate)+'。'+tileRole(hand,t)+'（張數為未見張數，不是牌牆剩餘。）';return answer;
 }
 function outSummary(option){return option.outs?option.outs.map(o=>label(o.tile)+'（未見 '+o.remaining+' 張）').join('、')||'無':option.improving.map(label).join('、')||'無';}
 function contextualAnswer(question,g,selected=null){
@@ -50,5 +48,122 @@ function answer(question,hand,options,selected){
  if(selected!==null&&/這張|這個|為什麼|可以|比較/.test(q))return compare(hand,options,selected);
  return '目前是依牌局計算的本機教練，可問「打白板可以嗎」「打3萬為什麼不好」「這張和推薦差在哪」或「147是什麼」。其他自由問答尚未支援。';
 }
-const api={compare,answer,contextualAnswer,outSummary,patternHints,patterns,progress,same,label};if(typeof module!=='undefined')module.exports=api;else root.Coach=api;
+// ---- 手牌拆解：找出面子、搭子、對子與孤張，供逐手解說使用 ----
+const KIND={tri:'刻子',seq:'順子',head:'眼（對子）',pair:'對子',ryanmen:'兩面搭子',penchan:'邊張搭子',kanchan:'嵌張搭子',single:'孤張'};
+const suitMemo=new Map();
+function suitDecomps(arr,honor){
+ const key=(honor?'h':'s')+arr.join('');if(suitMemo.has(key))return suitMemo.get(key);
+ const c=arr.slice(),local=new Map();
+ function rec(){
+  const k=c.join('');if(local.has(k))return local.get(k);
+  const i=c.findIndex(n=>n>0),out=new Map();
+  if(i<0){out.set('0,0,0',{groups:[],q:0});local.set(k,out);return out;}
+  const opt=(rm,kind,dm,dt,dp,dq)=>{
+   rm.forEach(j=>c[j]--);const sub=rec();rm.forEach(j=>c[j]++);
+   for(const [sk,v] of sub){const [m,t,p]=sk.split(',').map(Number),nk=(m+dm)+','+(t+dt)+','+(p+dp),q=v.q+dq,prev=out.get(nk);
+    if(!prev||q>prev.q)out.set(nk,{groups:[{kind,idx:rm},...v.groups],q});}
+  };
+  if(c[i]>=3)opt([i,i,i],'tri',1,0,0,0);
+  if(!honor&&i<=6&&c[i+1]&&c[i+2])opt([i,i+1,i+2],'seq',1,0,0,0);
+  if(c[i]>=2)opt([i,i],'pair',0,0,1,1);
+  if(!honor&&i<=7&&c[i+1])opt([i,i+1],i===0||i===7?'penchan':'ryanmen',0,1,0,i===0||i===7?1:2);
+  if(!honor&&i<=6&&c[i+2])opt([i,i+2],'kanchan',0,1,0,1);
+  opt([i],'single',0,0,0,0);
+  local.set(k,out);return out;
+ }
+ const res=[...rec().entries()].map(([k,v])=>({k:k.split(',').map(Number),v}));suitMemo.set(key,res);return res;
+}
+function decompose(hand,open=0){
+ const c=Array(34).fill(0);hand.forEach(t=>c[t]++);
+ const ranges=[[0,9,false],[9,18,false],[18,27,false],[27,34,true]];
+ const lists=ranges.map(([a,b,h])=>suitDecomps(c.slice(a,b),h));
+ let best=null;const pick=[0,0,0,0];
+ (function walk(si,m,t,p,q){
+  if(si===4){const head=p>0?1:0,partial=t+p-head,mm=Math.min(m,5),score=2*mm+Math.min(partial,5-mm)+head;
+   if(!best||score>best.score||(score===best.score&&q>best.q))best={score,q,pick:pick.slice()};return;}
+  lists[si].forEach((e,i)=>{pick[si]=i;walk(si+1,m+e.k[0],t+e.k[1],p+e.k[2],q+e.v.q);});
+ })(0,open,0,0,0);
+ const groups=best.pick.flatMap((i,si)=>lists[si][i].v.groups.map(g=>({kind:g.kind,tiles:g.idx.map(j=>j+ranges[si][0])})));
+ const head=groups.find(g=>g.kind==='pair');if(head)head.kind='head';
+ return {shanten:10-best.score,groups,melds:open+groups.filter(g=>g.kind==='tri'||g.kind==='seq').length};
+}
+function groupWaits(g){
+ const [a,b]=g.tiles,base=Math.floor(a/9)*9;
+ if(g.kind==='ryanmen')return [a-1,b+1].filter(x=>x>=base&&x<base+9);
+ if(g.kind==='penchan')return a%9===0?[a+2]:[a-1];
+ if(g.kind==='kanchan')return [a+1];
+ if(g.kind==='pair'||g.kind==='head')return [a];
+ return [];
+}
+const tilesText=ts=>ts.map(label).join('');
+function describeGroup(g){const w=groupWaits(g);return KIND[g.kind]+' '+tilesText(g.tiles)+(w.length&&g.kind!=='head'?'（等 '+w.map(label).join('、')+'）':'');}
+function unseen(t,hand,publicTiles){return Math.max(0,4-hand.filter(x=>x===t).length-publicTiles.filter(x=>x===t).length);}
+
+// 說明「為什麼這張最不重要」
+function tileRole(hand,t,publicTiles=[],open=0){
+ const count=hand.filter(x=>x===t).length,name=label(t);
+ if(t>=27){
+  if(count===1)return name+'是單張字牌：字牌不能組順子，只能再摸到同一張才會成對，未見只剩 '+unseen(t,hand,publicTiles)+' 張。';
+  if(count===2){const pairs=new Set(hand.filter(x=>hand.filter(y=>y===x).length>=2)).size;return name+'是對子，但你手上有 '+pairs+' 組對子，胡牌只需要一對當眼，多的對子只能靠碰或摸成刻子。';}
+  return name+'已成刻子，一般不建議拆。';
+ }
+ const suit=Math.floor(t/9),pos=t%9;
+ const near=hand.filter(x=>x!==t&&Math.floor(x/9)===suit&&x<27&&Math.abs(x-t)<=2);
+ if(!near.length)return name+'是孤張：同花色前後兩張內都沒有牌可以連接'+(pos===0||pos===8?'，而且是邊緣的'+(pos+1)+'，只能往一邊延伸，比中張更難用':'')+'。';
+ const whole=decompose(hand,open),g=whole.groups.find(x=>x.tiles.includes(t));
+ const blocks=whole.melds+whole.groups.filter(x=>['ryanmen','penchan','kanchan','pair'].includes(x.kind)).length;
+ if(g&&['penchan','kanchan','pair'].includes(g.kind)&&blocks>5)return '手上的面子加搭子已有 '+blocks+' 塊，超過五組所需；'+name+'所在的'+describeGroup(g)+'只能等一種牌，是最弱的一塊，可以先拆。';
+ if(g&&g.kind==='single')return name+'在目前最佳的拆法裡沒有搭配：附近的'+tilesText(near)+'已經有更好的組合，它是多出來的一張。';
+ if(count>=2&&g&&g.kind!=='tri')return '你有 '+count+' 張'+name+'，多出來的一張不會增加新的組合。';
+ return '打掉'+name+'後，其他牌仍能維持同樣的組合，它是目前貢獻最少的一張。';
+}
+
+// 並列時，依教學習慣先建議：單張字牌 → 孤張么九 → 其他孤張 → 剛摸到的牌
+function leadOrder(hand,tied,drawn){
+ const rank=o=>{const t=o.tile,count=hand.filter(x=>x===t).length;
+  if(t>=27)return count===1?0:4;
+  const near=hand.some(x=>x!==t&&x<27&&Math.floor(x/9)===Math.floor(t/9)&&Math.abs(x-t)<=2);
+  if(!near)return t%9===0||t%9===8?1:2;
+  return o.tile===drawn?3:4;};
+ return tied.slice().sort((a,b)=>rank(a)-rank(b)||(b.tile===drawn)-(a.tile===drawn)||a.tile-b.tile);
+}
+// 每一手的完整解說
+function explainTurn(hand,options,ctx={}){
+ const open=ctx.open||0,pub=ctx.publicTiles||[];
+ if(!options[0])return null;
+ const tied=leadOrder(hand,options.filter(o=>same(o,options[0])),ctx.drawn),best=tied[0],runner=options.find(o=>!same(o,best));
+ const rest=hand.slice();rest.splice(rest.indexOf(best.tile),1);
+ const structure=decompose(rest,open);
+ const lines=[];
+ if(ctx.drawn!=null&&hand.includes(ctx.drawn)){
+  const before=hand.slice();before.splice(before.indexOf(ctx.drawn),1);
+  const b=E.shanten(before,open),d=label(ctx.drawn);
+  if(tied.some(o=>o.tile===ctx.drawn))lines.push('摸到'+d+'沒有幫上忙：最好的打法就是把它直接打掉（摸切），手牌維持'+progress(b)+'。');
+  else if(best.shanten<b){const g=structure.groups.find(x=>x.tiles.includes(ctx.drawn));lines.push('摸到'+d+'是有效牌：手牌從'+progress(b)+'前進到'+progress(best.shanten)+(g&&g.tiles.length>1?'，它和手上的牌組成了'+KIND[g.kind]+' '+tilesText(g.tiles):'')+'。');}
+  else lines.push('摸到'+d+'沒有讓進聽數前進（仍是'+progress(b)+'），但可以留下它、改打別張，換取更多有效牌。');
+ }
+ lines.push(tileRole(hand,best.tile,pub,open));
+ if(best.shanten===0)lines.push('打掉後就聽牌，可以胡 '+best.outs.map(o=>label(o.tile)).join('、')+'，未見共 '+best.remaining+' 張。');
+ else lines.push('打掉後是'+progress(best.shanten)+'：有 '+best.outs.length+' 種牌能讓手牌再前進，未見共 '+best.remaining+' 張。');
+ const blocks=structure.groups.filter(g=>['ryanmen','penchan','kanchan','pair'].includes(g.kind)).length,hasHead=structure.groups.some(g=>g.kind==='head');
+ lines.push('目前已完成 '+structure.melds+' 組面子、'+blocks+' 個搭子'+(hasHead?'、一對眼':'，還沒有眼')+'；胡牌需要五組加一對，還差 '+(5-Math.min(5,structure.melds))+' 組。'+
+  (structure.groups.some(g=>g.kind==='ryanmen')?'兩面搭子能等兩種牌，是最好的搭子。':blocks?'搭子多是邊張或嵌張，進張較窄，之後摸到能改成兩面的牌要優先留。':''));
+ if(tied.length>1)lines.push('打 '+tied.filter(o=>o.tile!==best.tile).map(o=>label(o.tile)).join('、')+' 的效果完全相同，可以依防守或台數再選。');
+ let compareText='';
+ if(runner){
+  compareText=runner.shanten>best.shanten?'如果改打'+label(runner.tile)+'，會退到'+progress(runner.shanten)+'，距離聽牌多 '+(runner.shanten-best.shanten)+' 步。':
+   '如果改打'+label(runner.tile)+'，一樣是'+progress(runner.shanten)+'，但有效牌少 '+(best.remaining-runner.remaining)+' 張。';
+  lines.push(compareText);
+ }
+ return {best,tied,runner,structure,lines};
+}
+// 評估玩家實際打出的牌（覆盤與「上一手」使用）
+function judge(options,t,lead=options[0]){
+ const best=lead,c=options.find(o=>o.tile===t);
+ if(!best||!c)return {verdict:'unknown',text:''};
+ if(same(c,best))return {verdict:'best',text:'和教練首選相同（'+progress(c.shanten)+'，有效 '+c.remaining+' 張）。'};
+ if(c.shanten>best.shanten)return {verdict:'worse',text:'教練首選是打'+label(best.tile)+'（'+progress(best.shanten)+'）；打'+label(t)+'會變成'+progress(c.shanten)+'，多一步才聽牌。'};
+ return {verdict:'close',text:'進聽數相同，但打'+label(best.tile)+'有效牌多 '+(best.remaining-c.remaining)+' 張（'+best.remaining+' 對 '+c.remaining+'）。'};
+}
+const api={leadOrder,decompose,groupWaits,describeGroup,tileRole,explainTurn,judge,KIND,compare,answer,contextualAnswer,outSummary,patternHints,patterns,progress,same,label};if(typeof module!=='undefined')module.exports=api;else root.Coach=api;
 })(globalThis);

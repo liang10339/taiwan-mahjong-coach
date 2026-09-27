@@ -23,7 +23,12 @@ function setupLessons($,mode){
  function render(){
   $('#lessonTitle').textContent=sections[step][0];$('#lessonDescription').textContent=sections[step][1];$('#lessonStepNumber').textContent=step+1;
   $('#lessonTotal').textContent=sections.length;$('#lessonBack').disabled=step===0;$('#lessonProgressBar').style.width=(step+1)/sections.length*100+'%';demo.replaceChildren();say('');
-  if(step===0)line('順子：2萬 3萬 4萬　｜　刻子：中 中 中　｜　對子：東 東');
+  if(step===0){
+   line('順子：2萬 3萬 4萬　｜　刻子：中 中 中　｜　對子：東 東');
+   if(typeof Tiles!=='undefined')[['萬子',[0,1,2,3,4,5,6,7,8]],['筒子',[9,10,11,12,13,14,15,16,17]],['索子（條子，一索畫的是鳥）',[18,19,20,21,22,23,24,25,26]],['字牌：東南西北、中發白',[27,28,29,30,31,32,33]],['花牌：春夏秋冬、梅蘭竹菊',[34,35,36,37,38,39,40,41]]].forEach(([name,tiles])=>{
+    const row=document.createElement('div');row.className='lesson-tiles';const cap=document.createElement('small');cap.textContent=name;row.append(cap);tiles.forEach(t=>row.append(Tiles.node(t,'md')));demo.append(row);
+   });
+  }
   if(step===1){
    if(wind===null){line('請抽一張蓋著的風牌。');hidden.forEach((w,i)=>button('第 '+(i+1)+' 張蓋牌',()=>{wind=w;render();}));}
    else{line('你抽到「'+wind+'」：請坐'+wind+'風位。示範座位由東起，逆時針為東 → 南 → 西 → 北。');button('重新抓位',()=>{wind=null;hidden=winds.slice().sort(()=>Math.random()-.5);render();});}

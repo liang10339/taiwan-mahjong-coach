@@ -4,6 +4,7 @@ const get=s=>{if(!nodes.has(s))nodes.set(s,new Element());return nodes.get(s);};
 const timers=new Map();let id=0;
 const c=vm.createContext({Mahjong:require('./engine.js'),document:{querySelector:get,querySelectorAll:()=>[],createElement:()=>new Element()},navigator:{},setTimeout:f=>{timers.set(++id,f);return id;},clearTimeout:i=>timers.delete(i),console});
 c.Coach=require('./coach.js');
+vm.runInContext(fs.readFileSync('tiles.js','utf8'),c);
 vm.runInContext(fs.readFileSync('app.js','utf8'),c);
 get('#drawButton').onclick();assert.equal(get('#hand').children.length,17);assert.equal(get('#drawButton').disabled,true);
 get('#drawButton').onclick();assert.equal(get('#hand').children.length,17);
