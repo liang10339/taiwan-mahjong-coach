@@ -1,5 +1,5 @@
-const CACHE='mahjong-coach-v6';
-const FILES=['./','./index.html','./styles.css','./enhancements.css','./state.css?v=6','./engine.js?v=6','./app.js?v=6','./lessons.js?v=6','./manifest.webmanifest'];
+const CACHE='mahjong-coach-v7';
+const FILES=['./','./index.html','./styles.css','./enhancements.css','./state.css?v=7','./engine.js?v=7','./app.js?v=7','./coach.js?v=7','./lessons.js?v=7','./manifest.webmanifest'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('mahjong-coach-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',e=>{

@@ -26,6 +26,10 @@ function coach(){
   row.textContent='打 '+tile(option.tile)+' → '+readiness(option.shanten)+'；'+(option.shanten===0?'可胡的牌':'摸到能更接近聽牌的牌')+'：'+(option.improving.map(tile).join('、')||'目前沒有')+'（尚未看見 '+option.remaining+' 張）';
   body.append(row);
  }
+ const tied=suggestions.filter(o=>Coach.same(o,suggestions[0]));
+ if(tied.length>3){const note=document.createElement('p');note.textContent='並列選擇還有：'+tied.slice(3).map(o=>Coach.label(o.tile)).join('、')+'。前三名不是唯一合理答案。';body.append(note);}
+ if(selected!==null){const detail=document.createElement('p');detail.className='coach-option selected-analysis';detail.textContent=Coach.compare(game.hands[0],suggestions,game.hands[0][selected]);body.append(detail);}
+ for(const text of Coach.patternHints(game.hands[0])){const p=document.createElement('p');p.className='coach-option';p.textContent=text;body.append(p);}
 }
 function render(){
  const mine=game.turn===0, choosing=mine&&game.phase==='discard';
@@ -38,6 +42,8 @@ function render(){
  $('#discardButton').disabled=!choosing||selected===null;
  $('#winButton').disabled=!choosing||!E.winning(game.hands[0],game.melds[0].length);
  $('#sortButton').disabled=!mine||game.phase==='ended'||game.phase==='claim';
+ $('#askSelected').disabled=!choosing||selected===null;
+ $('#askAnswer').textContent='';
  renderClaims();
  const hand=$('#hand');hand.replaceChildren();
  game.hands[0].forEach((t,i)=>{const b=document.createElement('button');b.className='tile'+(selected===i?' selected':'');b.textContent=tile(t);b.setAttribute('aria-label',tile(t)+'，第 '+(i+1)+' 張');b.setAttribute('aria-pressed',selected===i);b.disabled=!choosing;b.onclick=()=>{selected=i;render();};hand.append(b);});
@@ -79,6 +85,12 @@ $('#sortButton').onclick=()=>{game.hands[0].sort((a,b)=>a-b);selected=null;rende
 $('#resetButton').onclick=()=>{generation++;clearTimeout(timer);game=E.create();selected=null;suggestions=[];render();};
 $('#hintButton').onclick=()=>{analyze();coach();};
 $('#explainButton').onclick=()=>notify('一進聽：再進一張合適的牌、出牌後就有機會聽牌；兩進聽則還要改善兩步。這不是保證摸幾次就會聽牌。');
+function askCoach(question){
+ if(game.turn!==0||game.phase!=='discard'){$('#askAnswer').textContent='請在輪到你出牌時詢問，才能比較目前手牌。';return;}
+ analyze();$('#askAnswer').textContent=Coach.answer(question,game.hands[0],suggestions,selected===null?null:game.hands[0][selected]);
+}
+$('#askSelected').onclick=()=>askCoach('這張可以嗎');
+$('#askForm').onsubmit=e=>{e.preventDefault();askCoach($('#askInput').value);};
 function mode(name){for(const n of ['table','lesson','review'])$('#'+n+'View').classList.toggle('hidden',n!==name);document.querySelectorAll('.mode-tab').forEach(b=>b.classList.toggle('active',b.dataset.mode===name));}
 document.querySelectorAll('.mode-tab').forEach(b=>b.onclick=()=>mode(b.dataset.mode));
 function renderClaims(){
