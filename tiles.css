@@ -1,0 +1,88 @@
+/* 實體麻將外觀：象牙白牌面＋綠色牌背 */
+.mj{--w:34px;position:relative;display:inline-flex;align-items:center;justify-content:center;flex:none;width:var(--w);height:calc(var(--w)*1.36);padding:calc(var(--w)*.07) calc(var(--w)*.06);background:linear-gradient(160deg,#fffef8 0%,#f7f1df 70%,#eee5cc 100%);border-radius:calc(var(--w)*.14);box-shadow:inset 0 0 0 1px rgba(160,145,105,.35),inset 0 -2px 0 rgba(215,203,170,.9),0 calc(var(--w)*.1) 0 #1f7a4c,0 calc(var(--w)*.1 + 1px) 0 #155c38,0 calc(var(--w)*.12 + 2px) 4px rgba(0,0,0,.28);vertical-align:middle;color:#1d2b4f}
+.mj svg{width:100%;height:100%;display:block;overflow:visible}
+.mj-lg{--w:42px}.mj-md{--w:32px}.mj-sm{--w:24px}.mj-xs{--w:19px}
+.mj-back{background:linear-gradient(160deg,#39a86c,#1f7a4c);box-shadow:inset 0 0 0 1px rgba(0,0,0,.15),0 calc(var(--w)*.1) 0 #f3ecd7,0 calc(var(--w)*.12 + 2px) 3px rgba(0,0,0,.25)}
+.mj-xs,.mj-sm{box-shadow:inset 0 0 0 1px rgba(160,145,105,.4),0 2px 0 #1f7a4c,0 3px 2px rgba(0,0,0,.25)}
+.mj-xxs{--w:11px;box-shadow:0 1px 0 #f3ecd7}
+.mj-flower svg{filter:saturate(1.1)}
+
+/* 手牌：真實牌的大小、選取時上抬 */
+.hand{gap:4px!important;flex-wrap:nowrap!important;container-type:inline-size}
+.hand .tile.mj{--w:min(44px,calc((100cqw - 90px)/17));width:var(--w)!important;height:calc(var(--w)*1.36)!important;flex:none!important;border:0;padding:calc(var(--w)*.07) calc(var(--w)*.06);cursor:pointer;transition:transform .12s}
+.hand .tile.mj:disabled{cursor:default;opacity:1}
+.hand .tile.mj:not(:disabled):hover{transform:translateY(-5px)}
+.hand .tile.mj.selected{transform:translateY(-12px);outline:3px solid #eaf05e;outline-offset:1px}
+.hand .tile.mj.drawn{margin-left:10px}
+.back-tiles{display:inline-flex;gap:1px;letter-spacing:0;opacity:1}
+
+/* 牌河、攤牌、花牌 */
+.river-tiles{display:flex;flex-wrap:wrap;gap:4px 2px}
+.river-group{gap:6px}
+.meld-line,.flower-line{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:6px 0}
+.flower-line{margin-right:14px}
+#flowerInfo{display:flex;flex-wrap:wrap}
+.meld-line b,.flower-line b{font-size:13px;margin-right:4px}
+.meld-group{display:inline-flex;align-items:center;gap:2px;margin-right:10px}
+.meld-group small{font-size:11px;color:#6f756b;margin-right:3px}
+
+/* 教練面板 */
+.coach-body h4{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.coach-body h5{margin:20px 0 8px;font-size:13px;color:#3e7157;letter-spacing:.04em}
+.coach-chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{background:#edf2d7;color:#315140;border-radius:99px;padding:5px 11px;font-size:13px;font-weight:600}
+.coach-lines{margin:0;padding-left:18px;display:grid;gap:8px}
+.coach-lines li{font-size:15px;line-height:1.7;color:#35403a}
+.out-grid{display:flex;flex-wrap:wrap;gap:8px 6px}
+.out{display:inline-flex;flex-direction:column;align-items:center;gap:5px}
+.out b{font:500 11px 'DM Mono',monospace;color:#6f756b}
+.compare-table{display:grid;gap:6px}
+.compare-row{display:grid;grid-template-columns:auto 64px 1fr 44px;align-items:center;gap:10px;padding:6px 8px;border-radius:8px;font-size:13px}
+.compare-row.top{background:#edf2d7}
+.compare-row.picked{outline:2px solid #eaf05e}
+.compare-row .bar{height:6px;background:#e7e4d8;border-radius:6px;overflow:hidden}
+.compare-row .bar i{display:block;height:100%;background:#426b56}
+.compare-row .count{text-align:right;font:500 12px 'DM Mono',monospace}
+.compare-note{font-size:12px!important;color:#6f756b}
+.group-list{display:flex;flex-wrap:wrap;gap:8px}
+.group{display:inline-flex;flex-direction:column;align-items:center;gap:6px;padding:6px 7px 5px;border-radius:8px;background:#f3f1e8}
+.group small{font-size:11px;color:#6f756b}
+.group.seq,.group.tri,.group.meld{background:#e3eed9}
+.group.head{background:#f5ecd2}
+.group.single{background:#f7e7e2}
+.tile-row{display:inline-flex;gap:2px}
+.coach-last{margin-top:18px;padding:12px;border-radius:10px;background:#f3f1e8;border-left:4px solid #9aa596}
+.coach-last.best{border-color:#426b56;background:#eef4e6}
+.coach-last.close{border-color:#d8a93c}
+.coach-last.worse{border-color:#d87943;background:#fbefe8}
+.coach-last-head{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:6px}
+.coach-last p{margin:0;font-size:14px!important;line-height:1.7}
+.coach-glossary{padding:4px 22px 16px;border-top:1px solid var(--line);background:#fbfaf3}
+.coach-glossary p{font-size:13px;line-height:1.8;color:#5b6259;margin:10px 0 0}
+
+/* 覆盤 */
+.review-summary{font-size:14px;color:#35403a}
+.review-item{padding:12px;border-radius:10px;border:1px solid var(--line);margin-top:10px;border-left:4px solid #9aa596}
+.review-item.best{border-left-color:#426b56}.review-item.close{border-left-color:#d8a93c}.review-item.worse{border-left-color:#d87943}
+.review-head{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:13px}
+.review-turn{font:500 12px 'DM Mono',monospace;color:#6f756b;min-width:44px}
+.review-head .verdict{margin-left:auto;color:#6f756b}
+.review-item p{margin:8px 0 0;font-size:14px;line-height:1.7;color:#35403a}
+.review-log{margin-top:16px;font-size:13px;color:#5b6259}
+
+@media(max-width:900px){.hand .tile.mj{--w:min(40px,calc((100cqw - 50px)/17));width:var(--w)!important}}
+@media(max-width:580px){.hand{gap:2px!important}.hand .tile.mj.drawn{margin-left:5px}.compare-row{grid-template-columns:auto 56px 1fr 40px;gap:6px}}
+.compare-row.behind .bar i{background:#c9bfa9}
+.compare-row.behind .rank{color:#b0602f}
+/* 覆盤清單不要沿用空狀態的大字樣式 */
+#reviewView .empty-review{max-height:none;padding:16px 0 0}
+#reviewView .empty-review span{display:inline-flex;font-size:13px;color:inherit}
+#reviewView .empty-review .review-turn{font-size:12px;color:#6f756b}
+#reviewView .empty-review .verdict{color:#6f756b}
+#reviewView .empty-review>strong{display:block;margin:10px 0 6px}
+@media(max-width:580px){
+ .hand{flex-wrap:wrap!important;justify-content:center;row-gap:10px!important}
+ .hand .tile.mj{--w:min(40px,calc((100cqw - 30px)/9))}
+}
+.lesson-tiles{display:flex;flex-wrap:wrap;align-items:center;gap:6px 5px;flex-basis:100%;justify-content:center}
+.lesson-tiles small{flex-basis:100%;text-align:center;font-size:13px;color:#315b42;margin-top:6px}
