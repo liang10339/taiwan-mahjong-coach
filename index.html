@@ -8,14 +8,14 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="enhancements.css" />
-    <link rel="stylesheet" href="state.css?v=5" />
+    <link rel="stylesheet" href="state.css?v=6" />
     <title>牌桌教練｜台灣麻將練習</title>
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
         <div class="brand"><span class="brand-mark">牌</span><span>牌桌教練</span></div>
-        <div class="topbar-actions"><span class="status-dot"></span><span>摸打練習 v0.5</span><button class="icon-button" id="resetButton" title="重新開始">↻</button></div>
+        <div class="topbar-actions"><span class="status-dot"></span><span>教練練習 v0.6</span><button class="icon-button" id="resetButton" title="重新開始">↻</button></div>
       </header>
 
       <main class="page">
@@ -47,7 +47,7 @@
                 <div class="player-seat"><div class="player-label"><span class="avatar you">你</span><div><strong>我的手牌</strong><small>北家・輪到你</small></div></div><div class="hand" id="hand" aria-label="你的手牌"></div></div>
               </div>
             </div>
-            <div class="action-row"><button class="secondary-button" id="hintButton">✦ 看提示</button><button class="secondary-button" id="sortButton">↕ 整理手牌</button><button class="primary-button" id="discardButton" disabled>確認出牌</button><button class="secondary-button" id="winButton" disabled>胡牌</button><button class="primary-button" id="drawButton">摸牌</button></div><p id="flowerInfo"></p><p class="phase-help" id="phaseHelp" aria-live="polite">先摸一張牌；摸牌後請從 17 張牌中選一張打出。</p>
+            <div class="action-row"><button class="secondary-button" id="hintButton">✦ 看提示</button><button class="secondary-button" id="sortButton">↕ 整理手牌</button><button class="primary-button" id="discardButton" disabled>確認出牌</button><button class="secondary-button" id="winButton" disabled>胡牌</button><button class="primary-button" id="drawButton">摸牌</button></div><div id="claimActions" class="action-row" aria-label="吃碰槓胡回應"></div><div id="meldInfo"></div><p id="flowerInfo"></p><p class="phase-help" id="phaseHelp" aria-live="polite">先摸一張牌；摸牌後請從 17 張牌中選一張打出。</p>
           </div>
 
           <aside class="coach-card">
@@ -57,15 +57,16 @@
           </aside>
         </section>
 
-        <section class="lesson-view hidden" id="lessonView"><div class="lesson-card"><div class="lesson-kicker"><p class="eyebrow">新手學堂・第 <span id="lessonStepNumber">1</span> / 5 步</p><span class="lesson-time">約 3 分鐘</span></div><h2 id="lessonTitle">先認識一張牌</h2><p id="lessonDescription">麻將牌不是一整副要背起來的符號。先分清楚花色，之後看牌效率才不會迷路。</p><div class="lesson-demo" id="lessonDemo"><span class="demo-tile">🀇</span><span class="demo-tile">🀐</span><span class="demo-tile">🀑</span><span class="demo-tile">🀀</span><span class="demo-tile flower">🀢</span></div><div class="lesson-progress"><i id="lessonProgressBar"></i></div><div class="lesson-actions"><button class="secondary-button" id="lessonBack" disabled>上一步</button><button class="primary-button" id="lessonNext">下一步</button></div><div class="lesson-map"><span class="lesson-node active">1</span><span>認牌</span><span class="lesson-node">2</span><span>胡牌結構</span><span class="lesson-node">3</span><span>開局流程</span><span class="lesson-node">4</span><span>摸打節奏</span><span class="lesson-node">5</span><span>開始實戰</span></div></div></section>
+        <section class="lesson-view hidden" id="lessonView"><div class="lesson-card"><div class="lesson-kicker"><p class="eyebrow">新手學堂・第 <span id="lessonStepNumber">1</span> / <span id="lessonTotal">8</span> 步</p><span class="lesson-time">約 3 分鐘</span></div><h2 id="lessonTitle">先認識一張牌</h2><p id="lessonDescription">麻將牌不是一整副要背起來的符號。先分清楚花色，之後看牌效率才不會迷路。</p><div class="lesson-demo" id="lessonDemo"><span class="demo-tile">🀇</span><span class="demo-tile">🀐</span><span class="demo-tile">🀑</span><span class="demo-tile">🀀</span><span class="demo-tile flower">🀢</span></div><p id="lessonFeedback" role="status"></p><div class="lesson-progress"><i id="lessonProgressBar"></i></div><div class="lesson-actions"><button class="secondary-button" id="lessonBack" disabled>上一步</button><button class="primary-button" id="lessonNext">下一步</button></div><p class="lesson-map">認牌 → 抓位 → 擲骰 → 數墩 → 配牌 → 補花 → 吃碰槓 → 一進聽<br>教學採示範桌規，與實戰快速配牌分開。</p></div></section>
 
         <section class="review-view hidden" id="reviewView"><div class="review-card"><div><p class="eyebrow">REVIEW CENTER</p><h2>最近的牌局</h2><p>完成一局後，這裡會整理值得回看的決策。</p></div><div class="empty-review"><span>◌</span><strong>還沒有可覆盤的牌局</strong><small>完成目前這一局後，就能看到你的選擇與教練建議。</small></div></div></section>
 
-        <section class="bottom-grid"><div class="tip-strip"><span class="tip-icon">i</span><div><strong>小提醒</strong><p>教練會比較多個合理選擇，不會把每一次不同選擇都判定為錯誤。</p></div></div><div class="rule-card"><p class="eyebrow">CURRENT RULESET</p><div class="rule-row"><strong>16 張摸打練習</strong><span>吃碰槓、放槍胡與計台尚未實作</span></div><div class="rule-meta"><span>144 張牌</span><span>五組加一對</span><span>8 張花牌</span></div></div></section>
+        <section class="bottom-grid"><div class="tip-strip"><span class="tip-icon">i</span><div><strong>小提醒</strong><p>教練會比較多個合理選擇，不會把每一次不同選擇都判定為錯誤。</p></div></div><div class="rule-card"><p class="eyebrow">CURRENT RULESET</p><div class="rule-row"><strong>16 張摸打練習</strong><span>已支援吃碰槓胡；搶槓、過水與計台尚未實作</span></div><div class="rule-meta"><span>144 張牌</span><span>五組加一對</span><span>8 張花牌</span></div></div></section>
       </main>
     </div>
     <div class="toast" id="toast" role="status"></div>
-    <script src="engine.js?v=5"></script>
-    <script src="app.js?v=5"></script>
+    <script src="engine.js?v=6"></script>
+    <script src="lessons.js?v=6"></script>
+    <script src="app.js?v=6"></script>
   </body>
 </html>

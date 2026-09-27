@@ -10,7 +10,7 @@ get('#hand').children[0].onclick();assert.equal(get('#hand').children.length,17)
 get('#discardButton').onclick();assert.equal(get('#hand').children.length,16);assert.equal(get('#drawButton').disabled,true);
 const stale=[...timers.values()][0];get('#resetButton').onclick();const afterReset=get('#wallCount').textContent;stale();assert.equal(get('#wallCount').textContent,afterReset);assert.equal(timers.size,0);
 get('#drawButton').onclick();get('#hand').children[0].onclick();get('#discardButton').onclick();
-while(timers.size){const [i,f]=timers.entries().next().value;timers.delete(i);f();}
+while(timers.size||vm.runInContext('waiting()',c)){if(vm.runInContext('waiting()',c))get('#claimActions').children.at(-1).onclick();else{const [i,f]=timers.entries().next().value;timers.delete(i);f();}}
 assert.equal(get('#drawButton').disabled,false);assert.equal(get('#hand').children.length,16);
 vm.runInContext("game.hands[0]=[0,1,2,3,4,5,9,10,11,18,19,20,27,27,27,31,31];game.turn=0;game.phase='discard';render();",c);
 get('#winButton').onclick();assert.equal(get('#winButton').disabled,true);assert.equal(get('#drawButton').disabled,true);assert.equal(get('#discardButton').disabled,true);

@@ -9,6 +9,7 @@ for(let seed=0;seed<40;seed++){
   if(!E.draw(g,p))break;
   assert.equal(g.hands[p].length,17);assert.equal(E.draw(g,p),false);
   assert.equal(E.discard(g,p,99),false);assert.equal(E.discard(g,p,0),true);assert.equal(g.hands[p].length,16);conserved(g);
+  for(let q=0;q<4&&g.phase==='claim';q++)if(!g.pending.decisions[q])E.respond(g,q,{type:'pass'});
   assert.ok(++rounds<=80);
  }
  assert.equal(g.wall.length,0);assert.equal(E.draw(g,g.turn),false);assert.equal(E.discard(g,g.turn,0),false);conserved(g);
