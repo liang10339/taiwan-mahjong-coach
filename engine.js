@@ -16,9 +16,9 @@ function shanten(hand,open=0){
  } visit(open,0,0);return best;
 }
 function winning(hand,open=0){return hand.length===17-3*open&&countsOf(hand).every(n=>n<=4)&&shanten(hand,open)===-1;}
-function analyze(hand,publicTiles=[],open=0){
- const known=countsOf([...hand,...publicTiles.filter(t=>t<34)]); const memo=new Map();
- const value=h=>{const key=countsOf(h).join('');if(!memo.has(key))memo.set(key,shanten(h,open));return memo.get(key);};
+function analyze(hand,publicTiles=[],open=0,memo=new Map()){
+ const known=countsOf([...hand,...publicTiles.filter(t=>t<34)]);
+ const value=h=>{const key=open+':'+countsOf(h).join('');if(!memo.has(key))memo.set(key,shanten(h,open));return memo.get(key);};
  const options=[...new Set(hand)].map(tile=>{
   const rest=hand.slice();rest.splice(rest.indexOf(tile),1);const s=value(rest);const improving=[];let remaining=0;
   for(let t=0;t<34;t++)if(known[t]<4&&value([...rest,t])<s){improving.push(t);remaining+=4-known[t];}
@@ -43,6 +43,7 @@ function claims(g,p){
  if(g.phase!=='claim'||!g.pending||p===g.pending.from)return [];
  const t=g.pending.tile,c=countsOf(g.hands[p]),out=[],open=g.melds[p].length;
  if(winning([...g.hands[p],t],open))out.push({type:'ron',tiles:[t]});
+ if(g.pending.kind==='robkan')return out;
  if(open<5&&c[t]>=2)out.push({type:'pon',tiles:[t,t]});
  if(open<5&&c[t]>=3&&g.wall.length)out.push({type:'kan',tiles:[t,t,t]});
  if(open<5&&p===(g.pending.from+1)%4&&t<27)for(let start=Math.max(Math.floor(t/9)*9,t-2);start<=Math.min(Math.floor(t/9)*9+6,t);start++){
@@ -54,13 +55,19 @@ function claims(g,p){
 function respond(g,p,choice){
  if(g.phase!=='claim'||p===g.pending.from||g.pending.decisions[p])return false;
  const match=choice.type==='pass'?{type:'pass'}:claims(g,p).find(x=>JSON.stringify(x)===JSON.stringify(choice));
- if(!match)return false;g.pending.decisions[p]=match;resolve(g);return true;
+ if(!match)return false;g.pending.decisions[p]=match;g.log.push({player:p,action:'response',choice:match.type,tile:g.pending.tile});resolve(g);return true;
 }
 function resolve(g){
  if(Object.keys(g.pending.decisions).length<4)return;
  const pending=g.pending;const ranked=[];
  for(let d=1;d<4;d++){const p=(pending.from+d)%4,a=pending.decisions[p];if(a.type!=='pass')ranked.push({p,a,d,rank:a.type==='ron'?3:a.type==='chi'?1:2});}
  ranked.sort((x,y)=>y.rank-x.rank||x.d-y.d);g.pending=null;
+ g.log.push({action:'resolution',player:ranked[0]?.p??pending.from,choice:ranked[0]?.a.type??'pass',tile:pending.tile});
+ if(pending.kind==='robkan'){
+  if(!ranked.length){finishAdded(g,pending.from,pending.kan);return;}
+  const {p}=ranked[0];g.hands[pending.from].splice(g.hands[pending.from].indexOf(pending.tile),1);g.hands[p].push(pending.tile);
+  g.turn=p;g.phase='ended';g.result=(p===0?'你':names[27+p]+'家')+'搶槓胡 '+names[pending.tile];g.log.push({player:p,action:'ron',tile:pending.tile,robKan:true});return;
+ }
  if(!ranked.length){g.phase=g.wall.length?'draw':'ended';if(!g.wall.length)g.result='牌牆已空，流局';return;}
  const {p,a}=ranked[0];g.turn=p;g.rivers[pending.from].pop();
  if(a.type==='ron'){g.hands[p].push(pending.tile);g.phase='ended';g.result=(p===0?'你':names[27+p]+'家')+'胡 '+names[pending.tile]+'（'+names[27+pending.from]+'家放槍）';g.log.push({player:p,action:'ron',tile:pending.tile});return;}
@@ -78,12 +85,19 @@ function selfKans(g,p){
 }
 function selfKan(g,p,a){
  if(!selfKans(g,p).some(x=>JSON.stringify(x)===JSON.stringify(a)))return false;
+ if(a.type==='added'){
+  g.phase='claim';g.pending={kind:'robkan',from:p,tile:a.tile,kan:{...a},decisions:{}};
+  g.log.push({player:p,action:'added-attempt',tile:a.tile});
+  for(let q=0;q<4;q++)if(q===p||!claims(g,q).length)g.pending.decisions[q]={type:'pass'};
+  resolve(g);return true;
+ }
  const count=a.type==='concealed'?4:1;for(let i=0;i<count;i++)g.hands[p].splice(g.hands[p].indexOf(a.tile),1);
  if(a.type==='concealed')g.melds[p].push({type:'concealed',tiles:Array(4).fill(a.tile),from:p});
  else{g.melds[p][a.meld].tiles.push(a.tile);g.melds[p][a.meld].type='added';}
  g.log.push({player:p,action:a.type,tile:a.tile});supplement(g,p);return true;
 }
-function publicTiles(g,viewer=0){return [...g.rivers.flat(),...g.melds.flatMap((ms,p)=>ms.filter(m=>m.type!=='concealed'||p===viewer).flatMap(m=>m.tiles))];}
+function finishAdded(g,p,a){g.hands[p].splice(g.hands[p].indexOf(a.tile),1);g.melds[p][a.meld].tiles.push(a.tile);g.melds[p][a.meld].type='added';g.turn=p;g.phase='discard';g.log.push({player:p,action:'added',tile:a.tile});supplement(g,p);}
+function publicTiles(g,viewer=0){return [...g.rivers.flat(),...g.melds.flatMap((ms,p)=>ms.filter(m=>m.type!=='concealed'||p===viewer).flatMap(m=>m.tiles)),...(g.pending?.kind==='robkan'&&g.pending.from!==viewer?[g.pending.tile]:[])];}
 function claimAdvice(g,p,a){
  const progress=n=>n===0?'聽牌':(['','一','兩','三','四','五','六','七','八','九','十'][n]||n)+'進聽';
  const open=g.melds[p].length,before=shanten(g.hands[p],open);

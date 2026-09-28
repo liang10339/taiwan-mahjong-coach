@@ -22,16 +22,18 @@ function contextualAnswer(question,g,selected=null){
  if(g.phase==='claim'){
   if(g.pending.decisions[0])return '你已完成回應，正在等待其他玩家決定。';
   const actions=E.claims(g,0),names={chi:'吃',pon:'碰',kan:'明槓',ron:'胡'};
-  const requested=/槓/.test(q)?'kan':/碰/.test(q)?'pon':/吃/.test(q)?'chi':/胡/.test(q)?'ron':null;
+  const requested=/胡/.test(q)?'ron':/槓/.test(q)?'kan':/碰/.test(q)?'pon':/吃/.test(q)?'chi':null;
   const matches=requested?actions.filter(a=>a.type===requested):actions;
   if(requested&&!matches.length)return '這張'+label(g.pending.tile)+'目前不能'+names[requested]+'。吃只限上家、且手牌須能組順子；碰要有兩張同牌，明槓要有三張同牌且有牌可補，胡須完成牌型。';
-  return '目前有人打出'+label(g.pending.tile)+'，先回應，不要摸牌。'+matches.map(a=>names[a.type]+' '+a.tiles.map(label).join('、')+'：'+E.claimAdvice(g,0,a)).join('\n')+'\n略過不會立即摸牌，仍要先處理其他人的回應並確認輪到誰。';
+  const report=claimDecision(g,0);
+  return report.summary+'\n'+report.options.filter(o=>!requested||o.action.type===requested).map(o=>o.compact).join('\n\n')+'\n'+report.limit;
  }
  if(g.turn!==0)return '目前輪到其他玩家，請等輪到你再依新牌況比較。';
  if(g.phase==='draw')return '輪到你摸牌：先按「摸牌」，補花完成後再選牌出牌。現在不能先出牌。';
  if(/槓/.test(q)){
+  if(E.winning(g.hands[0],g.melds[0].length))return '建議先自摸，不建議為了槓牌放棄已完成的胡牌。';
   const actions=E.selfKans(g,0);
-  return actions.length?actions.map(a=>(a.type==='concealed'?'暗槓':'加槓')+' '+label(a.tile)+'：槓後從牌尾補牌，再重新比較出牌；補到什麼未知，不能保證進步。').join('\n')+'本練習尚未實作搶槓，不能用此結果判斷真實牌桌的加槓風險。':'目前沒有可暗槓或加槓的牌；不能只因有三張相同牌就暗槓。';
+  return actions.length?selfKanDecision(g,0).map(o=>o.compact).join('\n\n')+'\n'+claimLimit:'目前沒有可暗槓或加槓的牌；不能只因有三張相同牌就暗槓。';
  }
  if(/吃|碰/.test(q))return '目前是你的出牌階段，不能吃碰；吃碰要在別人剛打出牌的回應階段決定。';
  return answer(q,g.hands[0],E.analyze(g.hands[0],E.publicTiles(g),g.melds[0].length),selected);
@@ -165,5 +167,61 @@ function judge(options,t,lead=options[0]){
  if(c.shanten>best.shanten)return {verdict:'worse',text:'教練首選是打'+label(best.tile)+'（'+progress(best.shanten)+'）；打'+label(t)+'會變成'+progress(c.shanten)+'，多一步才聽牌。'};
  return {verdict:'close',text:'進聽數相同，但打'+label(best.tile)+'有效牌多 '+(best.remaining-c.remaining)+' 張（'+best.remaining+' 對 '+c.remaining+'）。'};
 }
-const api={leadOrder,decompose,groupWaits,describeGroup,tileRole,explainTurn,judge,KIND,compare,answer,contextualAnswer,outSummary,patternHints,patterns,progress,same,label};if(typeof module!=='undefined')module.exports=api;else root.Coach=api;
+const claimLimit='只比進攻牌效率，未計台數與防守。未見張數不是牌牆張數或機率；加槓可被搶胡。';
+const claimNames={chi:'吃',pon:'碰',kan:'明槓',concealed:'暗槓',added:'加槓',ron:'胡'};
+function knownCounts(hand,pub){const c=Array(34).fill(0);for(const t of [...hand,...pub])if(t<34)c[t]++;return c;}
+// 比較略過後的待摸手牌，與吃碰後已出牌的手牌，保持相同張數階段。
+function waitValue(hand,open,known){
+ const shanten=E.shanten(hand,open),outs=[];
+ for(let t=0;t<34;t++)if(known[t]<4&&E.shanten([...hand,t],open)<shanten)outs.push({tile:t,remaining:4-known[t]});
+ return {shanten,outs,improving:outs.map(o=>o.tile),remaining:outs.reduce((n,o)=>n+o.remaining,0)};
+}
+function better(a,b){return a.shanten<b.shanten||(a.shanten===b.shanten&&a.remaining>b.remaining);}
+function valueText(v){return progress(v.shanten)+'，'+(v.shanten===0?'可胡牌':'有效牌')+'未見 '+v.remaining+' 張：'+outSummary(v);}
+function removeTiles(hand,tiles){const rest=hand.slice();for(const t of tiles){const i=rest.indexOf(t);if(i<0)throw Error('Illegal claim tiles');rest.splice(i,1);}return rest;}
+function kanDecision(g,p,a,baseline,known){
+ const added=a.type==='added',t=a.tile??g.pending.tile;
+ const used=a.tiles||Array(added?1:4).fill(t),rest=removeTiles(g.hands[p],used),open=g.melds[p].length+(added?0:1);
+ const outcomes=[],memo=new Map(),restCounts=knownCounts(rest,[]),visible=known.flatMap((n,t)=>Array(Math.max(0,n-restCounts[t])).fill(t));
+ // 不讀牌牆或對手暗牌。枚舉所有未見一般牌作為「可能補到」的情境。
+ for(let draw=0;draw<34;draw++)if(known[draw]<4){
+  const h=[...rest,draw],win=E.winning(h,open),best=win?null:E.analyze(h,visible,open,memo)[0];
+  outcomes.push({tile:draw,remaining:4-known[draw],shanten:win?-1:best.shanten,discard:win?null:best.tile,outs:best?.outs||[],effective:best?.remaining||0});
+ }
+ const improving=outcomes.filter(o=>o.shanten<baseline.shanten),worse=outcomes.filter(o=>o.shanten>baseline.shanten);
+ const narrower=outcomes.filter(o=>o.shanten===baseline.shanten&&o.effective<baseline.remaining-(baseline.outs.some(x=>x.tile===o.tile)?1:0));
+ const wider=outcomes.filter(o=>o.shanten===baseline.shanten&&o.effective>baseline.remaining-(baseline.outs.some(x=>x.tile===o.tile)?1:0));
+ const recommend=outcomes.length>0&&!worse.length&&!narrower.length&&(improving.length+wider.length)>0;
+ const describe=xs=>xs.length?xs.map(o=>label(o.tile)+'→'+(o.shanten===-1?'可胡':progress(o.shanten)+'／有效 '+o.effective+' 張')+(o.discard===null?'':'（打'+label(o.discard)+'）')).join('、'):'無';
+ const name=claimNames[a.type];
+ const reason=worse.length?'有 '+worse.length+' 種補牌會多一步以上才聽牌。':narrower.length?'有 '+narrower.length+' 種補牌使同進聽數的有效牌變少。':recommend?'補牌後不退步、不縮窄，且有改善機會。':'沒有明確效率收益，保留彈性。';
+ const compact=(recommend?'建議':'暫不')+name+' '+label(t)+'\n不槓：'+progress(baseline.shanten)+'／有效 '+baseline.remaining+' 張'+(baseline.tile!==undefined?'，打'+label(baseline.tile):'')+'。\n槓：'+improving.length+' 種補牌前進、'+narrower.length+' 種變窄、'+worse.length+' 種退步。\n'+reason;
+ const text=compact+'\n補牌結果未知，以下是所有未見一般牌的假設情境，不是機率；未模擬補花至牌牆耗盡。\n前進：'+describe(improving)+'\n退步：'+describe(worse)+'\n變窄：'+describe(narrower)+'\n完整補牌／出牌／有效牌比較：'+describe(outcomes)+(added?'\n加槓須先通過其他家的搶槓胡回應；此建議不估計對手胡牌機率。':'');
+ return {action:a,baseline,outcomes,narrower,worse,recommend,compact,text};
+}
+function claimDecision(g,p=0){
+ const hand=g.hands[p],pub=E.publicTiles(g,p),open=g.melds[p].length,known=knownCounts(hand,pub),baseline=waitValue(hand,open,known);
+ const options=E.claims(g,p).map(action=>{
+  if(action.type==='ron')return {action,recommend:true,compact:'建議'+(g.pending.kind==='robkan'?'搶槓胡':'胡牌')+'：五組加一對已成立。',text:'建議胡牌：牌型已成立，不必為了吃碰槓放棄這次胡牌。'};
+  if(action.type==='kan')return kanDecision(g,p,action,baseline,known);
+  const rest=removeTiles(hand,action.tiles);
+  // 河中的被吃牌已算在 pub；只把從手牌移到攤牌的牌加入 pub，避免重複扣張。
+  const after=E.analyze(rest,[...pub,...action.tiles],open+1)[0],name=claimNames[action.type];
+  const recommend=better(after,baseline),combo=[...action.tiles,g.pending.tile].sort((a,b)=>a-b);
+  const difference=after.shanten<baseline.shanten?'少 '+(baseline.shanten-after.shanten)+' 步進聽':after.shanten>baseline.shanten?'多 '+(after.shanten-baseline.shanten)+' 步才聽牌':after.remaining>baseline.remaining?'同進聽數但有效牌多 '+(after.remaining-baseline.remaining)+' 張':after.remaining<baseline.remaining?'同進聽數但有效牌少 '+(baseline.remaining-after.remaining)+' 張':'進聽數與有效牌張數均相同';
+  const text=(recommend?'建議'+name:'建議不'+name)+' '+combo.map(label).join('、')+'。\n'+name+'後再出一張：建議打'+label(after.tile)+' → '+valueText(after)+'。相較略過，'+difference+'。\n不'+name+'：'+valueText(baseline)+'。\n'+name+'的優勢：立即完成這一組'+(recommend?'，取得上述牌效率改善':'，但目前沒有比略過更好的牌效率')+'。代價：手上的 '+action.tiles.map(label).join('、')+' 被固定成攤牌，不能再拆作其他組合'+(g.melds[p].every(m=>m.type==='concealed')?'，也放棄門清':'')+'。\n不'+name+'的優勢：保留上述牌的重組彈性'+(g.melds[p].every(m=>m.type==='concealed')?'與門清':'')+'；代價是放過這張現成可組牌，之後仍需等進牌。'+(recommend?'這次優先取進攻效率，建議接受。':'這次沒有足夠效率收益，建議略過。');
+  const affected=decompose(hand,open).groups.filter(group=>group.tiles.some(t=>action.tiles.includes(t)));
+  const compact=(recommend?'可'+name:'不建議'+name)+' '+combo.map(label).join('、')+'\n'+name+'後打'+label(after.tile)+'：'+progress(after.shanten)+'／有效 '+after.remaining+' 張\n略過：'+progress(baseline.shanten)+'／有效 '+baseline.remaining+' 張\n'+difference+'；'+(recommend?'換取效率，但固定牌組。':'保留拆組彈性。');
+  return {action,after,recommend,compact,text:text+'\n原手牌的一種最佳拆法中，相關組合是：'+affected.map(describeGroup).join('、')+'。吃碰會固定用掉上述指定牌張；同牌可能有其他拆法，實際收益以整手計算為準。'};
+ });
+ const ron=options.find(o=>o.action.type==='ron'),ranked=options.filter(o=>o.after&&o.recommend).sort((a,b)=>a.after.shanten-b.after.shanten||b.after.remaining-a.after.remaining);
+ const best=ron||ranked[0]||options.find(o=>o.action.type==='kan'&&o.recommend);
+ if(ron)for(const o of options)if(o!==ron){o.recommend=false;o.compact=o.text='建議胡牌，不建議'+claimNames[o.action.type]+'：目前已能完成五組加一對，不必放棄這次胡牌再求進牌。';}
+ const summary=best?'本次首選：'+claimNames[best.action.type]+(best.after?' '+[...best.action.tiles,g.pending.tile].sort((a,b)=>a-b).map(label).join('、')+'，再打'+label(best.after.tile):'')+'。':'本次首選：略過，不吃碰槓。';
+ return {baseline,options,best,summary,limit:claimLimit};
+}
+function selfKanDecision(g,p=0){const actions=E.selfKans(g,p);if(!actions.length)return [];const hand=g.hands[p],pub=E.publicTiles(g,p),baseline=E.analyze(hand,pub,g.melds[p].length)[0],known=knownCounts(hand,pub);return actions.map(a=>{const result=kanDecision(g,p,a,baseline,known);result.text+='\n若不槓，現在建議打'+label(baseline.tile)+'。';return result;});}
+function chooseClaim(g,p){const options=E.claims(g,p);return options.find(a=>a.type==='ron')||(options.length?claimDecision(g,p).best?.action:null)||{type:'pass'};}
+function chooseKan(g,p){return E.winning(g.hands[p],g.melds[p].length)?null:selfKanDecision(g,p).find(o=>o.recommend)?.action;}
+const api={chooseClaim,chooseKan,claimDecision,selfKanDecision,waitValue,claimLimit,leadOrder,decompose,groupWaits,describeGroup,tileRole,explainTurn,judge,KIND,compare,answer,contextualAnswer,outSummary,patternHints,patterns,progress,same,label};if(typeof module!=='undefined')module.exports=api;else root.Coach=api;
 })(globalThis);

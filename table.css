@@ -1,4 +1,19 @@
 /* 擬真牌桌：四家牌架、面前攤牌、中間散落的牌堆 */
+.voice-settings{margin-bottom:20px;padding:12px 16px;background:var(--card);border:1px solid var(--line);border-radius:12px}
+.voice-settings summary{cursor:pointer;color:var(--green);font-weight:600}
+.voice-controls{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin-top:12px}
+.voice-controls label{display:grid;gap:6px;max-width:100%;font-size:14px}
+.voice-controls select{font:inherit;padding:9px;border:1px solid #c8d1c7;border-radius:6px;max-width:100%}
+#voiceStatus{font-size:13px;color:#526552;line-height:1.6}
+.coach-scroll{min-height:0;overflow:auto;overscroll-behavior:contain}
+.coach-scroll:focus-visible{outline:2px solid var(--green);outline-offset:-3px}
+.claim-detail,#askAnswer{white-space:pre-line;overflow-wrap:anywhere}
+.claim-limit{margin-top:16px!important;font-size:13px!important}
+.defense-card{margin-top:16px;padding:14px;border:1px solid #c9b680;border-radius:10px;background:#faf5e7;white-space:pre-line}
+.defense-card h5{margin:0 0 8px}.defense-card summary{margin-top:12px;cursor:pointer}
+.defense-note{margin-top:8px!important;font-size:13px!important;color:#705629!important}
+@media(min-width:901px){.coach-card{height:var(--table-height,714px);margin-top:var(--table-offset,76px);display:flex;flex-direction:column;overflow:hidden}.coach-header{flex-shrink:0}.coach-scroll{flex:1}}
+@media(max-width:900px){.coach-scroll{max-height:80vh}.voice-controls{align-items:stretch;flex-direction:column}}
 .real-table{min-height:700px!important;padding:0!important;overflow:hidden;background-color:#2f6b4c!important;background-image:radial-gradient(ellipse at 50% 45%,rgba(255,255,255,.09),transparent 65%),repeating-linear-gradient(45deg,rgba(255,255,255,.018) 0 2px,transparent 2px 6px)!important}
 
 /* 各家座位：名字、牌架（牌背）、面前的攤牌與花 */
