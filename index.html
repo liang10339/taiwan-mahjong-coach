@@ -12,15 +12,16 @@
     <link rel="stylesheet" href="enhancements.css" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@900&display=swap" />
-    <link rel="stylesheet" href="state.css?v=9" />
-    <link rel="stylesheet" href="tiles.css?v=9" />
+    <link rel="stylesheet" href="state.css?v=10" />
+    <link rel="stylesheet" href="tiles.css?v=10" />
+    <link rel="stylesheet" href="table.css?v=10" />
     <title>牌桌教練｜台灣麻將練習</title>
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
         <div class="brand"><span class="brand-mark">牌</span><span>牌桌教練</span></div>
-        <div class="topbar-actions"><span class="status-dot"></span><span>教練練習 v0.9</span><button class="icon-button" id="resetButton" title="重新開始">↻</button></div>
+        <div class="topbar-actions"><span class="status-dot"></span><span>教練練習 v1.0</span><button class="icon-button" id="soundButton" title="音效：開" aria-pressed="true">🔊</button><button class="icon-button" id="resetButton" title="重新開始">↻</button></div>
       </header>
 
       <main class="page">
@@ -43,16 +44,17 @@
           <div class="table-column">
             <div class="section-heading"><div><p class="eyebrow">LIVE TABLE</p><h2>第 1 局・東一局</h2></div><span class="pill">教練開啟</span></div>
             <div class="mahjong-table">
-              <div class="table-felt">
-                <div class="opponent opponent-top"><span class="avatar">林</span><div><strong>林小安</strong><small>西家・牌效率</small></div><span class="back-tiles" data-seat="2"></span></div>
-                <div class="opponent opponent-left"><span class="avatar">陳</span><div><strong>陳大文</strong><small>北家・牌效率</small></div><span class="back-tiles" data-seat="3"></span></div>
-                <div class="opponent opponent-right"><span class="avatar">周</span><div><strong>周美玲</strong><small>南家・牌效率</small></div><span class="back-tiles" data-seat="1"></span></div>
-                <div class="table-center"><div class="wind">東</div><div class="round">東一局　｜　牌牆剩餘 <b id="wallCount">68</b> 張</div><div class="turn-status" id="turnStatus" role="status">輪到你摸牌</div></div>
-                <div class="discard-river" id="discardRiver"></div>
-                <div class="player-seat"><div class="player-label"><span class="avatar you">你</span><div><strong>我的手牌</strong><small>你（東家・莊家）</small></div></div><div class="hand" id="hand" aria-label="你的手牌"></div></div>
+              <div class="table-felt real-table">
+                <div class="seat seat-top"><div class="seat-name"><span class="avatar">林</span><strong>林小安</strong><small>西家・對家</small></div><div class="rack" data-seat="2"></div><div class="exposed" data-meld-seat="2"></div></div>
+                <div class="seat seat-left"><div class="seat-name"><span class="avatar">陳</span><strong>陳大文</strong><small>北家・上家</small></div><div class="rack" data-seat="3"></div><div class="exposed" data-meld-seat="3"></div></div>
+                <div class="seat seat-right"><div class="seat-name"><span class="avatar">周</span><strong>周美玲</strong><small>南家・下家</small></div><div class="rack" data-seat="1"></div><div class="exposed" data-meld-seat="1"></div></div>
+                <div class="table-info"><div class="wind">東</div><div class="round">東一局<br>牌牆 <b id="wallCount">0</b> 張</div></div>
+                <div class="turn-status" id="turnStatus" role="status">輪到你摸牌</div>
+                <div class="discard-river pile" id="discardRiver" aria-label="牌河"></div>
+                <div class="player-seat"><div class="exposed mine" data-meld-seat="0"></div><div class="player-label"><span class="avatar you">你</span><div><strong>我的手牌</strong><small>你（東家・莊家）</small></div></div><div class="hand" id="hand" aria-label="你的手牌"></div></div>
               </div>
             </div>
-            <div class="action-row"><button class="secondary-button" id="hintButton">✦ 看提示</button><button class="secondary-button" id="sortButton">↕ 整理手牌</button><button class="primary-button" id="discardButton" disabled>確認出牌</button><button class="secondary-button" id="winButton" disabled>胡牌</button><button class="primary-button" id="drawButton">摸牌</button></div><div id="claimActions" class="action-row" aria-label="吃碰槓胡回應"></div><div id="meldInfo"></div><p id="flowerInfo"></p><p class="phase-help" id="phaseHelp" aria-live="polite">先摸一張牌；摸牌後請從 17 張牌中選一張打出。</p>
+            <div class="action-row"><button class="secondary-button" id="hintButton">✦ 看提示</button><button class="secondary-button" id="sortButton">↕ 整理手牌</button><button class="secondary-button" id="riverToggle" aria-pressed="false">牌河：散落</button><button class="primary-button" id="discardButton" disabled>確認出牌</button><button class="secondary-button" id="winButton" disabled>胡牌</button><button class="primary-button" id="drawButton">摸牌</button></div><div id="claimActions" class="action-row" aria-label="吃碰槓胡回應"></div><p class="phase-help" id="phaseHelp" aria-live="polite">先摸一張牌（空白鍵）；摸牌後從 17 張牌中選一張打出。</p>
           </div>
 
           <aside class="coach-card">
@@ -82,10 +84,11 @@
       </main>
     </div>
     <div class="toast" id="toast" role="status"></div>
-    <script src="engine.js?v=9"></script>
-    <script src="tiles.js?v=9"></script>
-    <script src="coach.js?v=9"></script>
-    <script src="lessons.js?v=9"></script>
-    <script src="app.js?v=9"></script>
+    <script src="engine.js?v=10"></script>
+    <script src="tiles.js?v=10"></script>
+    <script src="sound.js?v=10"></script>
+    <script src="coach.js?v=10"></script>
+    <script src="lessons.js?v=10"></script>
+    <script src="app.js?v=10"></script>
   </body>
 </html>

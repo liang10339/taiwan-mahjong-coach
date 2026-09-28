@@ -3,6 +3,8 @@ const E=Mahjong, $=s=>document.querySelector(s);
 const seats=['你（東家・莊家）','南家','西家','北家'];
 let game=E.create(), selected=null, timer=null, generation=0, suggestions=[], lessonStep=0;
 let lastDrawn=null, turnLog=[], lastReview=null, explainCache={key:'',value:null};
+let heard={log:0,phase:game.phase}, neatRiver=false, shownPile=0;
+try{neatRiver=localStorage.getItem('mahjong-coach-river')==='neat';}catch(e){}
 function notify(text){$('#toast').textContent=text;$('#toast').classList.add('show');clearTimeout(notify.timer);notify.timer=setTimeout(()=>$('#toast').classList.remove('show'),2400);}
 function tile(t){return E.names[t];}
 const actionName={chi:'吃',pon:'碰',kan:'明槓',ron:'胡',concealed:'暗槓',added:'加槓'};
@@ -74,12 +76,61 @@ function coach(){
  for(const text of Coach.patternHints(game.hands[0]))body.append(el('p','coach-option',text));
 }
 function groupOrder(g){return ['seq','tri','head','ryanmen','kanchan','penchan','pair','single'].indexOf(g.kind);}
+// 依出牌順序還原桌上的牌（被吃碰槓胡拿走的牌不留在桌上）
+function discardPile(){
+ const pile=[];
+ for(const e of game.log){
+  if(e.action==='discard')pile.push({tile:e.tile,player:e.player});
+  else if(['chi','pon','kan','ron'].includes(e.action))pile.pop();
+ }
+ return pile;
+}
+// 散落模式：像真的牌桌一樣丟在中間一堆；位置與角度依序號固定，不會每次重畫亂跳
+function scatter(i){
+ const hash=n=>{const x=Math.sin(n*12.9898+78.233)*43758.5453;return x-Math.floor(x);};
+ const angle=i*2.39996+hash(i)*.9,radius=Math.sqrt(i+.6)/Math.sqrt(96);
+ return {x:Math.cos(angle)*Math.min(radius,1.08)+(hash(i+7)-.5)*.12,y:Math.sin(angle)*Math.min(radius,1.08)+(hash(i+13)-.5)*.14,rot:(hash(i+29)-.5)*70};
+}
+function renderRiver(){
+ const river=$('#discardRiver');river.replaceChildren();
+ river.classList.toggle('neat',neatRiver);
+ if(neatRiver){
+  game.rivers.forEach((tiles,p)=>{const section=el('div','river-group');section.append(el('strong',null,seats[p]));const box=el('div','river-tiles');tiles.forEach(t=>box.append(Tiles.node(t,'sm')));section.append(box);river.append(section);});
+  return;
+ }
+ const pile=discardPile(),w=(river.clientWidth||420)/2-18,h=(river.clientHeight||240)/2-22;
+ pile.forEach((d,i)=>{
+  const node=Tiles.node(d.tile,'sm'),pos=scatter(i);
+  node.classList.add('pile-tile');if(i===pile.length-1){node.classList.add('latest');if(pile.length>shownPile)node.classList.add('toss');}
+  node.style.left=Math.round(w+pos.x*w)+'px';node.style.top=Math.round(h+pos.y*h)+'px';node.style.setProperty?.('--rot',pos.rot.toFixed(1)+'deg');
+  node.title=seats[d.player]+'打出 '+Coach.label(d.tile);river.append(node);
+ });
+ shownPile=pile.length;
+ if(pile.length&&game.phase!=='ended'){const last=pile[pile.length-1],tag=el('span','pile-caption',seats[last.player]+'打出 '+Coach.label(last.tile));river.append(tag);}
+}
+// 依牌局紀錄播放音效與喊牌
+function soundEvents(){
+ if(typeof Sound==='undefined')return;
+ const fresh=game.log.slice(heard.log);heard.log=game.log.length;
+ const calls={chi:'吃',pon:'碰',kan:'槓',concealed:'槓',added:'槓',ron:'胡'};
+ for(const e of fresh){
+  if(e.action==='draw'&&e.player===0)Sound.play('draw');
+  else if(e.action==='discard')Sound.play('discard');
+  else if(calls[e.action]){Sound.play(e.action==='ron'?'win':'claim');Sound.say(calls[e.action]);}
+ }
+ if(game.phase==='ended'&&heard.phase!=='ended'){
+  if(/自摸/.test(game.result)){Sound.play(game.turn===0?'win':'lose');Sound.say('自摸');}
+  else if(/流局/.test(game.result))Sound.play('lose');
+  else if(!fresh.some(e=>e.action==='ron'))Sound.play(game.turn===0?'win':'lose');
+ }
+ heard.phase=game.phase;
+}
 function render(){
  const mine=game.turn===0, choosing=mine&&game.phase==='discard';
  const status=game.phase==='ended'?game.result:game.phase==='claim'?'有人出牌：請選擇吃碰槓胡或略過':seats[game.turn]+(game.phase==='draw'?'：請摸牌':'：請出牌');
  $('#turnStatus').textContent=status;$('#wallCount').textContent=game.wall.length;
  $('.player-label small').textContent=status;
- $('#phaseHelp').textContent=choosing?'點選任意一張手牌，再按「確認出牌」。摸牌按鈕已鎖定。':status;
+ $('#phaseHelp').textContent=choosing?'點一張牌選取，再點一次（或按「確認出牌」、Enter）就打出。← → 可換選牌。':status;
  $('#drawButton').disabled=!(mine&&game.phase==='draw');
  $('#drawButton').textContent='摸牌';
  $('#discardButton').disabled=!choosing||selected===null;
@@ -90,15 +141,18 @@ function render(){
  renderClaims();
  const hand=$('#hand');hand.replaceChildren();
  const own=game.hands[0],justDrew=choosing&&lastDrawn!==null&&own[own.length-1]===lastDrawn;
- own.forEach((t,i)=>{const b=document.createElement('button');b.className='tile mj mj-lg'+(selected===i?' selected':'')+(justDrew&&i===own.length-1?' drawn':'');b.innerHTML=Tiles.svg(t);b.setAttribute('aria-label',tile(t)+'，第 '+(i+1)+' 張');b.setAttribute('aria-pressed',selected===i);b.title=Coach.label(t);b.disabled=!choosing;b.onclick=()=>{selected=selected===i?null:i;render();};hand.append(b);});
- $('#discardRiver').replaceChildren();
- game.rivers.forEach((river,p)=>{const section=document.createElement('div');section.className='river-group';const label=document.createElement('strong');label.textContent=seats[p];section.append(label);const box=el('div','river-tiles');river.forEach(t=>box.append(Tiles.node(t,'sm')));section.append(box);$('#discardRiver').append(section);});
- $('#flowerInfo').replaceChildren(...game.flowers.map((f,p)=>{const x=el('span','flower-line');x.append(el('b',null,seats[p]+'補花'));if(f.length)f.forEach(t=>x.append(Tiles.node(t,'xs')));else x.append(el('span',null,'無'));return x;}));
- document.querySelectorAll('[data-seat]').forEach(box=>{const p=+box.dataset.seat;box.replaceChildren(...game.hands[p].map(()=>Tiles.back('xxs')));box.title=seats[p]+'手牌 '+game.hands[p].length+' 張';});
- $('#meldInfo').replaceChildren();
- game.melds.forEach((ms,p)=>{if(!ms.length)return;const line=el('p','meld-line');line.append(el('b',null,seats[p]+'攤牌'));ms.forEach(m=>{const g=el('span','meld-group');g.append(el('small',null,actionName[m.type]));m.tiles.forEach((t,i)=>g.append(m.type==='concealed'&&(p!==0||i===0||i===3)?Tiles.back('sm'):Tiles.node(t,'sm')));line.append(g);});$('#meldInfo').append(line);});
+ own.forEach((t,i)=>{const b=document.createElement('button');b.className='tile mj mj-lg'+(selected===i?' selected':'')+(justDrew&&i===own.length-1?' drawn':'');b.innerHTML=Tiles.svg(t);b.setAttribute('aria-label',tile(t)+'，第 '+(i+1)+' 張');b.setAttribute('aria-pressed',selected===i);b.title=Coach.label(t);b.disabled=!choosing;b.onclick=()=>{if(selected===i){$('#discardButton').onclick();return;}selected=i;if(typeof Sound!=='undefined')Sound.play('select');render();};hand.append(b);});
+ renderRiver();
+ document.querySelectorAll('[data-seat]').forEach(box=>{const p=+box.dataset.seat;box.replaceChildren(...game.hands[p].map(()=>Tiles.back('xs')));box.title=seats[p]+'手牌 '+game.hands[p].length+' 張';});
+ document.querySelectorAll('[data-meld-seat]').forEach(box=>{
+  const p=+box.dataset.meldSeat,items=[];
+  game.melds[p].forEach(m=>{const g=el('span','meld-group');g.title=actionName[m.type];m.tiles.forEach((t,i)=>g.append(m.type==='concealed'&&(p!==0||i===0||i===3)?Tiles.back('sm'):Tiles.node(t,'sm')));items.push(g);});
+  if(game.flowers[p].length){const f=el('span','flower-group');f.title='補花';game.flowers[p].forEach(t=>f.append(Tiles.node(t,'xs')));items.push(f);}
+  box.replaceChildren(...items);
+ });
  coach();
  renderReview();
+ soundEvents();
 }
 function renderReview(){
  const review=$('#reviewView .empty-review');review.replaceChildren();
@@ -143,7 +197,7 @@ $('#discardButton').onclick=()=>{
 };
 $('#winButton').onclick=()=>{if(E.win(game,0)){clearTimeout(timer);render();}};
 $('#sortButton').onclick=()=>{game.hands[0].sort((a,b)=>a-b);selected=null;render();};
-$('#resetButton').onclick=()=>{generation++;clearTimeout(timer);game=E.create();selected=null;suggestions=[];lastDrawn=null;turnLog=[];lastReview=null;render();};
+$('#resetButton').onclick=()=>{generation++;clearTimeout(timer);game=E.create();selected=null;suggestions=[];lastDrawn=null;turnLog=[];lastReview=null;heard={log:0,phase:game.phase};if(typeof Sound!=='undefined')Sound.play('shuffle');render();};
 $('#hintButton').onclick=()=>{analyze();coach();};
 $('#explainButton').onclick=()=>{const open=!$('#coachGlossary').classList.toggle('hidden');$('#explainButton').setAttribute('aria-expanded',String(open));};
 function askCoach(question){
@@ -153,6 +207,20 @@ $('#askSelected').onclick=()=>askCoach('這張可以嗎');
 $('#askForm').onsubmit=e=>{e.preventDefault();askCoach($('#askInput').value);};
 function mode(name){for(const n of ['table','lesson','review'])$('#'+n+'View').classList.toggle('hidden',n!==name);document.querySelectorAll('.mode-tab').forEach(b=>b.classList.toggle('active',b.dataset.mode===name));}
 document.querySelectorAll('.mode-tab').forEach(b=>b.onclick=()=>mode(b.dataset.mode));
+$('#riverToggle').onclick=()=>{neatRiver=!neatRiver;try{localStorage.setItem('mahjong-coach-river',neatRiver?'neat':'pile');}catch(e){}syncToggles();render();};
+$('#soundButton').onclick=()=>{Sound.setEnabled(!Sound.isEnabled());syncToggles();if(Sound.isEnabled())Sound.play('tick');};
+function syncToggles(){
+ $('#riverToggle').textContent=neatRiver?'牌河：分家':'牌河：散落';$('#riverToggle').setAttribute('aria-pressed',String(neatRiver));
+ if(typeof Sound!=='undefined'){const on=Sound.isEnabled();$('#soundButton').textContent=on?'🔊':'🔇';$('#soundButton').title=on?'音效：開':'音效：關';$('#soundButton').setAttribute('aria-pressed',String(on));}
+}
+// 鍵盤：空白鍵摸牌、Enter 確認出牌、← → 選牌
+document.addEventListener?.('keydown',e=>{
+ if(e.target&&/INPUT|TEXTAREA/.test(e.target.tagName))return;
+ const choosing=game.turn===0&&game.phase==='discard';
+ if(e.key===' '&&!$('#drawButton').disabled){e.preventDefault();$('#drawButton').onclick();}
+ else if(e.key==='Enter'&&choosing&&selected!==null){e.preventDefault();$('#discardButton').onclick();}
+ else if((e.key==='ArrowLeft'||e.key==='ArrowRight')&&choosing){e.preventDefault();const n=game.hands[0].length;selected=selected===null?(e.key==='ArrowLeft'?n-1:0):(selected+(e.key==='ArrowLeft'?n-1:1))%n;render();}
+});
 function renderClaims(){
  const target=$('#claimActions');target.replaceChildren();
  if(waiting()){
@@ -166,7 +234,7 @@ function renderClaims(){
   button.onclick=()=>{if(E.selfKan(game,0,a)){selected=null;lastDrawn=null;analyze();render();}};target.append(button);
  }
 }
-render();
+syncToggles();render();
 if(typeof setupLessons==='function')setupLessons($,mode);
 if('serviceWorker' in navigator){
  let reloading=false;
