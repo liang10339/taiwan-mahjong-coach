@@ -108,3 +108,83 @@
 .tai-grid h5{margin:0 0 4px;font-size:13px;color:#315140}
 .tai-grid p{margin:2px 0;line-height:1.6;color:#4b534a}
 .tai-grid .todo{color:#a0a69c}
+
+/* v2.0：設定面板、提示開關、危險度、結算、回放、教學關卡 */
+.settings-panel{display:grid;gap:10px}
+.settings-panel label{display:grid;gap:4px;font-size:14px}
+.settings-panel label.check{display:flex;align-items:center;gap:8px}
+.settings-panel select{font:inherit;padding:8px;border:1px solid #c8d1c7;border-radius:6px;width:100%;min-width:0}
+.settings-note{margin:0;font-size:12px;color:var(--muted);line-height:1.6}
+.coach-switch{margin-left:auto;background:rgba(255,255,255,.18);color:#fff;border-radius:99px;padding:6px 12px;font-size:12px}
+.coach-switch[aria-pressed="false"]{background:#ebef71;color:#315140}
+.toast.show{animation:toast-fade 3.2s forwards}
+@keyframes toast-fade{0%{opacity:0;transform:translate(-50%,20px)}8%,82%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,0)}}
+.toast{max-width:min(560px,calc(100vw - 24px));text-align:center;line-height:1.5;z-index:60}
+/* 手牌危險度：左上角圓點，綠低、黃中、紅高 */
+.tile.mj{position:relative}
+.risk-dot{position:absolute;top:3px;right:3px;width:9px;height:9px;border-radius:50%;box-shadow:0 0 0 2px #fffdf2;pointer-events:none}
+.risk-safe .risk-dot{background:#3c9a5b}.risk-mid .risk-dot{background:#e0a526}.risk-high .risk-dot{background:#d23b3b}
+.risk-high{outline:2px solid rgba(210,59,59,.55);outline-offset:-2px}
+/* 結算 */
+.settle-card{margin:12px 0;padding:14px;border-radius:12px;background:#eef3e6;border:1px solid #cfdcc0}
+.settle-card h5{margin:0 0 8px;font-size:14px}.settle-card p{margin:4px 0!important;font-size:14px!important;color:#34443a!important}
+.score-board{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:10px 0}
+.score-board span{display:grid;padding:6px 8px;border-radius:8px;background:#fffdf6;font-size:13px}
+.score-board small{font:12px 'DM Mono',monospace;color:#6f756b}
+.score-board .up small{color:#1f7a4c}.score-board .down small{color:#b8232f}
+.settle-next{font-weight:600}
+.next-hand{min-width:140px}
+/* 逐手回放 */
+.replay{margin:16px 0;padding:16px;border:1px solid var(--line);border-radius:12px;background:#fffefa;text-align:left}
+.replay-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px}
+.replay-bar strong{margin-right:auto;font-size:16px}
+.replay-bar .on{background:#fbe7c8}
+.replay-count{font:13px 'DM Mono',monospace;color:var(--muted)}
+.replay-head{font-weight:600;color:var(--ink)!important}
+.replay-hand{display:flex;flex-wrap:wrap;gap:3px;margin:10px 0}
+.replay-hand .picked{outline:3px solid #d23b3b;outline-offset:1px;border-radius:4px}
+.replay-hand .best{outline:3px solid #3c9a5b;outline-offset:1px;border-radius:4px}
+.replay-rivers{margin-top:10px}.river-line{display:flex;flex-wrap:wrap;align-items:center;gap:2px;margin:4px 0}.river-line small{width:88px;color:var(--muted)}
+.review-item.mistake{border-left:4px solid #d23b3b}
+/* 教學關卡 */
+.stage-nav{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;align-items:stretch}
+.stage-tab{display:grid;gap:2px;text-align:left;padding:10px 14px;border-radius:10px;background:#fffefa;border:1px solid var(--line);min-width:120px}
+.stage-tab b{font-size:14px;color:var(--ink)}.stage-tab small{font-size:12px;color:var(--muted)}
+.stage-tab.active{border-color:var(--green);box-shadow:0 0 0 2px rgba(66,107,86,.25)}
+.stage-tab.done b{color:var(--green)}
+.stage-stats{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin-left:auto;font-size:12px;color:var(--muted)}
+.stage-card{max-width:880px;padding:32px;background:#fffefa;border:1px solid var(--line);border-radius:15px;box-shadow:0 18px 45px rgba(45,54,42,.08)}
+.stage-head h2{font-size:24px;margin:6px 0 14px}
+.stage-tabs{display:flex;gap:8px;margin-bottom:16px}.stage-tabs .on{background:var(--green);color:#fff}
+.stage-lesson{padding:14px 0;border-top:1px solid var(--line)}.stage-lesson h3{margin:0 0 6px;font-size:17px}.stage-lesson p{margin:0 0 8px;line-height:1.8;color:#3f463d}
+.tile-strip{display:flex;flex-wrap:wrap;align-items:center;gap:3px;margin:6px 0}.tile-strip small{margin-right:6px;color:var(--muted)}
+.quiz-box h3{font-size:17px;line-height:1.6;margin:0 0 12px}
+.quiz-hand{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0 12px}
+.quiz-tile{padding:2px;border-radius:6px;background:none;border:2px solid transparent}
+.quiz-tile:hover{transform:translateY(-3px)}.quiz-tile.on{border-color:#e0a526}.quiz-tile.right{border-color:#3c9a5b;background:#e3f2e6}.quiz-tile.wrong{border-color:#d23b3b;background:#fbe3e3}
+.quiz-options{display:grid;gap:8px;margin:10px 0}.quiz-options .right{background:#e3f2e6;color:#1f5c38}.quiz-options .wrong{background:#fbe3e3;color:#8a1f1f}
+.quiz-feedback{margin:14px 0;padding:14px;border-radius:10px;white-space:pre-line}.quiz-feedback.good{background:#e9f4ea}.quiz-feedback.bad{background:#fbefe6}
+.quiz-feedback p{margin:6px 0 0;line-height:1.7}
+.quiz-table{display:grid;gap:6px;margin:0 0 12px;padding:10px;border-radius:10px;background:#2f6b4c;color:#eef4dc}
+.quiz-seat{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px}.quiz-seat b{min-width:92px}.quiz-seat small{opacity:.75}
+/* 手機直放提示 */
+.rotate-hint{display:none}
+@media(orientation:portrait) and (max-width:600px){.rotate-hint:not(.hidden){display:flex;align-items:center;gap:8px;justify-content:space-between;margin:0 0 8px;padding:8px 12px;border-radius:10px;background:#fbf6e6;font-size:13px}.rotate-hint button{background:#315140;color:#fff;border-radius:6px;padding:6px 10px;font-size:12px}}
+@media(max-width:580px){.stage-card{padding:18px}.stage-tab{min-width:0;flex:1 1 30%}.stage-stats{margin-left:0}}
+/* 手機橫放：矮螢幕時縮小牌桌內元素，整桌放進一個畫面 */
+@media(orientation:landscape) and (max-height:520px){
+ .topbar{height:44px}.page{padding:6px 8px 30px!important}
+ .real-table{height:calc(100dvh - 104px)!important;min-height:300px}
+ .rack .mj-back{--w:9px}.seat-name{font-size:10px}.seat-name small{display:none}
+ .seat-top{top:4px}.seat-left{left:26px;top:42%}.seat-right{right:26px;top:42%}
+ .real-table .hand .mj{--w:min(34px,calc((100vw - 130px)/17))!important}
+ .pile-caption{bottom:-18px;font-size:10px}
+ .seat-left .seat-name,.seat-right .seat-name{display:none}
+ .real-table .table-info{top:6px;left:6px;padding:4px 8px}.real-table .table-info .wind{font-size:18px}
+ .real-table .turn-status{top:6px;right:6px;font-size:11px!important;padding:3px 8px}
+ .real-table .discard-river.pile,.real-table .discard-river.neat{left:70px;right:70px;top:54px;bottom:112px}
+ .pile-tile{--w:18px!important}
+ .real-table .player-seat{bottom:6px!important}.player-label{display:none}
+ .action-row{margin-top:6px}.action-row button{min-height:34px;padding:6px 10px}
+ .phase-help{display:none}
+}

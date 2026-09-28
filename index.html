@@ -12,9 +12,9 @@
     <link rel="stylesheet" href="enhancements.css" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@900&display=swap" />
-    <link rel="stylesheet" href="state.css?v=17" />
-    <link rel="stylesheet" href="tiles.css?v=17" />
-    <link rel="stylesheet" href="table.css?v=17" />
+    <link rel="stylesheet" href="state.css?v=20" />
+    <link rel="stylesheet" href="tiles.css?v=20" />
+    <link rel="stylesheet" href="table.css?v=20" />
     <title>牌桌教練｜台灣麻將練習</title>
   </head>
   <body>
@@ -26,29 +26,30 @@
           <button class="mode-tab" data-mode="lesson">新手學堂</button>
           <button class="mode-tab" data-mode="review">牌局覆盤</button>
         </nav>
-        <div class="topbar-actions"><span class="status-dot"></span><span class="version">教練練習 v1.6</span><details class="voice-settings"><summary class="icon-button" title="報牌聲音設定" aria-label="報牌聲音設定">🗣</summary><div class="voice-panel"><strong>報牌聲音設定</strong><div class="voice-controls"><label>系統聲線 <select id="voiceSelect"></select></label><label>聲音風格 <select id="voiceStyle"></select></label><button class="secondary-button" id="voicePreview" type="button">試聽：八萬</button></div><p id="voiceStatus" role="status"></p></div></details><button class="icon-button" id="soundButton" title="音效：開" aria-pressed="true">🔊</button><button class="icon-button" id="resetButton" title="重新開始">↻</button></div>
+        <div class="topbar-actions"><span class="status-dot"></span><span class="version">教練練習 v2.0</span><details class="voice-settings game-settings"><summary class="icon-button" title="牌局設定" aria-label="牌局設定">⚙</summary><div class="voice-panel settings-panel"><strong>牌局設定</strong><label>電腦難度 <select id="levelSelect"><option value="easy">初級：只管湊牌，漏洞多</option><option value="normal">中級：懂牌效率</option><option value="hard">高級：會看海底、會棄胡</option></select></label><label class="check"><input type="checkbox" id="coachToggle" /> 教練即時提示</label><label class="check"><input type="checkbox" id="dangerToggle" /> 顯示手牌危險度（進階）</label><label class="check"><input type="checkbox" id="seatDrawToggle" /> 新的一將先抓位（隨機座位）</label><label>底／台 <select id="stakeSelect"><option value="50/20">50 底 20 台</option><option value="100/20">100 底 20 台</option><option value="300/100">300 底 100 台</option></select></label><p class="settings-note">難度與底台從下一局起生效；提示與危險度立即生效。↻ 開始新的一將（分數歸零）。</p></div></details><details class="voice-settings"><summary class="icon-button" title="報牌聲音設定" aria-label="報牌聲音設定">🗣</summary><div class="voice-panel"><strong>報牌聲音設定</strong><div class="voice-controls"><label>系統聲線 <select id="voiceSelect"></select></label><label>聲音風格 <select id="voiceStyle"></select></label><button class="secondary-button" id="voicePreview" type="button">試聽：八萬</button></div><p id="voiceStatus" role="status"></p></div></details><button class="icon-button" id="soundButton" title="音效：開" aria-pressed="true">🔊</button><button class="icon-button" id="resetButton" title="新的一將（分數歸零）">↻</button></div>
       </header>
 
       <main class="page">
+        <div class="rotate-hint" id="rotateHint" role="note">📱↻ 手機建議橫放，牌桌與 16 張手牌會更好看。<button type="button" id="rotateDismiss">知道了</button></div>
 
         <section class="dashboard" id="tableView">
           <div class="table-column">
             <div class="mahjong-table">
               <div class="table-felt real-table">
-                <div class="seat seat-top"><div class="seat-name"><span class="avatar">林</span><strong>林小安</strong><small>西家・對家</small></div><div class="rack" data-seat="2"></div><div class="exposed" data-meld-seat="2"></div></div>
-                <div class="seat seat-left"><div class="seat-name"><span class="avatar">陳</span><strong>陳大文</strong><small>北家・上家</small></div><div class="rack" data-seat="3"></div><div class="exposed" data-meld-seat="3"></div></div>
-                <div class="seat seat-right"><div class="seat-name"><span class="avatar">周</span><strong>周美玲</strong><small>南家・下家</small></div><div class="rack" data-seat="1"></div><div class="exposed" data-meld-seat="1"></div></div>
-                <div class="table-info"><div class="wind">東</div><div class="round">東一局<br>牌牆 <b id="wallCount">0</b> 張</div></div>
+                <div class="seat seat-top"><div class="seat-name"><span class="avatar">林</span><strong>林小安</strong><small id="seatInfo2">西家・對家</small></div><div class="rack" data-seat="2"></div><div class="exposed" data-meld-seat="2"></div></div>
+                <div class="seat seat-left"><div class="seat-name"><span class="avatar">陳</span><strong>陳大文</strong><small id="seatInfo3">北家・上家</small></div><div class="rack" data-seat="3"></div><div class="exposed" data-meld-seat="3"></div></div>
+                <div class="seat seat-right"><div class="seat-name"><span class="avatar">周</span><strong>周美玲</strong><small id="seatInfo1">南家・下家</small></div><div class="rack" data-seat="1"></div><div class="exposed" data-meld-seat="1"></div></div>
+                <div class="table-info"><div class="wind" id="roundWind">東</div><div class="round"><span id="roundName">東風東局</span><br>牌牆 <b id="wallCount">0</b> 張</div></div>
                 <div class="turn-status" id="turnStatus" role="status">輪到你摸牌</div>
                 <div class="discard-river pile" id="discardRiver" aria-label="牌河"></div>
-                <div class="player-seat"><div class="exposed mine" data-meld-seat="0"></div><div class="player-label"><span class="avatar you">你</span><div><strong>我的手牌</strong><small>你（東家・莊家）</small></div></div><div class="hand" id="hand" aria-label="你的手牌"></div></div>
+                <div class="player-seat"><div class="exposed mine" data-meld-seat="0"></div><div class="player-label"><span class="avatar you">你</span><div><strong id="myInfo">我的手牌</strong><small>你（東家・莊家）</small></div></div><div class="hand" id="hand" aria-label="你的手牌"></div></div>
               </div>
             </div>
             <div class="action-row"><button class="secondary-button" id="hintButton">✦ 看提示</button><button class="secondary-button" id="sortButton">↕ 整理手牌</button><button class="secondary-button" id="riverToggle" aria-pressed="false">牌河：散落</button><button class="primary-button" id="discardButton" disabled>確認出牌</button><button class="secondary-button" id="winButton" disabled>胡牌</button><button class="primary-button" id="drawButton">摸牌</button></div><div id="claimActions" class="action-row" aria-label="吃碰槓胡回應"></div><p class="phase-help" id="phaseHelp" aria-live="polite">先摸一張牌（空白鍵）；摸牌後從 17 張牌中選一張打出。</p>
           </div>
 
           <aside class="coach-card">
-            <div class="coach-header"><div class="coach-icon">✦</div><div><p class="eyebrow">COACH INSIGHT</p><h3>教練觀察</h3></div></div>
+            <div class="coach-header"><div class="coach-icon">✦</div><div><p class="eyebrow">COACH INSIGHT</p><h3>教練觀察</h3></div><button class="coach-switch" id="coachQuick" type="button" aria-pressed="true">提示：開</button></div>
             <div class="coach-scroll" tabindex="0" role="region" aria-label="教練建議與提問，可捲動">
             <div class="coach-body" id="coachBody" aria-live="polite"></div>
             <div class="coach-footer"><button class="text-button" id="explainButton" aria-expanded="false" aria-controls="coachGlossary">名詞說明 <span>▾</span></button><span class="coach-level">基礎教練</span></div>
@@ -56,7 +57,7 @@
               <p><b>進聽數</b>：離聽牌還差幾步。「一進聽」是再進一張合適的牌、打出一張後就有機會聽牌，不是再摸一次就一定聽。</p>
               <p><b>有效牌</b>：摸到後能讓進聽數減少的牌。張數只扣除你看得到的牌（自己手牌、牌河、攤牌），可能有些在對手手上，並非牌牆實際剩餘。</p>
               <p><b>搭子</b>：差一張就成組的兩張牌。兩面（如 34 等 2、5）最好，嵌張（如 46 等 5）與邊張（如 12 等 3）只能等一種。</p>
-              <p><b>範圍</b>：進攻建議比較牌效率；防守另列可見牌組合排除與效率代價，不是放槍機率。尚未計台或判斷對手是否聽牌。</p>
+              <p><b>範圍</b>：進攻建議比較牌效率；防守另列可見牌組合排除與效率代價，不是放槍機率。高級電腦與危險度顯示會依攤牌、牌牆剩餘等公開資訊估計對手是否接近聽牌；台數依北部台算法。</p>
             </div>
             <section class="coach-questions" aria-label="問教練">
               <h4>問教練</h4>
@@ -68,20 +69,20 @@
           </aside>
         </section>
 
-        <section class="lesson-view hidden" id="lessonView"><div class="lesson-card"><div class="lesson-kicker"><p class="eyebrow">新手學堂・第 <span id="lessonStepNumber">1</span> / <span id="lessonTotal">8</span> 步</p><span class="lesson-time">約 3 分鐘</span></div><h2 id="lessonTitle">先認識一張牌</h2><p id="lessonDescription">麻將牌不是一整副要背起來的符號。先分清楚花色，之後看牌效率才不會迷路。</p><div class="lesson-demo" id="lessonDemo"><span class="demo-tile">🀇</span><span class="demo-tile">🀐</span><span class="demo-tile">🀑</span><span class="demo-tile">🀀</span><span class="demo-tile flower">🀢</span></div><p id="lessonFeedback" role="status"></p><div class="lesson-progress"><i id="lessonProgressBar"></i></div><div class="lesson-actions"><button class="secondary-button" id="lessonBack" disabled>上一步</button><button class="primary-button" id="lessonNext">下一步</button></div><p class="lesson-map">認牌 → 抓位 → 擲骰 → 數墩 → 配牌 → 補花 → 吃碰槓 → 一進聽<br>教學採示範桌規，與實戰快速配牌分開。</p></div></section>
+        <section class="lesson-view hidden" id="lessonView"><nav class="stage-nav" id="stageNav" aria-label="教學關卡"></nav><section class="stage-card hidden" id="stageCard"></section><div class="lesson-card"><div class="lesson-kicker"><p class="eyebrow">新手學堂・第 <span id="lessonStepNumber">1</span> / <span id="lessonTotal">8</span> 步</p><span class="lesson-time">約 3 分鐘</span></div><h2 id="lessonTitle">先認識一張牌</h2><p id="lessonDescription">麻將牌不是一整副要背起來的符號。先分清楚花色，之後看牌效率才不會迷路。</p><div class="lesson-demo" id="lessonDemo"><span class="demo-tile">🀇</span><span class="demo-tile">🀐</span><span class="demo-tile">🀑</span><span class="demo-tile">🀀</span><span class="demo-tile flower">🀢</span></div><p id="lessonFeedback" role="status"></p><div class="lesson-progress"><i id="lessonProgressBar"></i></div><div class="lesson-actions"><button class="secondary-button" id="lessonBack" disabled>上一步</button><button class="primary-button" id="lessonNext">下一步</button></div><p class="lesson-map">認牌 → 抓位 → 擲骰 → 數墩 → 配牌 → 補花 → 吃碰槓 → 一進聽<br>教學採示範桌規，與實戰快速配牌分開。</p></div></section>
 
         <section class="review-view hidden" id="reviewView"><div class="review-card"><div><p class="eyebrow">REVIEW CENTER</p><h2>最近的牌局</h2><p>完成一局後，這裡會整理值得回看的決策。</p></div><div class="empty-review"><span>◌</span><strong>還沒有可覆盤的牌局</strong><small>完成目前這一局後，就能看到你的選擇與教練建議。</small></div></div></section>
 
-        <section class="bottom-grid"><div class="tip-strip"><span class="tip-icon">i</span><div><strong>小提醒</strong><p>教練會比較多個合理選擇，不會把每一次不同選擇都判定為錯誤。</p></div></div><div class="rule-card"><p class="eyebrow">CURRENT RULESET</p><div class="rule-row"><strong>台灣 16 張・北部台算法</strong><span>已支援吃碰槓胡、搶槓與台數計算；含初階防守提示；過水、連莊、報聽尚未實作</span></div><div class="rule-meta"><span>144 張牌</span><span>五組加一對</span><span>8 張花牌</span></div>
+        <section class="bottom-grid"><div class="tip-strip"><span class="tip-icon">i</span><div><strong>小提醒</strong><p>教練會比較多個合理選擇，不會把每一次不同選擇都判定為錯誤。</p></div></div><div class="rule-card"><p class="eyebrow">CURRENT RULESET</p><div class="rule-row"><strong>台灣 16 張・北部台算法</strong><span>已支援吃碰槓胡、搶槓、台數與連莊；三種難度電腦、防守提示；過水、報聽尚未實作</span></div><div class="rule-meta"><span>144 張牌</span><span>五組加一對</span><span>8 張花牌</span></div>
           <details class="tai-table"><summary>查看台數表</summary>
             <div class="tai-grid">
-              <div><h5>莊台</h5><p>莊家 1（莊家胡牌或放槍；閒家自摸時莊家付的那份加 1）</p><p class="todo">連莊 n×2+1：單局練習尚未實作</p></div>
+              <div><h5>莊台</h5><p>莊家 1（莊家胡牌或放槍；閒家自摸時莊家付的那份加 1）</p><p>連莊：連 n 拉 n 另加 2n 台（莊家 1＋2n）；莊家胡牌或流局連莊</p></div>
               <div><h5>牌型台</h5><p>門清 1・獨聽 1（邊張、嵌張、單吊）</p><p>平胡 2（五組順子、無字無花、胡別人、非獨聽）</p><p>碰碰胡 4</p></div>
               <div><h5>花台</h5><p>正花 1（東：春梅；南：夏蘭；西：秋竹；北：冬菊）</p><p>花槓 1＋正花數（集滿一組四季或四君子）</p><p>七搶一 8・八仙過海 8</p></div>
               <div><h5>天地人胡</h5><p>天胡 24・地胡 16・人胡 16（均不能有人吃碰槓）</p><p class="todo">天聽 8・地聽 4・Migi（咪機）8：需要報聽，尚未實作</p></div>
               <div><h5>三元台</h5><p>三元刻 1・小三元 4・大三元 8</p></div>
               <div><h5>暗刻台</h5><p>三暗刻 2・四暗刻 5・五暗刻 8（胡別人完成的刻子不算暗刻）</p></div>
-              <div><h5>風刻台</h5><p>風位牌 1・風圈牌 1（有花玩法；圈風固定為東）</p><p>小四喜 8・大四喜 16</p></div>
+              <div><h5>風刻台</h5><p>風位牌 1・風圈牌 1（有花玩法；圈風依東、南、西、北風圈輪替）</p><p>小四喜 8・大四喜 16</p></div>
               <div><h5>自摸台</h5><p>自摸 1・門清自摸 3（門清＋自摸＋不求人）</p><p>海底撈月 1・槓上開花 1</p></div>
               <div><h5>一色台</h5><p>混一色 4・清一色 8・字一色 16</p></div>
               <div><h5>胡牌方式</h5><p>全求人 1・搶槓 1・河底撈魚 1</p></div>
@@ -91,13 +92,16 @@
       </main>
     </div>
     <div class="toast" id="toast" role="status"></div>
-    <script src="engine.js?v=17"></script>
-    <script src="tiles.js?v=17"></script>
-    <script src="sound.js?v=17"></script>
-    <script src="coach.js?v=17"></script>
-    <script src="lessons.js?v=17"></script>
-    <script src="defense.js?v=17"></script>
-    <script src="scoring.js?v=17"></script>
-    <script src="app.js?v=17"></script>
+    <script src="engine.js?v=20"></script>
+    <script src="tiles.js?v=20"></script>
+    <script src="sound.js?v=20"></script>
+    <script src="coach.js?v=20"></script>
+    <script src="lessons.js?v=20"></script>
+    <script src="defense.js?v=20"></script>
+    <script src="scoring.js?v=20"></script>
+    <script src="ai.js?v=20"></script>
+    <script src="quiz.js?v=20"></script>
+    <script src="stages.js?v=20"></script>
+    <script src="app.js?v=20"></script>
   </body>
 </html>

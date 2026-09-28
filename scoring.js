@@ -2,10 +2,10 @@
 'use strict';
 // 台灣十六張麻將台數（北部台算法）。
 // 牌型編號：0–8 萬、9–17 筒、18–26 索、27–30 東南西北、31–33 中發白、34–41 春夏秋冬梅蘭竹菊。
-// 本練習固定：你（座位 0）是東家莊家，圈風為東；每局單局結算，沒有連莊。
+// 莊家、圈風與連莊次數取自牌局（g.dealer、g.roundWind、g.streak）；沒有這些欄位時視為座位 0 當莊、東風圈、未連莊。
 const WIND_NAMES=['東','南','西','北'];
 const NAMES=[...['萬','筒','索'].flatMap(s=>Array.from({length:9},(_,i)=>`${i+1}${s}`)),'東','南','西','北','中','發','白','春','夏','秋','冬','梅','蘭','竹','菊'];
-const DEALER=0,ROUND_WIND=27;
+const dealerOf=g=>g.dealer||0,windOf=(g,p)=>((p-dealerOf(g))%4+4)%4;
 const counts=tiles=>{const c=Array(34).fill(0);tiles.forEach(t=>{if(t<34)c[t]++;});return c;};
 
 // 列出閉合手牌所有「N 組＋一對」的拆法（只用於計台，所以把每一種拆法都列出來取最高台）
@@ -58,7 +58,7 @@ function context(g,p){
 function score(g,p,override={}){
  const ctx=Object.assign(context(g,p),override);
  const melds=g.melds[p]||[],open=melds.length,exposed=melds.filter(m=>m.type!=='concealed').length;
- const hand=g.hands[p].slice(),flowers=g.flowers[p]||[],seatWind=27+p;
+ const hand=g.hands[p].slice(),flowers=g.flowers[p]||[],wind=windOf(g,p),seatWind=27+wind,DEALER=dealerOf(g),ROUND_WIND=27+(g.roundWind||0);
  const items=[];const add=(name,tai,note='')=>items.push({name,tai,note});
 
  // 特殊胡：花牌
@@ -104,8 +104,8 @@ function score(g,p,override={}){
    if(windTrip===4)L('大四喜',16,'四組風牌刻子');
    else if(windTrip===3&&windPair)L('小四喜',8,'三組風刻加一對風牌');
    else{
-    if(triplets.some(x=>x.tile===seatWind))L('風位牌（'+WIND_NAMES[p]+'）',1,'自己的門風刻子');
-    if(triplets.some(x=>x.tile===ROUND_WIND))L('風圈牌（東）',1,'圈風刻子');
+    if(triplets.some(x=>x.tile===seatWind))L('風位牌（'+WIND_NAMES[wind]+'）',1,'自己的門風刻子');
+    if(triplets.some(x=>x.tile===ROUND_WIND))L('風圈牌（'+WIND_NAMES[g.roundWind||0]+'）',1,'圈風刻子');
    }
    const allSeq=groups.every(x=>x.type==='sequence');
    if(allSeq&&!flowers.length&&!all.some(t=>t>=27)&&!ctx.tsumo&&!single)L('平胡',2,'五組順子、無字無花、胡別人且非獨聽');
@@ -134,22 +134,31 @@ function score(g,p,override={}){
  if(!ctx.tsumo&&ctx.lastTile&&!ctx.robKan)add('河底撈魚',1,'最後一張打出的牌放槍');
 
  // 花
- const own=[34+p,38+p];
- flowers.filter(f=>own.includes(f)).forEach(f=>add('正花（'+NAMES[f]+'）',1,WIND_NAMES[p]+'家的正花'));
+ const own=[34+wind,38+wind];
+ flowers.filter(f=>own.includes(f)).forEach(f=>add('正花（'+NAMES[f]+'）',1,WIND_NAMES[wind]+'家的正花'));
  if([34,35,36,37].every(f=>flowers.includes(f)))add('花槓（春夏秋冬）',1,'一組四季');
  if([38,39,40,41].every(f=>flowers.includes(f)))add('花槓（梅蘭竹菊）',1,'一組四君子');
  return finish(items,g,p,ctx);
 }
 function finish(items,g,p,ctx){
- // 莊家台：莊家胡牌或莊家放槍時算進總台數；閒家自摸時只有莊家付的那一份加 1 台
- if(p===DEALER)items.unshift({name:'莊家',tai:1,note:'莊家胡牌'});
- else if(!ctx.tsumo&&ctx.from===DEALER)items.unshift({name:'莊家',tai:1,note:'莊家放槍'});
+ // 莊家台：莊家胡牌或莊家放槍時算進總台數；閒家自摸時只有莊家付的那一份另加
+ // 連莊：連 n 拉 n 另加 2n 台（莊家 1＋2n），同樣只在莊家有關時計算
+ const DEALER=dealerOf(g),n=g.streak||0,chain=n?[{name:'連'+n+'拉'+n,tai:2*n,note:'莊家連莊 '+n+' 次'}]:[];
+ if(p===DEALER)items.unshift({name:'莊家',tai:1,note:'莊家胡牌'},...chain);
+ else if(!ctx.tsumo&&!ctx.special&&ctx.from===DEALER)items.unshift({name:'莊家',tai:1,note:'莊家放槍'},...chain);
  const total=items.reduce((n,x)=>n+x.tai,0);
- const dealerExtra=p!==DEALER&&(ctx.tsumo||ctx.special)?1:0;
- const payer=ctx.special||ctx.tsumo?'三家各付'+(dealerExtra?'（莊家另加 1 台）':''):ctx.from!=null?WIND_NAMES[ctx.from]+'家付（放槍）':'';
- return {total,items,tsumo:!!ctx.tsumo,payer,dealerExtra,ctx};
+ const dealerExtra=p!==DEALER&&(ctx.tsumo||ctx.special)?1+2*n:0;
+ const payer=ctx.special||ctx.tsumo?'三家各付'+(dealerExtra?'（莊家另加 '+dealerExtra+' 台）':''):ctx.from!=null?WIND_NAMES[windOf(g,ctx.from)]+'家付（放槍）':'';
+ return {total,items,tsumo:!!ctx.tsumo,payer,dealerExtra,ctx,winner:p};
+}
+// 點數結算：付款＝底＋台數×每台；自摸三家各付，閒家自摸時莊家那份另加 dealerExtra 台
+function settle(g,result,{base=100,perTai=20}={}){
+ const p=result.winner,deltas=[0,0,0,0],payments=[],DEALER=dealerOf(g);
+ const payers=result.ctx.special||result.tsumo?[0,1,2,3].filter(q=>q!==p):result.ctx.from!=null?[result.ctx.from]:[];
+ for(const q of payers){const tai=result.total+(q===DEALER?result.dealerExtra:0),amount=base+tai*perTai;deltas[q]-=amount;deltas[p]+=amount;payments.push({payer:q,tai,amount});}
+ return {deltas,payments};
 }
 function summary(result){return result.items.length?result.items.map(x=>x.name+' '+x.tai+'台').join('、')+'，共 '+result.total+' 台':'沒有台數（屁胡），只算底';}
-const api={score,summary,decompositions,isLiguLigu,winningTiles,context};
+const api={score,settle,summary,decompositions,isLiguLigu,winningTiles,context};
 if(typeof module!=='undefined')module.exports=api;else root.Scoring=api;
 })(globalThis);
