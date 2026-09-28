@@ -38,7 +38,11 @@ function stick(x,y,h,color,angle=0){
   `<line x1="${x}" y1="${top+3.5}" x2="${x}" y2="${y-2.5}" stroke="#fffdf4" stroke-width=".9" opacity=".8"/>`+
   `<line x1="${x}" y1="${y+2.5}" x2="${x}" y2="${bottom-3.5}" stroke="#fffdf4" stroke-width=".9" opacity=".8"/></g>`;
 }
-// 八索：上排 W（\/\/）、下排 M（/\/\），竹枝端點相接成連續鋸齒
+// 八條依參考牌面：上排 M、下排 W；每排四支竹身，端點相接，中間留白。
+function eightBamboo(){
+ const paths=[[[10,31],[10,12],[30,28],[50,12],[50,31]],[[10,49],[10,68],[30,52],[50,68],[50,49]]];
+ return paths.map((points,row)=>'<g data-eight-row="'+row+'">'+points.slice(1).map(([x2,y2],i)=>{const [x1,y1]=points[i],h=Math.hypot(x2-x1,y2-y1),angle=Math.atan2(-(x2-x1),y2-y1)*180/Math.PI;return stick((x1+x2)/2,(y1+y2)/2,h,row===0?INK:GREEN,angle);}).join('')+'</g>').join('');
+}
 const STICKS={
  2:[[30,22,26,GREEN],[30,58,26,BLUE]],
  3:[[30,22,26,BLUE],[19,58,26,GREEN],[41,58,26,GREEN]],
@@ -46,7 +50,6 @@ const STICKS={
  5:[[16,22,26,GREEN],[44,22,26,BLUE],[30,40,26,RED],[16,58,26,BLUE],[44,58,26,GREEN]],
  6:[15,30,45].flatMap(x=>[[x,22,26,GREEN],[x,58,26,BLUE]]),
  7:[[30,14,18,RED],...[15,30,45].flatMap(x=>[[x,41,20,GREEN],[x,66,20,GREEN]])],
- 8:[-22,22,-22,22].flatMap((a,i)=>[[13.6+i*10.9,21,29,GREEN,a],[13.6+i*10.9,59,29,GREEN,-a]]),
  9:[16,40,64].flatMap(y=>[[15,y,20,GREEN],[30,y,20,RED],[45,y,20,BLUE]])
 };
 function bird(){
@@ -66,7 +69,7 @@ const FLOWER_COLORS=[GREEN,RED,BLUE,INK,RED,BLUE,GREEN,RED];
 function face(t){
  if(t<9)return text(30,24,28,INK,NUMERALS[t])+text(30,58,30,RED,'萬');
  if(t<18){const n=t-9+1;return n===1?oneDot():DOTS[n].map(d=>pip(...d)).join('');}
- if(t<27){const n=t-18+1;return n===1?bird():STICKS[n].map(s=>stick(...s)).join('');}
+ if(t<27){const n=t-18+1;return n===1?bird():n===8?eightBamboo():STICKS[n].map(s=>stick(...s)).join('');}
  if(t<31)return text(30,41,40,INK,'東南西北'[t-27]);
  if(t===31)return text(30,41,42,RED,'中');
  if(t===32)return text(30,41,42,GREEN,'發');

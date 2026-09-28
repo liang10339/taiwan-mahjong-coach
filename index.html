@@ -12,19 +12,20 @@
     <link rel="stylesheet" href="enhancements.css" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@900&display=swap" />
-    <link rel="stylesheet" href="state.css?v=10" />
-    <link rel="stylesheet" href="tiles.css?v=10" />
-    <link rel="stylesheet" href="table.css?v=10" />
+    <link rel="stylesheet" href="state.css?v=14" />
+    <link rel="stylesheet" href="tiles.css?v=14" />
+    <link rel="stylesheet" href="table.css?v=14" />
     <title>牌桌教練｜台灣麻將練習</title>
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
         <div class="brand"><span class="brand-mark">牌</span><span>牌桌教練</span></div>
-        <div class="topbar-actions"><span class="status-dot"></span><span>教練練習 v1.0</span><button class="icon-button" id="soundButton" title="音效：開" aria-pressed="true">🔊</button><button class="icon-button" id="resetButton" title="重新開始">↻</button></div>
+        <div class="topbar-actions"><span class="status-dot"></span><span>教練練習 v1.4</span><button class="icon-button" id="soundButton" title="音效：開" aria-pressed="true">🔊</button><button class="icon-button" id="resetButton" title="重新開始">↻</button></div>
       </header>
 
       <main class="page">
+        <details class="voice-settings"><summary>報牌聲音設定</summary><div class="voice-controls"><label>系統聲線 <select id="voiceSelect"></select></label><label>聲音風格 <select id="voiceStyle"></select></label><button class="secondary-button" id="voicePreview" type="button">試聽：八萬</button></div><p id="voiceStatus" role="status"></p></details>
         <section class="hero">
           <div>
             <p class="eyebrow">TAIWAN 16-TILE MAHJONG</p>
@@ -59,13 +60,14 @@
 
           <aside class="coach-card">
             <div class="coach-header"><div class="coach-icon">✦</div><div><p class="eyebrow">COACH INSIGHT</p><h3>教練觀察</h3></div></div>
+            <div class="coach-scroll" tabindex="0" role="region" aria-label="教練建議與提問，可捲動">
             <div class="coach-body" id="coachBody" aria-live="polite"></div>
             <div class="coach-footer"><button class="text-button" id="explainButton" aria-expanded="false" aria-controls="coachGlossary">名詞說明 <span>▾</span></button><span class="coach-level">基礎教練</span></div>
             <div class="coach-glossary hidden" id="coachGlossary">
               <p><b>進聽數</b>：離聽牌還差幾步。「一進聽」是再進一張合適的牌、打出一張後就有機會聽牌，不是再摸一次就一定聽。</p>
               <p><b>有效牌</b>：摸到後能讓進聽數減少的牌。張數只扣除你看得到的牌（自己手牌、牌河、攤牌），可能有些在對手手上，並非牌牆實際剩餘。</p>
               <p><b>搭子</b>：差一張就成組的兩張牌。兩面（如 34 等 2、5）最好，嵌張（如 46 等 5）與邊張（如 12 等 3）只能等一種。</p>
-              <p><b>範圍</b>：教練目前只比較牌效率，尚未考慮台數與防守（放槍風險）。</p>
+              <p><b>範圍</b>：進攻建議比較牌效率；防守另列可見牌組合排除與效率代價，不是放槍機率。尚未計台或判斷對手是否聽牌。</p>
             </div>
             <section class="coach-questions" aria-label="問教練">
               <h4>問教練</h4>
@@ -73,6 +75,7 @@
               <form id="askForm"><label for="askInput">依目前牌局提問（本機計算）</label><input id="askInput" maxlength="160" placeholder="例如：打白板可以嗎？碰好嗎？槓好嗎？" /><button class="primary-button" type="submit">詢問</button></form>
               <p id="askAnswer" role="status"></p>
             </section>
+            </div>
           </aside>
         </section>
 
@@ -80,15 +83,16 @@
 
         <section class="review-view hidden" id="reviewView"><div class="review-card"><div><p class="eyebrow">REVIEW CENTER</p><h2>最近的牌局</h2><p>完成一局後，這裡會整理值得回看的決策。</p></div><div class="empty-review"><span>◌</span><strong>還沒有可覆盤的牌局</strong><small>完成目前這一局後，就能看到你的選擇與教練建議。</small></div></div></section>
 
-        <section class="bottom-grid"><div class="tip-strip"><span class="tip-icon">i</span><div><strong>小提醒</strong><p>教練會比較多個合理選擇，不會把每一次不同選擇都判定為錯誤。</p></div></div><div class="rule-card"><p class="eyebrow">CURRENT RULESET</p><div class="rule-row"><strong>16 張摸打練習</strong><span>已支援吃碰槓胡；搶槓、過水與計台尚未實作</span></div><div class="rule-meta"><span>144 張牌</span><span>五組加一對</span><span>8 張花牌</span></div></div></section>
+        <section class="bottom-grid"><div class="tip-strip"><span class="tip-icon">i</span><div><strong>小提醒</strong><p>教練會比較多個合理選擇，不會把每一次不同選擇都判定為錯誤。</p></div></div><div class="rule-card"><p class="eyebrow">CURRENT RULESET</p><div class="rule-row"><strong>16 張摸打練習</strong><span>已支援吃碰槓胡與搶槓；含初階防守提示；過水與計台尚未實作</span></div><div class="rule-meta"><span>144 張牌</span><span>五組加一對</span><span>8 張花牌</span></div></div></section>
       </main>
     </div>
     <div class="toast" id="toast" role="status"></div>
-    <script src="engine.js?v=10"></script>
-    <script src="tiles.js?v=10"></script>
-    <script src="sound.js?v=10"></script>
-    <script src="coach.js?v=10"></script>
-    <script src="lessons.js?v=10"></script>
-    <script src="app.js?v=10"></script>
+    <script src="engine.js?v=14"></script>
+    <script src="tiles.js?v=14"></script>
+    <script src="sound.js?v=14"></script>
+    <script src="coach.js?v=14"></script>
+    <script src="lessons.js?v=14"></script>
+    <script src="defense.js?v=14"></script>
+    <script src="app.js?v=14"></script>
   </body>
 </html>

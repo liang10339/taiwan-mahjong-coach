@@ -3,6 +3,9 @@
 // 音效全部以 Web Audio 即時合成，不需要音檔；喊牌使用瀏覽器內建的中文語音。
 const KEY='mahjong-coach-sound';
 let enabled=true,ctx=null;
+const profiles={natural:{label:'自然原聲',pitch:1,rate:1.15},male:{label:'男聲風格（模擬）',pitch:.8,rate:1.1},female:{label:'女聲風格（模擬）',pitch:1.2,rate:1.15},elder:{label:'長者風格（模擬）',pitch:.85,rate:.9},child:{label:'童聲風格（模擬）',pitch:1.5,rate:1.2}};
+let voiceId='',profile='natural';
+try{voiceId=root.localStorage.getItem(KEY+'-voice')||'';const saved=root.localStorage.getItem(KEY+'-profile');if(profiles[saved])profile=saved;}catch(e){}
 try{enabled=root.localStorage.getItem(KEY)!=='off';}catch(e){}
 
 function audio(){
@@ -47,16 +50,22 @@ const effects={
  tick:c=>tone(c,c.currentTime,880,.08,.06,'sine')
 };
 function play(name){try{const c=audio();if(c&&effects[name])effects[name](c);}catch(e){}}
-// 喊牌：碰、吃、槓、胡、自摸
+// 中文牌名，不朗讀數字代碼；索子以台灣常用的「條」報牌。
+function tileName(t){if(!Number.isInteger(t)||t<0||t>41)return '';return t<27?'一二三四五六七八九'[t%9]+['萬','筒','條'][Math.floor(t/9)]:['東風','南風','西風','北風','紅中','青發','白板','春','夏','秋','冬','梅','蘭','竹','菊'][t-27];}
+function voices(){return root.speechSynthesis?.getVoices().filter(v=>/^zh|^cmn/i.test(v.lang))||[];}
+function setVoice(id,style){voiceId=id||'';profile=profiles[style]?style:'natural';try{root.localStorage.setItem(KEY+'-voice',voiceId);root.localStorage.setItem(KEY+'-profile',profile);}catch(e){}}
+function stop(){try{root.speechSynthesis?.cancel();}catch(e){}}
+// 排隊報牌，不能讓下一家的報牌把前一張切斷。
 function say(text){
- if(!enabled||!root.speechSynthesis||!root.SpeechSynthesisUtterance)return;
+ if(!text||!enabled||!root.speechSynthesis||!root.SpeechSynthesisUtterance)return false;
  try{
-  const u=new root.SpeechSynthesisUtterance(text);u.lang='zh-TW';u.rate=1.05;u.pitch=1;
-  const voice=root.speechSynthesis.getVoices().find(v=>/zh[-_]TW|zh[-_]HK|zh/i.test(v.lang));if(voice)u.voice=voice;
-  root.speechSynthesis.cancel();root.speechSynthesis.speak(u);
- }catch(e){}
+  const available=voices(),voice=available.find(v=>v.voiceURI===voiceId)||available.find(v=>/^zh[-_]TW$/i.test(v.lang))||available[0];
+  if(!voice)return false;
+  const u=new root.SpeechSynthesisUtterance(text);u.lang=voice.lang;u.voice=voice;u.rate=profiles[profile].rate;u.pitch=profiles[profile].pitch;
+  root.speechSynthesis.speak(u);return true;
+ }catch(e){return false;}
 }
 function setEnabled(on){enabled=!!on;try{root.localStorage.setItem(KEY,on?'on':'off');}catch(e){}if(!on&&root.speechSynthesis)try{root.speechSynthesis.cancel();}catch(e){}}
-const api={play,say,setEnabled,isEnabled:()=>enabled};
+const api={play,say,tileName,voices,profiles,setVoice,stop,settings:()=>({voiceId,profile}),setEnabled,isEnabled:()=>enabled};
 if(typeof module!=='undefined')module.exports=api;else root.Sound=api;
 })(globalThis);

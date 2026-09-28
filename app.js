@@ -3,7 +3,12 @@ const E=Mahjong, $=s=>document.querySelector(s);
 const seats=['你（東家・莊家）','南家','西家','北家'];
 let game=E.create(), selected=null, timer=null, generation=0, suggestions=[], lessonStep=0;
 let lastDrawn=null, turnLog=[], lastReview=null, explainCache={key:'',value:null};
+let reviewTimeline=[];
 let heard={log:0,phase:game.phase}, neatRiver=false, shownPile=0;
+let claimCache={key:'',value:null},kanCache={key:'',value:[]};
+function decisionKey(){return JSON.stringify([game.phase,game.hands[0],game.melds[0],E.publicTiles(game),game.pending?.tile,game.pending?.from,game.pending?.kind,game.wall.length>0]);}
+function currentClaim(){const key=decisionKey();if(claimCache.key!==key)claimCache={key,value:Coach.claimDecision(game,0)};return claimCache.value;}
+function currentKans(){const key=decisionKey();if(kanCache.key!==key)kanCache={key,value:Coach.selfKanDecision(game,0)};return kanCache.value;}
 try{neatRiver=localStorage.getItem('mahjong-coach-river')==='neat';}catch(e){}
 function notify(text){$('#toast').textContent=text;$('#toast').classList.add('show');clearTimeout(notify.timer);notify.timer=setTimeout(()=>$('#toast').classList.remove('show'),2400);}
 function tile(t){return E.names[t];}
@@ -12,6 +17,31 @@ function readiness(n){return n===0?'已聽牌':(['','一','兩','三','四','五
 function waiting(){return game.phase==='claim'&&!game.pending.decisions[0];}
 function el(tag,cls,text){const x=document.createElement(tag);if(cls)x.className=cls;if(text!=null)x.textContent=text;return x;}
 function tileRow(tiles,size='xs'){const row=el('span','tile-row');tiles.forEach(t=>row.append(Tiles.node(t,size)));return row;}
+function decisionCard(o){const card=el('div','coach-option claim-detail');card.append(el('p',null,o.compact));if(o.after)card.append(el('p','defense-note','吃碰後的出牌風險：'+Defense.describe(Defense.inspect(game,0,o.after.tile))));const more=el('details');more.append(el('summary',null,'看詳細計算與取捨'),el('p',null,o.text));card.append(more);return card;}
+function defenseCard(body){
+ const lead=currentExplain()?.best,options=lead?[lead,...suggestions.filter(o=>o!==lead)]:suggestions;
+ const report=Defense.compare(game,options);if(!report)return;
+ const card=el('section','defense-card');card.append(el('h5',null,'攻守取捨（不自動替你出牌）'),el('p',null,Defense.summary(game,options)));
+ const t=selected===null?report.guard.option.tile:game.hands[0][selected],risk=Defense.inspect(game,0,t),details=el('details');details.append(el('summary',null,'看'+Coach.label(t)+'對三家的判斷'));
+ for(const opponent of risk.opponents)details.append(el('p',null,seats[opponent.player]+'：已固定 '+opponent.groups+' 組；'+(opponent.ways.length?'尚可能以'+opponent.ways.map(w=>w.kind+'（持有'+w.needs.map(Coach.label).join('、')+'）').join('、')+'胡這張。':'已排除一般胡牌組合。')));
+ card.append(details);body.append(card);
+}
+function decisionRecord(choice,options,summary,kind='claim'){
+ return {kind,choice,at:game.log.length,tile:game.pending?.tile??choice.tile,summary,details:options.map(o=>o.compact).join('\n\n')};
+}
+function resolutionText(x){
+ if(x.kind==='skip-kan')return '未槓，已出牌。';
+ const events=game.log.slice(x.at);
+ if(x.kind==='self-kan'){
+  const result=events.find(e=>(e.action==='ron'&&e.robKan)||(e.player===0&&e.action===x.choice.type&&e.tile===x.choice.tile));
+  if(result?.robKan)return '加槓遭搶胡，未補牌。';
+  return result?'已完成槓牌與補牌流程（無牌可補時流局）。':'等待搶槓回應。';
+ }
+ const result=events.find(e=>e.action==='resolution');
+ if(!result)return '等待其他家回應。';
+ if(x.choice.type==='pass')return result.choice==='pass'?'全員略過，依序繼續。':seats[result.player]+'取得'+(actionName[result.choice]||result.choice)+'。';
+ return result.player===0&&result.choice===x.choice.type?'已取得'+actionName[x.choice.type]+'。':'未取得：其他家的優先權較高。';
+}
 function currentExplain(){
  if(!(game.turn===0&&game.phase==='discard'&&suggestions.length))return null;
  const pub=E.publicTiles(game),key=game.hands[0].join(',')+'|'+lastDrawn+'|'+pub.length+'|'+game.melds[0].length;
@@ -33,9 +63,11 @@ function coach(){
   copy.textContent=turnLog.length?'這局你出牌 '+turnLog.length+' 次，其中 '+good+' 次和教練首選相同。到「牌局覆盤」可以逐手回看差在哪裡。':'可到牌局覆盤查看本局操作，或重新開始。';return;
  }
  if(game.phase==='claim'){
-  title.replaceChildren(el('span',null,seats[game.pending.from]+'打出 '),Tiles.node(game.pending.tile,'sm'));
-  copy.textContent='先決定要不要吃碰槓胡，再繼續摸打。胡優先於碰／槓，碰／槓優先於吃。';
-  E.claims(game,0).forEach(a=>body.append(el('p','coach-option',actionName[a.type]+'：'+E.claimAdvice(game,0,a))));
+  title.replaceChildren(el('span',null,seats[game.pending.from]+(game.pending.kind==='robkan'?'加槓，是否搶胡？':'打出 ')),Tiles.node(game.pending.tile,'sm'));
+  if(!waiting()){copy.textContent='你已完成回應，等待其他玩家決定。';return;}
+  const decision=currentClaim();copy.textContent=decision.summary;
+  decision.options.forEach(o=>body.append(decisionCard(o)));
+  body.append(el('p','claim-limit',decision.limit));
   reviewCard(body);return;
  }
  if(game.turn!==0){title.textContent='等待'+seats[game.turn];copy.textContent='電腦依自己的手牌出牌，你可以趁這時看看牌河。';reviewCard(body);return;}
@@ -43,11 +75,15 @@ function coach(){
   title.textContent='輪到你摸牌';copy.textContent='目前'+readiness(E.shanten(game.hands[0],game.melds[0].length))+'。摸牌後，教練會解說這一手該怎麼打。';reviewCard(body);return;
  }
  if(E.winning(game.hands[0],game.melds[0].length)){title.textContent='可以自摸！';copy.textContent='五組加一對已成立，按「胡牌」結束本局。';return;}
+ for(const o of currentKans())body.append(decisionCard(o));
  const ex=currentExplain();if(!ex){title.textContent='請選牌出牌';copy.remove();return;}
  const best=ex.best;
+ defenseCard(body);
  title.replaceChildren(el('span',null,'建議打出 '),Tiles.node(best.tile,'md'));
  copy.className='coach-chips';copy.replaceChildren(el('span','chip',best.shanten===0?'打後聽牌':'打後'+readiness(best.shanten)),el('span','chip',(best.shanten===0?'可胡 ':'有效牌 ')+best.remaining+' 張'));
- body.append(el('h5',null,'這一手怎麼看'));
+ const recommendedKan=currentKans().find(o=>o.recommend);
+ if(recommendedKan){title.replaceChildren(el('span',null,'建議先'+actionName[recommendedKan.action.type]+' '),Tiles.node(recommendedKan.action.tile,'md'));copy.textContent='先看上方槓／不槓比較；以下是選擇不槓時的出牌方案。';}
+ body.append(el('h5',null,recommendedKan?'若不槓，這一手怎麼打':'這一手怎麼看'));
  const list=el('ul','coach-lines');ex.lines.forEach(line=>list.append(el('li',null,line)));body.append(list);
  body.append(el('h5',null,best.shanten===0?'聽的牌（未見張數）':'打掉後的有效牌（未見張數）'));
  const outs=el('div','out-grid');best.outs.forEach(o=>{const cell=el('span','out');cell.append(Tiles.node(o.tile,'xs'),el('b',null,String(o.remaining)));outs.append(cell);});body.append(outs);
@@ -81,7 +117,7 @@ function discardPile(){
  const pile=[];
  for(const e of game.log){
   if(e.action==='discard')pile.push({tile:e.tile,player:e.player});
-  else if(['chi','pon','kan','ron'].includes(e.action))pile.pop();
+  else if(['chi','pon','kan','ron'].includes(e.action)&&!e.robKan)pile.pop();
  }
  return pile;
 }
@@ -115,7 +151,7 @@ function soundEvents(){
  const calls={chi:'吃',pon:'碰',kan:'槓',concealed:'槓',added:'槓',ron:'胡'};
  for(const e of fresh){
   if(e.action==='draw'&&e.player===0)Sound.play('draw');
-  else if(e.action==='discard')Sound.play('discard');
+  else if(e.action==='discard'){Sound.play('discard');Sound.say(Sound.tileName(e.tile));}
   else if(calls[e.action]){Sound.play(e.action==='ron'?'win':'claim');Sound.say(calls[e.action]);}
  }
  if(game.phase==='ended'&&heard.phase!=='ended'){
@@ -127,7 +163,7 @@ function soundEvents(){
 }
 function render(){
  const mine=game.turn===0, choosing=mine&&game.phase==='discard';
- const status=game.phase==='ended'?game.result:game.phase==='claim'?'有人出牌：請選擇吃碰槓胡或略過':seats[game.turn]+(game.phase==='draw'?'：請摸牌':'：請出牌');
+ const status=game.phase==='ended'?game.result:game.phase==='claim'?(game.pending.kind==='robkan'?'加槓確認：等待搶槓胡或略過':'有人出牌：請選擇吃碰槓胡或略過'):seats[game.turn]+(game.phase==='draw'?'：請摸牌':'：請出牌');
  $('#turnStatus').textContent=status;$('#wallCount').textContent=game.wall.length;
  $('.player-label small').textContent=status;
  $('#phaseHelp').textContent=choosing?'點一張牌選取，再點一次（或按「確認出牌」、Enter）就打出。← → 可換選牌。':status;
@@ -156,23 +192,28 @@ function render(){
 }
 function renderReview(){
  const review=$('#reviewView .empty-review');review.replaceChildren();
- if(!turnLog.length){review.append(el('strong',null,'還沒有可覆盤的出牌'),el('small',null,'摸牌並出牌後，這裡會逐手記錄你的選擇與教練的解說。'));return;}
+ if(!reviewTimeline.length){review.append(el('strong',null,'還沒有可覆盤的決策'),el('small',null,'出牌、吃碰槓與略過都會記錄當時的比較。'));return;}
  const good=turnLog.filter(x=>x.judge.verdict==='best').length;
  review.append(el('p','review-summary','你出牌 '+turnLog.length+' 次，其中 '+good+' 次與教練首選相同。不同不代表錯誤，可以比較進聽數與有效牌差在哪裡。'));
- turnLog.forEach((x,i)=>{
+ reviewTimeline.forEach((x,i)=>{
+  if(x.kind){
+   const item=el('div','review-item claim-detail');
+   const chosenTiles=['chi','pon','kan'].includes(x.choice.type)?[...x.choice.tiles,x.tile].sort((a,b)=>a-b).map(Coach.label).join('、'):(x.tile==null?'':Coach.label(x.tile));
+   item.append(el('strong',null,(i+1)+'. '+(x.choice.type==='pass'?'略過':actionName[x.choice.type])+' '+chosenTiles),el('p',null,x.summary),el('p',null,resolutionText(x)));
+   const details=el('details');details.append(el('summary',null,'當時行動／略過比較'),el('p',null,x.details));item.append(details);review.append(item);return;
+  }
   const item=el('div','review-item '+x.judge.verdict),head=el('div','review-head');
   head.append(el('span','review-turn','第 '+(i+1)+' 手'),el('span',null,'摸'),x.drawn==null?el('span',null,'—'):Tiles.node(x.drawn,'xs'),el('span',null,'打'),Tiles.node(x.tile,'xs'),el('span','verdict',x.judge.verdict==='best'?'✓ 與教練相同':'教練建議'),...(x.judge.verdict==='best'?[]:[Tiles.node(x.best,'xs')]));
-  item.append(head,el('p',null,x.judge.text+(x.reason?' '+x.reason:'')));review.append(item);
+  item.append(head,el('p',null,x.judge.text+(x.reason?' '+x.reason:'')));if(x.defense)item.append(el('p','defense-note','當時的防守觀察：'+x.defense));review.append(item);
  });
  const log=el('details','review-log');log.append(el('summary',null,'完整動作紀錄'));
- game.log.filter(e=>e.action!=='draw').forEach((e,i)=>log.append(el('div',null,(i+1)+'. '+seats[e.player]+' '+(actionName[e.action]||'打')+' '+tile(e.tile))));review.append(log);
+ game.log.filter(e=>e.action!=='draw').forEach((e,i)=>log.append(el('div',null,(i+1)+'. '+seats[e.player]+' '+(e.action==='response'?'選擇'+(actionName[e.choice]||'略過'):e.action==='resolution'?'回應結果：'+(actionName[e.choice]||'全員略過'):e.action==='added-attempt'?'嘗試加槓':e.robKan?'搶槓胡':actionName[e.action]||'打')+' '+tile(e.tile))));review.append(log);
 }
 function analyze(){suggestions=game.turn===0&&game.phase==='discard'?E.analyze(game.hands[0],E.publicTiles(game),game.melds[0].length):[];}
 function computers(){
  if(game.phase==='claim'){
   for(let p=1;p<4&&game.phase==='claim';p++)if(!game.pending.decisions[p]){
-   const options=E.claims(game,p);
-   const choice=options.find(a=>a.type==='ron')||options.find(a=>a.type==='pon')||{type:'pass'};
+   const choice=Coach.chooseClaim(game,p);
    E.respond(game,p,choice);
   }
   analyze();render();
@@ -184,7 +225,8 @@ function computers(){
   if(epoch!==generation)return;
   const p=game.turn;
   if(game.phase==='draw'){E.draw(game,p);if(game.phase==='discard'&&E.winning(game.hands[p],game.melds[p].length))E.win(game,p);}
-  else E.discard(game,p,E.aiIndex(game.hands[p],game.melds[p].length));
+  else if(E.winning(game.hands[p],game.melds[p].length))E.win(game,p);
+  else {const kan=Coach.chooseKan(game,p);if(kan)E.selfKan(game,p,kan);else {const best=E.analyze(game.hands[p],E.publicTiles(game,p),game.melds[p].length)[0];E.discard(game,p,game.hands[p].indexOf(best.tile));}}
   render();computers();
  },450);
 }
@@ -192,15 +234,18 @@ $('#drawButton').onclick=()=>{if(E.draw(game,0)){selected=null;lastDrawn=game.lo
 $('#discardButton').onclick=()=>{
  if(selected===null||game.phase!=='discard'||game.turn!==0)return;
  const t=game.hands[0][selected],ex=currentExplain(),best=ex?ex.best:suggestions[0];
+ const kans=currentKans(),skipped=kans.length?decisionRecord({type:'pass'},kans,'未槓，選擇打'+tile(t),'skip-kan'):null;
  const record=best?{tile:t,drawn:lastDrawn,best:best.tile,judge:Coach.judge(suggestions,t,best),reason:Coach.tileRole(game.hands[0],best.tile,E.publicTiles(game),game.melds[0].length)}:null;
- if(E.discard(game,0,selected)){if(record){turnLog.push(record);lastReview=record;}selected=null;lastDrawn=null;suggestions=[];render();computers();}
+ if(record)record.defense=Defense.describe(Defense.inspect(game,0,t));
+ if(E.discard(game,0,selected)){if(skipped)reviewTimeline.push(skipped);if(record){turnLog.push(record);reviewTimeline.push(record);lastReview=record;}selected=null;lastDrawn=null;suggestions=[];render();computers();}
 };
 $('#winButton').onclick=()=>{if(E.win(game,0)){clearTimeout(timer);render();}};
 $('#sortButton').onclick=()=>{game.hands[0].sort((a,b)=>a-b);selected=null;render();};
-$('#resetButton').onclick=()=>{generation++;clearTimeout(timer);game=E.create();selected=null;suggestions=[];lastDrawn=null;turnLog=[];lastReview=null;heard={log:0,phase:game.phase};if(typeof Sound!=='undefined')Sound.play('shuffle');render();};
+$('#resetButton').onclick=()=>{generation++;clearTimeout(timer);game=E.create();selected=null;suggestions=[];lastDrawn=null;turnLog=[];reviewTimeline=[];lastReview=null;heard={log:0,phase:game.phase};if(typeof Sound!=='undefined'){Sound.stop();Sound.play('shuffle');}render();};
 $('#hintButton').onclick=()=>{analyze();coach();};
 $('#explainButton').onclick=()=>{const open=!$('#coachGlossary').classList.toggle('hidden');$('#explainButton').setAttribute('aria-expanded',String(open));};
 function askCoach(question){
+ if(/防守|安全|危險|放槍/.test(question)){if(game.turn===0&&game.phase==='discard'){analyze();$('#askAnswer').textContent=Defense.summary(game,suggestions)+(selected===null?'':'\n你選的牌：'+Defense.describe(Defense.inspect(game,0,game.hands[0][selected])));}else $('#askAnswer').textContent='輪到你出牌時可比較防守；吃碰回應卡會提示後續出牌風險。';return;}
  $('#askAnswer').textContent=Coach.contextualAnswer(question,game,selected===null?null:game.hands[0][selected]);
 }
 $('#askSelected').onclick=()=>askCoach('這張可以嗎');
@@ -215,7 +260,7 @@ function syncToggles(){
 }
 // 鍵盤：空白鍵摸牌、Enter 確認出牌、← → 選牌
 document.addEventListener?.('keydown',e=>{
- if(e.target&&/INPUT|TEXTAREA/.test(e.target.tagName))return;
+ if(e.target&&/INPUT|TEXTAREA|SELECT|BUTTON|SUMMARY/.test(e.target.tagName))return;
  const choosing=game.turn===0&&game.phase==='discard';
  if(e.key===' '&&!$('#drawButton').disabled){e.preventDefault();$('#drawButton').onclick();}
  else if(e.key==='Enter'&&choosing&&selected!==null){e.preventDefault();$('#discardButton').onclick();}
@@ -227,14 +272,31 @@ function renderClaims(){
   for(const a of [...E.claims(game,0),{type:'pass'}]){
    const button=document.createElement('button');button.className='secondary-button';
    button.textContent=a.type==='pass'?'略過（不吃碰槓胡）':actionName[a.type]+' '+a.tiles.map(tile).join(' ');
-   button.onclick=()=>{if(E.respond(game,0,a)){selected=null;lastDrawn=null;analyze();render();computers();}};target.append(button);
+   button.onclick=()=>{const report=currentClaim(),record=decisionRecord(a,report.options,report.summary);if(E.respond(game,0,a)){reviewTimeline.push(record);selected=null;lastDrawn=null;analyze();render();computers();}};target.append(button);
   }
  }else for(const a of E.selfKans(game,0)){
   const button=document.createElement('button');button.className='secondary-button';button.textContent=actionName[a.type]+' '+tile(a.tile);
-  button.onclick=()=>{if(E.selfKan(game,0,a)){selected=null;lastDrawn=null;analyze();render();}};target.append(button);
+  button.onclick=()=>{const options=currentKans(),chosen=options.find(o=>JSON.stringify(o.action)===JSON.stringify(a)),record=decisionRecord(a,options,chosen?.compact||'','self-kan');record.tile=a.tile;if(E.selfKan(game,0,a)){reviewTimeline.push(record);selected=null;lastDrawn=null;analyze();render();computers();}};target.append(button);
  }
 }
-syncToggles();render();
+function setupVoice(){
+ if(typeof Sound==='undefined'||!Sound.voices)return;
+ const select=$('#voiceSelect'),style=$('#voiceStyle');
+ for(const [key,p] of Object.entries(Sound.profiles)){const o=el('option',null,p.label);o.value=key;style.append(o);}
+ style.value=Sound.settings().profile;
+ const refresh=()=>{const list=Sound.voices(),saved=Sound.settings();select.replaceChildren();const auto=el('option',null,'自動選擇中文語音');auto.value='';select.append(auto);for(const v of list){const o=el('option',null,v.name+'（'+v.lang+'）');o.value=v.voiceURI;select.append(o);}select.value=list.some(v=>v.voiceURI===saved.voiceId)?saved.voiceId:'';$('#voiceStatus').textContent=list.length?'系統聲線依裝置提供；男女老少風格為音高／語速模擬，不是真人錄音。'+(saved.voiceId&&!list.some(v=>v.voiceURI===saved.voiceId)?'原聲線不可用，暫用自動選擇。':''):'目前沒有可用中文語音。請在系統安裝中文語音後重新開啟瀏覽器；碰牌音效仍可使用。';};
+ select.onchange=style.onchange=()=>{Sound.stop();Sound.setVoice(select.value,style.value);};
+ $('#voicePreview').onclick=()=>{Sound.stop();if(!Sound.say('八萬，三筒，六條，白板'))$('#voiceStatus').textContent=Sound.isEnabled()?'無法播放：尚無可用中文語音或瀏覽器不支援。':'目前已靜音，請先開啟右上角音效。';};
+ globalThis.speechSynthesis?.addEventListener('voiceschanged',refresh);refresh();
+}
+// 量測實際牌桌外框，避免標題、字型或視窗寬度改變後錯位。
+function setupCoachSize(){
+ if(typeof ResizeObserver==='undefined')return;
+ const table=$('.mahjong-table'),column=$('.table-column'),card=$('.coach-card');
+ const sync=()=>{const rect=table.getBoundingClientRect(),parent=column.getBoundingClientRect();if(rect.height){card.style.setProperty('--table-height',rect.height+'px');card.style.setProperty('--table-offset',(rect.top-parent.top)+'px');}};
+ const observer=new ResizeObserver(sync);observer.observe(table);observer.observe(column);sync();
+}
+setupVoice();syncToggles();render();setupCoachSize();
 if(typeof setupLessons==='function')setupLessons($,mode);
 if('serviceWorker' in navigator){
  let reloading=false;
