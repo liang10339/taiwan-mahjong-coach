@@ -12,9 +12,9 @@
     <link rel="stylesheet" href="enhancements.css" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@900&display=swap" />
-    <link rel="stylesheet" href="state.css?v=16" />
-    <link rel="stylesheet" href="tiles.css?v=16" />
-    <link rel="stylesheet" href="table.css?v=16" />
+    <link rel="stylesheet" href="state.css?v=17" />
+    <link rel="stylesheet" href="tiles.css?v=17" />
+    <link rel="stylesheet" href="table.css?v=17" />
     <title>牌桌教練｜台灣麻將練習</title>
   </head>
   <body>
@@ -26,7 +26,7 @@
           <button class="mode-tab" data-mode="lesson">新手學堂</button>
           <button class="mode-tab" data-mode="review">牌局覆盤</button>
         </nav>
-        <div class="topbar-actions"><span class="status-dot"></span><span class="version">教練練習 v1.5</span><details class="voice-settings"><summary class="icon-button" title="報牌聲音設定" aria-label="報牌聲音設定">🗣</summary><div class="voice-panel"><strong>報牌聲音設定</strong><div class="voice-controls"><label>系統聲線 <select id="voiceSelect"></select></label><label>聲音風格 <select id="voiceStyle"></select></label><button class="secondary-button" id="voicePreview" type="button">試聽：八萬</button></div><p id="voiceStatus" role="status"></p></div></details><button class="icon-button" id="soundButton" title="音效：開" aria-pressed="true">🔊</button><button class="icon-button" id="resetButton" title="重新開始">↻</button></div>
+        <div class="topbar-actions"><span class="status-dot"></span><span class="version">教練練習 v1.6</span><details class="voice-settings"><summary class="icon-button" title="報牌聲音設定" aria-label="報牌聲音設定">🗣</summary><div class="voice-panel"><strong>報牌聲音設定</strong><div class="voice-controls"><label>系統聲線 <select id="voiceSelect"></select></label><label>聲音風格 <select id="voiceStyle"></select></label><button class="secondary-button" id="voicePreview" type="button">試聽：八萬</button></div><p id="voiceStatus" role="status"></p></div></details><button class="icon-button" id="soundButton" title="音效：開" aria-pressed="true">🔊</button><button class="icon-button" id="resetButton" title="重新開始">↻</button></div>
       </header>
 
       <main class="page">
@@ -72,16 +72,32 @@
 
         <section class="review-view hidden" id="reviewView"><div class="review-card"><div><p class="eyebrow">REVIEW CENTER</p><h2>最近的牌局</h2><p>完成一局後，這裡會整理值得回看的決策。</p></div><div class="empty-review"><span>◌</span><strong>還沒有可覆盤的牌局</strong><small>完成目前這一局後，就能看到你的選擇與教練建議。</small></div></div></section>
 
-        <section class="bottom-grid"><div class="tip-strip"><span class="tip-icon">i</span><div><strong>小提醒</strong><p>教練會比較多個合理選擇，不會把每一次不同選擇都判定為錯誤。</p></div></div><div class="rule-card"><p class="eyebrow">CURRENT RULESET</p><div class="rule-row"><strong>16 張摸打練習</strong><span>已支援吃碰槓胡與搶槓；含初階防守提示；過水與計台尚未實作</span></div><div class="rule-meta"><span>144 張牌</span><span>五組加一對</span><span>8 張花牌</span></div></div></section>
+        <section class="bottom-grid"><div class="tip-strip"><span class="tip-icon">i</span><div><strong>小提醒</strong><p>教練會比較多個合理選擇，不會把每一次不同選擇都判定為錯誤。</p></div></div><div class="rule-card"><p class="eyebrow">CURRENT RULESET</p><div class="rule-row"><strong>台灣 16 張・北部台算法</strong><span>已支援吃碰槓胡、搶槓與台數計算；含初階防守提示；過水、連莊、報聽尚未實作</span></div><div class="rule-meta"><span>144 張牌</span><span>五組加一對</span><span>8 張花牌</span></div>
+          <details class="tai-table"><summary>查看台數表</summary>
+            <div class="tai-grid">
+              <div><h5>莊台</h5><p>莊家 1（莊家胡牌或放槍；閒家自摸時莊家付的那份加 1）</p><p class="todo">連莊 n×2+1：單局練習尚未實作</p></div>
+              <div><h5>牌型台</h5><p>門清 1・獨聽 1（邊張、嵌張、單吊）</p><p>平胡 2（五組順子、無字無花、胡別人、非獨聽）</p><p>碰碰胡 4</p></div>
+              <div><h5>花台</h5><p>正花 1（東：春梅；南：夏蘭；西：秋竹；北：冬菊）</p><p>花槓 1＋正花數（集滿一組四季或四君子）</p><p>七搶一 8・八仙過海 8</p></div>
+              <div><h5>天地人胡</h5><p>天胡 24・地胡 16・人胡 16（均不能有人吃碰槓）</p><p class="todo">天聽 8・地聽 4・Migi（咪機）8：需要報聽，尚未實作</p></div>
+              <div><h5>三元台</h5><p>三元刻 1・小三元 4・大三元 8</p></div>
+              <div><h5>暗刻台</h5><p>三暗刻 2・四暗刻 5・五暗刻 8（胡別人完成的刻子不算暗刻）</p></div>
+              <div><h5>風刻台</h5><p>風位牌 1・風圈牌 1（有花玩法；圈風固定為東）</p><p>小四喜 8・大四喜 16</p></div>
+              <div><h5>自摸台</h5><p>自摸 1・門清自摸 3（門清＋自摸＋不求人）</p><p>海底撈月 1・槓上開花 1</p></div>
+              <div><h5>一色台</h5><p>混一色 4・清一色 8・字一色 16</p></div>
+              <div><h5>胡牌方式</h5><p>全求人 1・搶槓 1・河底撈魚 1</p></div>
+              <div><h5>特殊牌</h5><p>嚦咕嚦咕 8（門清七對加一刻）</p></div>
+            </div>
+          </details></div></section>
       </main>
     </div>
     <div class="toast" id="toast" role="status"></div>
-    <script src="engine.js?v=16"></script>
-    <script src="tiles.js?v=16"></script>
-    <script src="sound.js?v=16"></script>
-    <script src="coach.js?v=16"></script>
-    <script src="lessons.js?v=16"></script>
-    <script src="defense.js?v=16"></script>
-    <script src="app.js?v=16"></script>
+    <script src="engine.js?v=17"></script>
+    <script src="tiles.js?v=17"></script>
+    <script src="sound.js?v=17"></script>
+    <script src="coach.js?v=17"></script>
+    <script src="lessons.js?v=17"></script>
+    <script src="defense.js?v=17"></script>
+    <script src="scoring.js?v=17"></script>
+    <script src="app.js?v=17"></script>
   </body>
 </html>

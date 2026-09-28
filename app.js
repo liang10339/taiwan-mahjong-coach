@@ -2,6 +2,7 @@
 const E=Mahjong, $=s=>document.querySelector(s);
 const seats=['你（東家・莊家）','南家','西家','北家'];
 let game=E.create(), selected=null, timer=null, generation=0, suggestions=[], lessonStep=0;
+let scoreCache={log:-1,value:null};
 let lastDrawn=null, turnLog=[], lastReview=null, explainCache={key:'',value:null};
 let reviewTimeline=[];
 let heard={log:0,phase:game.phase}, neatRiver=false, shownPile=0;
@@ -59,8 +60,9 @@ function coach(){
  const title=el('h4'),copy=el('p');body.append(title,copy);
  if(game.phase==='ended'){
   title.textContent=game.result;
+  const ws=winScore();if(ws)body.append(scoreCard(ws));
   const good=turnLog.filter(x=>x.judge.verdict==='best').length;
-  copy.textContent=turnLog.length?'這局你出牌 '+turnLog.length+' 次，其中 '+good+' 次和教練首選相同。到「牌局覆盤」可以逐手回看差在哪裡。':'可到牌局覆盤查看本局操作，或重新開始。';return;
+  body.append(copy);copy.textContent=turnLog.length?'這局你出牌 '+turnLog.length+' 次，其中 '+good+' 次和教練首選相同。到「牌局覆盤」可以逐手回看差在哪裡。':'可到牌局覆盤查看本局操作，或重新開始。';return;
  }
  if(game.phase==='claim'){
   title.replaceChildren(el('span',null,seats[game.pending.from]+(game.pending.kind==='robkan'?'加槓，是否搶胡？':'打出 ')),Tiles.node(game.pending.tile,'sm'));
@@ -87,6 +89,7 @@ function coach(){
  const list=el('ul','coach-lines');ex.lines.forEach(line=>list.append(el('li',null,line)));body.append(list);
  body.append(el('h5',null,best.shanten===0?'聽的牌（未見張數）':'打掉後的有效牌（未見張數）'));
  const outs=el('div','out-grid');best.outs.forEach(o=>{const cell=el('span','out');cell.append(Tiles.node(o.tile,'xs'),el('b',null,String(o.remaining)));outs.append(cell);});body.append(outs);
+ if(best.shanten===0){const rest=game.hands[0].slice();rest.splice(rest.indexOf(best.tile),1);const est=tenpaiEstimate(rest,best.outs.map(o=>o.tile));if(est){body.append(el('h5',null,'聽牌台數預估（胡別人／自摸）'));body.append(est);}}
  body.append(el('h5',null,'打法比較'));
  const table=el('div','compare-table'),max=Math.max(1,...suggestions.map(o=>o.remaining));
  const rows=[...ex.tied.slice(0,2),...suggestions.filter(o=>!ex.tied.includes(o)).slice(0,3)];
@@ -163,7 +166,7 @@ function soundEvents(){
 }
 function render(){
  const mine=game.turn===0, choosing=mine&&game.phase==='discard';
- const status=game.phase==='ended'?game.result:game.phase==='claim'?(game.pending.kind==='robkan'?'加槓確認：等待搶槓胡或略過':'有人出牌：請選擇吃碰槓胡或略過'):seats[game.turn]+(game.phase==='draw'?'：請摸牌':'：請出牌');
+ const ws=winScore(),status=game.phase==='ended'?game.result+(ws?'・'+ws.result.total+' 台':''):game.phase==='claim'?(game.pending.kind==='robkan'?'加槓確認：等待搶槓胡或略過':'有人出牌：請選擇吃碰槓胡或略過'):seats[game.turn]+(game.phase==='draw'?'：請摸牌':'：請出牌');
  $('#turnStatus').textContent=status;$('#wallCount').textContent=game.wall.length;
  $('.player-label small').textContent=status;
  $('#phaseHelp').textContent=choosing?'點一張牌選取，再點一次（或按「確認出牌」、Enter）就打出。← → 可換選牌。':status;
@@ -190,8 +193,46 @@ function render(){
  renderReview();
  soundEvents();
 }
+// 胡牌後的台數（依牌局紀錄計算一次後快取）
+function winScore(){
+ if(game.phase!=='ended'||typeof Scoring==='undefined')return null;
+ const w=[...game.log].reverse().find(e=>['ron','tsumo','flowers'].includes(e.action));
+ if(!w)return null;
+ if(scoreCache.log!==game.log.length)scoreCache={log:game.log.length,value:{winner:w.player,result:Scoring.score(game,w.player)}};
+ return scoreCache.value;
+}
+function scoreCard(ws){
+ const card=el('div','score-card'),head=el('div','score-head');
+ head.append(el('strong',null,(ws.winner===0?'你':seats[ws.winner])+' 胡牌'),el('span','score-total',ws.result.total+' 台'));
+ card.append(head);
+ const hand=el('div','score-hand');game.melds[ws.winner].forEach(m=>{const g=el('span','meld-group');m.tiles.forEach(t=>g.append(Tiles.node(t,'xs')));hand.append(g);});
+ const closed=el('span','meld-group');game.hands[ws.winner].forEach(t=>closed.append(Tiles.node(t,'xs')));hand.append(closed);
+ if(game.flowers[ws.winner].length){const f=el('span','flower-group');game.flowers[ws.winner].forEach(t=>f.append(Tiles.node(t,'xs')));hand.append(f);}
+ card.append(hand);
+ const list=el('ul','score-items');
+ if(!ws.result.items.length)list.append(el('li',null,'沒有台數（屁胡），只算底。'));
+ ws.result.items.forEach(x=>{const li=el('li');li.append(el('span','score-name',x.name),el('span','score-tai',x.tai+' 台'));if(x.note)li.append(el('small',null,x.note));list.append(li);});
+ card.append(list);
+ if(ws.result.payer)card.append(el('p','score-payer','付款：'+ws.result.payer));
+ return card;
+}
+// 聽牌時預估每張胡牌的台數（放槍／自摸）
+function tenpaiEstimate(rest,waits){
+ if(typeof Scoring==='undefined')return null;
+ const box=el('div','tai-estimate');
+ waits.forEach(t=>{
+  const g={...game,hands:game.hands.map((h,i)=>i===0?[...rest,t]:h),log:[...game.log]};
+  const later={anyDiscard:true,ownDiscards:1,special:null,robKan:false,afterKan:false,lastTile:false}; // 預估的是打出這張之後才胡，天地人胡不適用
+  const ron=Scoring.score(g,0,{...later,tsumo:false,tile:t,from:null});
+  const tsumo=Scoring.score(g,0,{...later,tsumo:true,tile:t,from:null});
+  const row=el('span','estimate');row.title=Scoring.summary(ron);
+  row.append(Tiles.node(t,'xs'),el('b',null,'胡 '+ron.total+' 台'),el('small',null,'自摸 '+tsumo.total+' 台'));box.append(row);
+ });
+ return box;
+}
 function renderReview(){
  const review=$('#reviewView .empty-review');review.replaceChildren();
+ const ws=winScore();if(ws)review.append(scoreCard(ws));
  if(!reviewTimeline.length){review.append(el('strong',null,'還沒有可覆盤的決策'),el('small',null,'出牌、吃碰槓與略過都會記錄當時的比較。'));return;}
  const good=turnLog.filter(x=>x.judge.verdict==='best').length;
  review.append(el('p','review-summary','你出牌 '+turnLog.length+' 次，其中 '+good+' 次與教練首選相同。不同不代表錯誤，可以比較進聽數與有效牌差在哪裡。'));
@@ -241,7 +282,7 @@ $('#discardButton').onclick=()=>{
 };
 $('#winButton').onclick=()=>{if(E.win(game,0)){clearTimeout(timer);render();}};
 $('#sortButton').onclick=()=>{game.hands[0].sort((a,b)=>a-b);selected=null;render();};
-$('#resetButton').onclick=()=>{generation++;clearTimeout(timer);game=E.create();selected=null;suggestions=[];lastDrawn=null;turnLog=[];reviewTimeline=[];lastReview=null;heard={log:0,phase:game.phase};if(typeof Sound!=='undefined'){Sound.stop();Sound.play('shuffle');}render();};
+$('#resetButton').onclick=()=>{generation++;clearTimeout(timer);game=E.create();scoreCache={log:-1,value:null};selected=null;suggestions=[];lastDrawn=null;turnLog=[];reviewTimeline=[];lastReview=null;heard={log:0,phase:game.phase};if(typeof Sound!=='undefined'){Sound.stop();Sound.play('shuffle');}render();};
 $('#hintButton').onclick=()=>{analyze();coach();};
 $('#explainButton').onclick=()=>{const open=!$('#coachGlossary').classList.toggle('hidden');$('#explainButton').setAttribute('aria-expanded',String(open));};
 function askCoach(question){
