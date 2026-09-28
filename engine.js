@@ -15,7 +15,9 @@ function shanten(hand,open=0){
   c[i]--;visit(m,t,p);c[i]++;
  } visit(open,0,0);return best;
 }
-function winning(hand,open=0){return hand.length===17-3*open&&countsOf(hand).every(n=>n<=4)&&shanten(hand,open)===-1;}
+// 嚦咕嚦咕：門清，七對加一刻
+function liguLigu(hand,open=0){if(open||hand.length!==17)return false;const c=countsOf(hand);let pairs=0,triples=0;for(const n of c){if(n===2)pairs++;else if(n===4)pairs+=2;else if(n===3)triples++;else if(n)return false;}return pairs===7&&triples===1;}
+function winning(hand,open=0){return hand.length===17-3*open&&countsOf(hand).every(n=>n<=4)&&(shanten(hand,open)===-1||liguLigu(hand,open));}
 function analyze(hand,publicTiles=[],open=0,memo=new Map()){
  const known=countsOf([...hand,...publicTiles.filter(t=>t<34)]);
  const value=h=>{const key=open+':'+countsOf(h).join('');if(!memo.has(key))memo.set(key,shanten(h,open));return memo.get(key);};
@@ -31,12 +33,24 @@ function create(seed=Date.now()){
  for(let i=wall.length-1;i>0;i--){const j=Math.floor(random()*(i+1));[wall[i],wall[j]]=[wall[j],wall[i]];}
  const g={seed,wall,hands:[[],[],[],[]],flowers:[[],[],[],[]],rivers:[[],[],[],[]],melds:[[],[],[],[]],pending:null,turn:0,phase:'draw',result:'',log:[]};
  for(let r=0;r<16;r++)for(let p=0;p<4;p++)take(g,p);
- g.hands.forEach(h=>h.sort((a,b)=>a-b));return g;
+ g.hands.forEach(h=>h.sort((a,b)=>a-b));g.lastTake=null;endFlowerWin(g);return g;
 }
-function take(g,p,tail=false){while(g.wall.length){const t=tail?g.wall.shift():g.wall.pop();if(t>=34){g.flowers[p].push(t);tail=true;continue;}g.hands[p].push(t);return t;}return null;}
-function draw(g,p){if(g.phase!=='draw'||g.turn!==p)return false;const t=take(g,p);if(t===null){g.phase='ended';g.result='牌牆已空，流局';return false;}g.phase='discard';g.log.push({player:p,action:'draw',tile:t});return true;}
+function take(g,p,tail=false){const kan=tail;while(g.wall.length){const t=tail?g.wall.shift():g.wall.pop();if(t>=34){g.flowers[p].push(t);tail=true;flowerWin(g,p);continue;}g.hands[p].push(t);g.lastTake={player:p,tile:t,afterKan:kan};return t;}return null;}
+// 八仙過海：集滿八張花；七搶一：手上七張花時，別家摸到第八張可直接搶走胡牌
+function flowerWin(g,p){
+ if(g.phase==='ended'||g.flowerWin)return;
+ if(g.flowers[p].length===8)g.flowerWin={player:p,special:'eightFlowers'};
+ else{const q=[0,1,2,3].find(x=>x!==p&&g.flowers[x].length===7);if(q!==undefined&&g.flowers[p].length===1){g.flowers[q].push(g.flowers[p].pop());g.flowerWin={player:q,special:'sevenRobOne',from:p};}}
+}
+function endFlowerWin(g){
+ if(!g.flowerWin||g.phase==='ended')return false;
+ const w=g.flowerWin;g.phase='ended';g.turn=w.player;
+ g.result=(w.player===0?'你':names[27+w.player]+'家')+(w.special==='eightFlowers'?'八仙過海（集滿八張花）':'七搶一（搶走'+names[27+w.from]+'家的花）');
+ g.log.push({player:w.player,action:'flowers',special:w.special,from:w.from});return true;
+}
+function draw(g,p){if(g.phase!=='draw'||g.turn!==p)return false;const t=take(g,p);if(endFlowerWin(g))return true;if(t===null){g.phase='ended';g.result='牌牆已空，流局';return false;}g.phase='discard';g.log.push({player:p,action:'draw',tile:t});return true;}
 function discard(g,p,index){if(g.phase!=='discard'||g.turn!==p||!Number.isInteger(index)||index<0||index>=g.hands[p].length)return false;const [t]=g.hands[p].splice(index,1);g.rivers[p].push(t);g.log.push({player:p,action:'discard',tile:t});g.turn=(p+1)%4;g.phase='claim';g.pending={from:p,tile:t,decisions:{}};for(let q=0;q<4;q++)if(q===p||claims(g,q).length===0)g.pending.decisions[q]={type:'pass'};resolve(g);return true;}
-function win(g,p){if(g.phase!=='discard'||g.turn!==p||!winning(g.hands[p],g.melds[p].length))return false;g.phase='ended';g.result=(p===0?'你':names[27+p]+'家')+'自摸，五組加一對成立';return true;}
+function win(g,p){if(g.phase!=='discard'||g.turn!==p||!winning(g.hands[p],g.melds[p].length))return false;const last=g.lastTake&&g.lastTake.player===p?g.lastTake:{};g.phase='ended';g.result=(p===0?'你':names[27+p]+'家')+'自摸'+(liguLigu(g.hands[p],g.melds[p].length)?'，嚦咕嚦咕成立':'，五組加一對成立');g.log.push({player:p,action:'tsumo',tile:last.tile,afterKan:!!last.afterKan});return true;}
 function aiIndex(hand,open=0){let best=Infinity,index=0;for(let i=0;i<hand.length;i++){const h=hand.filter((_,j)=>i!==j),s=shanten(h,open);if(s<best){best=s;index=i;}}return index;}
 
 function claims(g,p){
@@ -66,17 +80,17 @@ function resolve(g){
  if(pending.kind==='robkan'){
   if(!ranked.length){finishAdded(g,pending.from,pending.kan);return;}
   const {p}=ranked[0];g.hands[pending.from].splice(g.hands[pending.from].indexOf(pending.tile),1);g.hands[p].push(pending.tile);
-  g.turn=p;g.phase='ended';g.result=(p===0?'你':names[27+p]+'家')+'搶槓胡 '+names[pending.tile];g.log.push({player:p,action:'ron',tile:pending.tile,robKan:true});return;
+  g.turn=p;g.phase='ended';g.result=(p===0?'你':names[27+p]+'家')+'搶槓胡 '+names[pending.tile];g.log.push({player:p,action:'ron',tile:pending.tile,robKan:true,from:pending.from});return;
  }
  if(!ranked.length){g.phase=g.wall.length?'draw':'ended';if(!g.wall.length)g.result='牌牆已空，流局';return;}
  const {p,a}=ranked[0];g.turn=p;g.rivers[pending.from].pop();
- if(a.type==='ron'){g.hands[p].push(pending.tile);g.phase='ended';g.result=(p===0?'你':names[27+p]+'家')+'胡 '+names[pending.tile]+'（'+names[27+pending.from]+'家放槍）';g.log.push({player:p,action:'ron',tile:pending.tile});return;}
+ if(a.type==='ron'){g.hands[p].push(pending.tile);g.phase='ended';g.result=(p===0?'你':names[27+p]+'家')+'胡 '+names[pending.tile]+'（'+names[27+pending.from]+'家放槍）';g.log.push({player:p,action:'ron',tile:pending.tile,from:pending.from});return;}
  for(const t of a.tiles)g.hands[p].splice(g.hands[p].indexOf(t),1);
  g.melds[p].push({type:a.type,tiles:[...a.tiles,pending.tile].sort((a,b)=>a-b),from:pending.from});
  g.log.push({player:p,action:a.type,tile:pending.tile});g.phase='discard';
  if(a.type==='kan')supplement(g,p);
 }
-function supplement(g,p){if(take(g,p,true)===null){g.phase='ended';g.result='無牌可補，流局';}}
+function supplement(g,p){const t=take(g,p,true);if(endFlowerWin(g))return;if(t===null){g.phase='ended';g.result='無牌可補，流局';}}
 function selfKans(g,p){
  if(g.phase!=='discard'||g.turn!==p||!g.wall.length)return [];
  const c=countsOf(g.hands[p]),out=[];
@@ -108,6 +122,6 @@ function claimAdvice(g,p,a){
  return '目前 '+progress(before)+'；'+(a.type==='chi'?'吃':'碰')+'後再出一張，最快可到 '+progress(after)+'。'+(after<before?'牌型會更接近聽牌。':'沒有減少進聽數，可以考慮不吃碰。')+' 攤牌後不能拆回，也會影響門清與防守；這裡只比較牌效率。';
 }
 
-const api={claims,respond,selfKans,selfKan,publicTiles,claimAdvice,names,shanten,winning,analyze,create,draw,discard,win,aiIndex};
+const api={liguLigu,claims,respond,selfKans,selfKan,publicTiles,claimAdvice,names,shanten,winning,analyze,create,draw,discard,win,aiIndex};
 if(typeof module!=='undefined')module.exports=api;else root.Mahjong=api;
 })(globalThis);

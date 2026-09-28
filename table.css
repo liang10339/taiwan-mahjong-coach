@@ -89,3 +89,22 @@
 .voice-panel .voice-controls select{width:100%;min-width:0;text-overflow:ellipsis;box-sizing:border-box}
 .voice-panel .voice-controls button{white-space:nowrap}
 @media(max-width:580px){.voice-panel{position:fixed;left:12px;right:12px;top:64px;width:auto}}
+/* 胡牌台數 */
+.score-card{margin:14px 0;padding:14px;border-radius:12px;background:#fbf6e6;border:1px solid #e6d9b3}
+.score-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.score-total{font:600 22px 'DM Mono',monospace;color:#b8232f}
+.score-hand{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.score-items{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.score-items li{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:6px 8px;background:#fffdf6;border-radius:6px;font-size:14px}
+.score-items small{grid-column:1/-1;color:#6f756b;font-size:12px}
+.score-tai{font:500 13px 'DM Mono',monospace;color:#315140}
+.score-payer{margin:10px 0 0!important;font-size:13px!important;color:#6f756b}
+.tai-estimate{display:flex;flex-wrap:wrap;gap:8px}
+.estimate{display:inline-flex;flex-direction:column;align-items:center;gap:3px;padding:6px 8px;border-radius:8px;background:#fbf6e6}
+.estimate b{font-size:12px;color:#b8232f}.estimate small{font-size:11px;color:#6f756b}
+.tai-table{margin-top:12px;font-size:13px}
+.tai-table summary{cursor:pointer;color:var(--orange)}
+.tai-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:10px}
+.tai-grid h5{margin:0 0 4px;font-size:13px;color:#315140}
+.tai-grid p{margin:2px 0;line-height:1.6;color:#4b534a}
+.tai-grid .todo{color:#a0a69c}
