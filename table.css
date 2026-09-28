@@ -1,6 +1,21 @@
 /* 擬真牌桌：四家牌架、面前攤牌、中間散落的牌堆 */
-.voice-settings{margin-bottom:20px;padding:12px 16px;background:var(--card);border:1px solid var(--line);border-radius:12px}
-.voice-settings summary{cursor:pointer;color:var(--green);font-weight:600}
+/* 精簡頂列：品牌、模式分頁、聲音設定與重開都在同一列，開頁即可看到整張牌桌 */
+.topbar{position:sticky;top:0;z-index:20;height:56px;gap:20px;padding:0 20px}
+.topbar .mode-tabs{align-self:stretch;margin:0 auto 0 12px;gap:24px;border:0}
+.topbar .mode-tab{display:flex;align-items:center;padding:0 2px;font-size:14px;white-space:nowrap}
+.topbar .mode-tab.active:after{bottom:0}
+.topbar-actions{gap:4px}.topbar .icon-button{margin-left:6px;width:36px;height:36px;display:grid;place-items:center;border-radius:8px}
+.topbar .icon-button:hover{background:#eeece3}
+.page{padding-top:12px!important}.dashboard{margin-top:0!important}
+.voice-settings{position:relative}
+.voice-settings summary{list-style:none;cursor:pointer}.voice-settings summary::-webkit-details-marker{display:none}
+.voice-settings[open] summary{background:#eeece3}
+.voice-panel{position:absolute;right:0;top:calc(100% + 10px);width:min(340px,calc(100vw - 24px));padding:16px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);color:var(--ink);font-size:14px;z-index:30}
+.voice-panel>strong{color:var(--green)}
+/* 牌桌高度跟著視窗，手牌與摸牌按鈕不用捲動就看得到 */
+.real-table{min-height:0!important;height:clamp(560px,calc(100vh - 190px),700px);height:clamp(560px,calc(100dvh - 190px),700px)}
+@media(max-width:900px){.real-table{height:clamp(600px,calc(100vh - 170px),760px);height:clamp(600px,calc(100dvh - 170px),760px)}.topbar .topbar-actions .version,.topbar .status-dot{display:none}}
+@media(max-width:580px){.topbar{gap:8px;padding:0 10px}.brand-name{display:none}.topbar .mode-tabs{margin-left:0;gap:14px}.topbar .mode-tab{font-size:13px}.topbar .icon-button{margin-left:0;width:32px}.page{padding:8px 8px 40px!important}.real-table{height:clamp(560px,calc(100vh - 175px),700px);height:clamp(560px,calc(100dvh - 175px),700px)}}
 .voice-controls{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin-top:12px}
 .voice-controls label{display:grid;gap:6px;max-width:100%;font-size:14px}
 .voice-controls select{font:inherit;padding:9px;border:1px solid #c8d1c7;border-radius:6px;max-width:100%}
@@ -14,7 +29,7 @@
 .defense-note{margin-top:8px!important;font-size:13px!important;color:#705629!important}
 @media(min-width:901px){.coach-card{height:var(--table-height,714px);margin-top:var(--table-offset,76px);display:flex;flex-direction:column;overflow:hidden}.coach-header{flex-shrink:0}.coach-scroll{flex:1}}
 @media(max-width:900px){.coach-scroll{max-height:80vh}.voice-controls{align-items:stretch;flex-direction:column}}
-.real-table{min-height:700px!important;padding:0!important;overflow:hidden;background-color:#2f6b4c!important;background-image:radial-gradient(ellipse at 50% 45%,rgba(255,255,255,.09),transparent 65%),repeating-linear-gradient(45deg,rgba(255,255,255,.018) 0 2px,transparent 2px 6px)!important}
+.real-table{padding:0!important;overflow:hidden;background-color:#2f6b4c!important;background-image:radial-gradient(ellipse at 50% 45%,rgba(255,255,255,.09),transparent 65%),repeating-linear-gradient(45deg,rgba(255,255,255,.018) 0 2px,transparent 2px 6px)!important}
 
 /* 各家座位：名字、牌架（牌背）、面前的攤牌與花 */
 .seat{position:absolute;display:flex;flex-direction:column;align-items:center;gap:6px;z-index:2;width:max-content}
@@ -54,12 +69,10 @@
 .real-table .player-label{margin-bottom:6px}
 
 @media(max-width:900px){
- .real-table{min-height:760px!important}
  .seat-left{left:48px}.seat-right{right:48px}
  .real-table .discard-river.pile,.real-table .discard-river.neat{left:78px;right:78px;top:112px;bottom:250px}
 }
 @media(max-width:580px){
- .real-table{min-height:700px!important}
  .rack .mj-back{--w:14px}
  .seat-name small{display:none}
  .seat-left{left:46px}.seat-right{right:46px}

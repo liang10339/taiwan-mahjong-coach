@@ -12,38 +12,27 @@
     <link rel="stylesheet" href="enhancements.css" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@900&display=swap" />
-    <link rel="stylesheet" href="state.css?v=14" />
-    <link rel="stylesheet" href="tiles.css?v=14" />
-    <link rel="stylesheet" href="table.css?v=14" />
+    <link rel="stylesheet" href="state.css?v=15" />
+    <link rel="stylesheet" href="tiles.css?v=15" />
+    <link rel="stylesheet" href="table.css?v=15" />
     <title>牌桌教練｜台灣麻將練習</title>
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
-        <div class="brand"><span class="brand-mark">牌</span><span>牌桌教練</span></div>
-        <div class="topbar-actions"><span class="status-dot"></span><span>教練練習 v1.4</span><button class="icon-button" id="soundButton" title="音效：開" aria-pressed="true">🔊</button><button class="icon-button" id="resetButton" title="重新開始">↻</button></div>
-      </header>
-
-      <main class="page">
-        <details class="voice-settings"><summary>報牌聲音設定</summary><div class="voice-controls"><label>系統聲線 <select id="voiceSelect"></select></label><label>聲音風格 <select id="voiceStyle"></select></label><button class="secondary-button" id="voicePreview" type="button">試聽：八萬</button></div><p id="voiceStatus" role="status"></p></details>
-        <section class="hero">
-          <div>
-            <p class="eyebrow">TAIWAN 16-TILE MAHJONG</p>
-            <h1>把每一手牌，<em>打得更明白。</em></h1>
-            <p class="hero-copy">跟著教練完成一局牌。先看懂牌，再學會選擇；每個建議都會告訴你原因。</p>
-          </div>
-          <div class="hero-badge"><span>今日練習</span><strong id="progressText">1 / 5</strong><div class="progress"><i id="progressBar"></i></div></div>
-        </section>
-
-        <section class="mode-tabs" aria-label="練習模式">
+        <div class="brand"><span class="brand-mark">牌</span><span class="brand-name">牌桌教練</span></div>
+        <nav class="mode-tabs" aria-label="練習模式">
           <button class="mode-tab active" data-mode="table">教練實戰</button>
           <button class="mode-tab" data-mode="lesson">新手學堂</button>
           <button class="mode-tab" data-mode="review">牌局覆盤</button>
-        </section>
+        </nav>
+        <div class="topbar-actions"><span class="status-dot"></span><span class="version">教練練習 v1.5</span><details class="voice-settings"><summary class="icon-button" title="報牌聲音設定" aria-label="報牌聲音設定">🗣</summary><div class="voice-panel"><strong>報牌聲音設定</strong><div class="voice-controls"><label>系統聲線 <select id="voiceSelect"></select></label><label>聲音風格 <select id="voiceStyle"></select></label><button class="secondary-button" id="voicePreview" type="button">試聽：八萬</button></div><p id="voiceStatus" role="status"></p></div></details><button class="icon-button" id="soundButton" title="音效：開" aria-pressed="true">🔊</button><button class="icon-button" id="resetButton" title="重新開始">↻</button></div>
+      </header>
+
+      <main class="page">
 
         <section class="dashboard" id="tableView">
           <div class="table-column">
-            <div class="section-heading"><div><p class="eyebrow">LIVE TABLE</p><h2>第 1 局・東一局</h2></div><span class="pill">教練開啟</span></div>
             <div class="mahjong-table">
               <div class="table-felt real-table">
                 <div class="seat seat-top"><div class="seat-name"><span class="avatar">林</span><strong>林小安</strong><small>西家・對家</small></div><div class="rack" data-seat="2"></div><div class="exposed" data-meld-seat="2"></div></div>
@@ -87,12 +76,12 @@
       </main>
     </div>
     <div class="toast" id="toast" role="status"></div>
-    <script src="engine.js?v=14"></script>
-    <script src="tiles.js?v=14"></script>
-    <script src="sound.js?v=14"></script>
-    <script src="coach.js?v=14"></script>
-    <script src="lessons.js?v=14"></script>
-    <script src="defense.js?v=14"></script>
-    <script src="app.js?v=14"></script>
+    <script src="engine.js?v=15"></script>
+    <script src="tiles.js?v=15"></script>
+    <script src="sound.js?v=15"></script>
+    <script src="coach.js?v=15"></script>
+    <script src="lessons.js?v=15"></script>
+    <script src="defense.js?v=15"></script>
+    <script src="app.js?v=15"></script>
   </body>
 </html>
