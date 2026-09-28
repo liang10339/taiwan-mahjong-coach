@@ -1,5 +1,5 @@
-const CACHE='mahjong-coach-v20';
-const FILES=['./','./index.html','./styles.css','./enhancements.css','./state.css?v=20','./engine.js?v=20','./tiles.js?v=20','./tiles.css?v=20','./table.css?v=20','./sound.js?v=20','./defense.js?v=20','./scoring.js?v=20','./ai.js?v=20','./quiz.js?v=20','./stages.js?v=20','./app.js?v=20','./coach.js?v=20','./lessons.js?v=20','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
+const CACHE='mahjong-coach-v21';
+const FILES=['./','./index.html','./styles.css','./enhancements.css','./state.css?v=21','./engine.js?v=21','./tiles.js?v=21','./tiles.css?v=21','./table.css?v=21','./sound.js?v=21','./defense.js?v=21','./scoring.js?v=21','./ai.js?v=21','./quiz.js?v=21','./stages.js?v=21','./app.js?v=21','./coach.js?v=21','./lessons.js?v=21','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('mahjong-coach-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',e=>{

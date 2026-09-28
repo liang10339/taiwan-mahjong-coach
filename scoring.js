@@ -51,7 +51,7 @@ function context(g,p){
  const ownDiscards=discards.filter(e=>e.player===p).length;
  const ownDraws=log.filter(e=>e.action==='draw'&&e.player===p).length;
  return {special:winEvent.special,tsumo,tile,from:winEvent.from,robKan:!!winEvent.robKan,afterKan:!!winEvent.afterKan,
-  lastTile:(g.wall||[]).length===0,claimsBefore,ownDiscards,ownDraws,anyDiscard:discards.length>0};
+  lastTile:(g.wall||[]).length<=(g.reserve||0),claimsBefore,ownDiscards,ownDraws,anyDiscard:discards.length>0};
 }
 
 // 主要函式：回傳 {total, items:[{name,tai,note}], ...}
