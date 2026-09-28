@@ -31,13 +31,14 @@ function oneDot(){
 }
 
 function stick(x,y,h,color,angle=0){
- const w=5.6,top=y-h/2;
- return `<g transform="rotate(${angle} ${x} ${y})"><rect x="${x-w/2}" y="${top}" width="${w}" height="${h}" rx="2.8" fill="${color}"/>`+
-  `<rect x="${x-w/2-.8}" y="${y-1}" width="${w+1.6}" height="2" rx="1" fill="${color}"/>`+
-  `<line x1="${x}" y1="${top+2}" x2="${x}" y2="${top+h-2}" stroke="#fffdf4" stroke-width="1" opacity=".75"/>`+
-  `<line x1="${x-w/2}" y1="${top+2.2}" x2="${x+w/2}" y2="${top+2.2}" stroke="#fffdf4" stroke-width=".8" opacity=".6"/>`+
-  `<line x1="${x-w/2}" y1="${top+h-2.2}" x2="${x+w/2}" y2="${top+h-2.2}" stroke="#fffdf4" stroke-width=".8" opacity=".6"/></g>`;
+ // 竹節造型：細竹身＋上、中、下三個鼓起的竹節
+ const top=y-h/2,bottom=y+h/2,knot=(cy)=>`<ellipse cx="${x}" cy="${cy}" rx="3.3" ry="1.7" fill="${color}"/>`;
+ return `<g transform="rotate(${angle} ${x} ${y})"><rect x="${x-2.1}" y="${top+1}" width="4.2" height="${h-2}" rx="2" fill="${color}"/>`+
+  knot(top+1.6)+knot(y)+knot(bottom-1.6)+
+  `<line x1="${x}" y1="${top+3.5}" x2="${x}" y2="${y-2.5}" stroke="#fffdf4" stroke-width=".9" opacity=".8"/>`+
+  `<line x1="${x}" y1="${y+2.5}" x2="${x}" y2="${bottom-3.5}" stroke="#fffdf4" stroke-width=".9" opacity=".8"/></g>`;
 }
+// 八索：上排 W（\/\/）、下排 M（/\/\），竹枝端點相接成連續鋸齒
 const STICKS={
  2:[[30,22,26,GREEN],[30,58,26,BLUE]],
  3:[[30,22,26,BLUE],[19,58,26,GREEN],[41,58,26,GREEN]],
@@ -45,7 +46,7 @@ const STICKS={
  5:[[16,22,26,GREEN],[44,22,26,BLUE],[30,40,26,RED],[16,58,26,BLUE],[44,58,26,GREEN]],
  6:[15,30,45].flatMap(x=>[[x,22,26,GREEN],[x,58,26,BLUE]]),
  7:[[30,14,18,RED],...[15,30,45].flatMap(x=>[[x,41,20,GREEN],[x,66,20,GREEN]])],
- 8:[[12,22,26,GREEN,-18],[24,22,26,GREEN,18],[36,22,26,GREEN,-18],[48,22,26,GREEN,18],[12,58,26,GREEN,18],[24,58,26,GREEN,-18],[36,58,26,GREEN,18],[48,58,26,GREEN,-18]],
+ 8:[-22,22,-22,22].flatMap((a,i)=>[[13.6+i*10.9,21,29,GREEN,a],[13.6+i*10.9,59,29,GREEN,-a]]),
  9:[16,40,64].flatMap(y=>[[15,y,20,GREEN],[30,y,20,RED],[45,y,20,BLUE]])
 };
 function bird(){

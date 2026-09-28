@@ -1,0 +1,56 @@
+/* 擬真牌桌：四家牌架、面前攤牌、中間散落的牌堆 */
+.real-table{min-height:700px!important;padding:0!important;overflow:hidden;background-color:#2f6b4c!important;background-image:radial-gradient(ellipse at 50% 45%,rgba(255,255,255,.09),transparent 65%),repeating-linear-gradient(45deg,rgba(255,255,255,.018) 0 2px,transparent 2px 6px)!important}
+
+/* 各家座位：名字、牌架（牌背）、面前的攤牌與花 */
+.seat{position:absolute;display:flex;flex-direction:column;align-items:center;gap:6px;z-index:2;width:max-content}
+.seat-name{display:flex;align-items:center;gap:6px;color:#eef4dc;font-size:12px;white-space:nowrap}
+.seat-name small{color:rgba(238,244,220,.65);font-size:11px}
+.rack{display:flex;gap:1px;padding:3px 5px 5px;border-radius:5px;background:rgba(10,40,25,.35);box-shadow:inset 0 -3px 0 rgba(0,0,0,.25)}
+.rack .mj-back{--w:19px}
+.exposed{display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-end;gap:8px;min-height:6px;max-width:420px}
+.meld-group,.flower-group{display:inline-flex;gap:1px}
+.flower-group{padding-left:4px;border-left:1px dashed rgba(255,255,255,.3)}
+.seat-top{top:12px;left:50%;transform:translateX(-50%)}
+/* 兩側座位旋轉，讓牌架與攤牌朝向牌桌中央 */
+.seat-left{top:50%;left:62px;transform:translate(-50%,-50%) rotate(-90deg)}
+.seat-right{top:50%;right:62px;transform:translate(50%,-50%) rotate(90deg)}
+.seat-left .seat-name,.seat-right .seat-name{order:0}
+
+/* 局況：縮成角落小牌子，把中間讓給牌堆 */
+.real-table .table-info{position:absolute;top:14px;left:14px;display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;background:rgba(12,45,29,.45);border:1px solid rgba(220,233,207,.18);color:#eef4dc;z-index:3}
+.real-table .table-info .wind{font-size:28px;line-height:1;font-family:'Noto Serif TC',serif;color:#f8f1cf}
+.real-table .table-info .round{font:11px/1.5 'Noto Sans TC',sans-serif;opacity:.85;margin:0;white-space:nowrap}
+.real-table .table-info b{color:#eff58d}
+.real-table .turn-status{position:absolute;top:14px;right:14px;margin:0;z-index:3;max-width:44%;font-size:13px!important;padding:6px 12px}
+
+/* 中間的牌堆（散落） */
+.real-table .discard-river.pile{position:absolute;display:block;left:110px;right:110px;top:118px;bottom:215px;width:auto;max-width:none;max-height:none;overflow:visible;transform:none;opacity:1;gap:0;z-index:1}
+.pile-tile{position:absolute;transform:rotate(var(--rot,0deg));--w:28px!important}
+.pile-tile.toss{animation:toss .35s ease-out}
+.pile-tile.latest{z-index:500;box-shadow:0 0 0 3px #eaf05e,0 3px 0 #1f7a4c,0 6px 8px rgba(0,0,0,.35)!important}
+@keyframes toss{from{transform:translate(0,90px) rotate(0deg) scale(1.25);opacity:.2}to{transform:rotate(var(--rot,0deg));opacity:1}}
+.pile-caption{position:absolute;left:50%;bottom:-26px;transform:translateX(-50%);white-space:nowrap;font-size:12px;color:#eef4dc;background:rgba(12,45,29,.55);padding:3px 10px;border-radius:99px;z-index:501}
+/* 分家模式：保留原本依玩家排列的牌河，方便初學者看誰打了什麼 */
+.real-table .discard-river.neat{position:absolute;display:grid;grid-template-columns:1fr 1fr;gap:8px;left:100px;right:100px;top:118px;bottom:215px;overflow:auto;transform:none;max-width:none;width:auto}
+
+/* 自己的座位：攤牌在手牌上方 */
+.real-table .player-seat{bottom:16px!important;width:94%!important;z-index:4}
+.real-table .player-seat .exposed{justify-content:flex-start;margin-bottom:6px}
+.real-table .player-label{margin-bottom:6px}
+
+@media(max-width:900px){
+ .real-table{min-height:760px!important}
+ .seat-left{left:48px}.seat-right{right:48px}
+ .real-table .discard-river.pile,.real-table .discard-river.neat{left:78px;right:78px;top:112px;bottom:250px}
+}
+@media(max-width:580px){
+ .real-table{min-height:700px!important}
+ .rack .mj-back{--w:14px}
+ .seat-name small{display:none}
+ .seat-left{left:46px}.seat-right{right:46px}
+ .seat-left .seat-name strong,.seat-right .seat-name strong{font-size:11px}
+ .real-table .table-info{padding:6px 8px}.real-table .table-info .wind{font-size:20px}
+ .real-table .turn-status{top:auto;bottom:196px;right:50%;transform:translateX(50%);max-width:88%;font-size:12px!important}
+ .real-table .discard-river.pile,.real-table .discard-river.neat{left:56px;right:56px;top:96px;bottom:250px}
+ .pile-tile{--w:21px!important}
+}
