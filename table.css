@@ -82,3 +82,10 @@
  .real-table .discard-river.pile,.real-table .discard-river.neat{left:56px;right:56px;top:96px;bottom:250px}
  .pile-tile{--w:21px!important}
 }
+/* 聲音設定面板：下拉選單跟著面板寬度，不被長聲線名稱撐開 */
+.voice-panel .voice-controls{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:12px}
+.voice-panel .voice-controls label{display:grid;grid-template-columns:minmax(0,1fr);min-width:0;width:100%}
+.voice-panel .voice-controls label:first-child{grid-column:1/-1}
+.voice-panel .voice-controls select{width:100%;min-width:0;text-overflow:ellipsis;box-sizing:border-box}
+.voice-panel .voice-controls button{white-space:nowrap}
+@media(max-width:580px){.voice-panel{position:fixed;left:12px;right:12px;top:64px;width:auto}}
