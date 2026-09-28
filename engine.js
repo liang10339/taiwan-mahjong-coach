@@ -27,12 +27,19 @@ function analyze(hand,publicTiles=[],open=0,memo=new Map()){
   return {tile,shanten:s,remaining,improving,outs:improving.map(t=>({tile:t,remaining:4-known[t]}))};
  });return options.sort((a,b)=>a.shanten-b.shanten||b.remaining-a.remaining||a.tile-b.tile);
 }
-function create(seed=Date.now()){
+// 座位 p 的門風（0 東、1 南、2 西、3 北）：莊家永遠是東。
+function seatWind(g,p){return ((p-(g.dealer||0))%4+4)%4;}
+function who(g,p){return p===0?'你':names[27+seatWind(g,p)]+'家';}
+function create(seed=Date.now(),opts={}){
  let n=seed>>>0;const random=()=>{n=(Math.imul(n,1664525)+1013904223)>>>0;return n/4294967296;};
+ const dealer=opts.dealer||0,roundWind=opts.roundWind||0,streak=opts.streak||0;
  const wall=[];for(let t=0;t<34;t++)for(let i=0;i<4;i++)wall.push(t);for(let t=34;t<42;t++)wall.push(t);
  for(let i=wall.length-1;i>0;i--){const j=Math.floor(random()*(i+1));[wall[i],wall[j]]=[wall[j],wall[i]];}
- const g={seed,wall,hands:[[],[],[],[]],flowers:[[],[],[],[]],rivers:[[],[],[],[]],melds:[[],[],[],[]],pending:null,turn:0,phase:'draw',result:'',log:[]};
- for(let r=0;r<16;r++)for(let p=0;p<4;p++)take(g,p);
+ // 莊家擲三顆骰子：從莊家算 1 逆時針數到牌牆主人，從該牌牆右側數過點數墩後開門。
+ // 洗好的牌視為已從開門處排起：陣列尾端是摸牌端，陣列頭是牌尾（補花、補槓從這裡拿）。
+ const dice=[0,0,0].map(()=>1+Math.floor(random()*6)),wallOwner=(dealer+dice[0]+dice[1]+dice[2]-1)%4;
+ const g={seed,wall,hands:[[],[],[],[]],flowers:[[],[],[],[]],rivers:[[],[],[],[]],melds:[[],[],[],[]],pending:null,turn:dealer,phase:'draw',result:'',log:[],dealer,roundWind,streak,dice,wallOwner};
+ for(let r=0;r<16;r++)for(let k=0;k<4;k++)take(g,(dealer+k)%4);
  g.hands.forEach(h=>h.sort((a,b)=>a-b));g.lastTake=null;endFlowerWin(g);return g;
 }
 function take(g,p,tail=false){const kan=tail;while(g.wall.length){const t=tail?g.wall.shift():g.wall.pop();if(t>=34){g.flowers[p].push(t);tail=true;flowerWin(g,p);continue;}g.hands[p].push(t);g.lastTake={player:p,tile:t,afterKan:kan};return t;}return null;}
@@ -45,12 +52,12 @@ function flowerWin(g,p){
 function endFlowerWin(g){
  if(!g.flowerWin||g.phase==='ended')return false;
  const w=g.flowerWin;g.phase='ended';g.turn=w.player;
- g.result=(w.player===0?'你':names[27+w.player]+'家')+(w.special==='eightFlowers'?'八仙過海（集滿八張花）':'七搶一（搶走'+names[27+w.from]+'家的花）');
+ g.result=who(g,w.player)+(w.special==='eightFlowers'?'八仙過海（集滿八張花）':'七搶一（搶走'+who(g,w.from)+'的花）');
  g.log.push({player:w.player,action:'flowers',special:w.special,from:w.from});return true;
 }
 function draw(g,p){if(g.phase!=='draw'||g.turn!==p)return false;const t=take(g,p);if(endFlowerWin(g))return true;if(t===null){g.phase='ended';g.result='牌牆已空，流局';return false;}g.phase='discard';g.log.push({player:p,action:'draw',tile:t});return true;}
 function discard(g,p,index){if(g.phase!=='discard'||g.turn!==p||!Number.isInteger(index)||index<0||index>=g.hands[p].length)return false;const [t]=g.hands[p].splice(index,1);g.rivers[p].push(t);g.log.push({player:p,action:'discard',tile:t});g.turn=(p+1)%4;g.phase='claim';g.pending={from:p,tile:t,decisions:{}};for(let q=0;q<4;q++)if(q===p||claims(g,q).length===0)g.pending.decisions[q]={type:'pass'};resolve(g);return true;}
-function win(g,p){if(g.phase!=='discard'||g.turn!==p||!winning(g.hands[p],g.melds[p].length))return false;const last=g.lastTake&&g.lastTake.player===p?g.lastTake:{};g.phase='ended';g.result=(p===0?'你':names[27+p]+'家')+'自摸'+(liguLigu(g.hands[p],g.melds[p].length)?'，嚦咕嚦咕成立':'，五組加一對成立');g.log.push({player:p,action:'tsumo',tile:last.tile,afterKan:!!last.afterKan});return true;}
+function win(g,p){if(g.phase!=='discard'||g.turn!==p||!winning(g.hands[p],g.melds[p].length))return false;const last=g.lastTake&&g.lastTake.player===p?g.lastTake:{};g.phase='ended';g.result=who(g,p)+'自摸'+(liguLigu(g.hands[p],g.melds[p].length)?'，嚦咕嚦咕成立':'，五組加一對成立');g.log.push({player:p,action:'tsumo',tile:last.tile,afterKan:!!last.afterKan});return true;}
 function aiIndex(hand,open=0){let best=Infinity,index=0;for(let i=0;i<hand.length;i++){const h=hand.filter((_,j)=>i!==j),s=shanten(h,open);if(s<best){best=s;index=i;}}return index;}
 
 function claims(g,p){
@@ -80,11 +87,11 @@ function resolve(g){
  if(pending.kind==='robkan'){
   if(!ranked.length){finishAdded(g,pending.from,pending.kan);return;}
   const {p}=ranked[0];g.hands[pending.from].splice(g.hands[pending.from].indexOf(pending.tile),1);g.hands[p].push(pending.tile);
-  g.turn=p;g.phase='ended';g.result=(p===0?'你':names[27+p]+'家')+'搶槓胡 '+names[pending.tile];g.log.push({player:p,action:'ron',tile:pending.tile,robKan:true,from:pending.from});return;
+  g.turn=p;g.phase='ended';g.result=who(g,p)+'搶槓胡 '+names[pending.tile];g.log.push({player:p,action:'ron',tile:pending.tile,robKan:true,from:pending.from});return;
  }
  if(!ranked.length){g.phase=g.wall.length?'draw':'ended';if(!g.wall.length)g.result='牌牆已空，流局';return;}
  const {p,a}=ranked[0];g.turn=p;g.rivers[pending.from].pop();
- if(a.type==='ron'){g.hands[p].push(pending.tile);g.phase='ended';g.result=(p===0?'你':names[27+p]+'家')+'胡 '+names[pending.tile]+'（'+names[27+pending.from]+'家放槍）';g.log.push({player:p,action:'ron',tile:pending.tile,from:pending.from});return;}
+ if(a.type==='ron'){g.hands[p].push(pending.tile);g.phase='ended';g.result=who(g,p)+'胡 '+names[pending.tile]+'（'+who(g,pending.from)+'放槍）';g.log.push({player:p,action:'ron',tile:pending.tile,from:pending.from});return;}
  for(const t of a.tiles)g.hands[p].splice(g.hands[p].indexOf(t),1);
  g.melds[p].push({type:a.type,tiles:[...a.tiles,pending.tile].sort((a,b)=>a-b),from:pending.from});
  g.log.push({player:p,action:a.type,tile:pending.tile});g.phase='discard';
@@ -122,6 +129,6 @@ function claimAdvice(g,p,a){
  return '目前 '+progress(before)+'；'+(a.type==='chi'?'吃':'碰')+'後再出一張，最快可到 '+progress(after)+'。'+(after<before?'牌型會更接近聽牌。':'沒有減少進聽數，可以考慮不吃碰。')+' 攤牌後不能拆回，也會影響門清與防守；這裡只比較牌效率。';
 }
 
-const api={liguLigu,claims,respond,selfKans,selfKan,publicTiles,claimAdvice,names,shanten,winning,analyze,create,draw,discard,win,aiIndex};
+const api={seatWind,who,liguLigu,claims,respond,selfKans,selfKan,publicTiles,claimAdvice,names,shanten,winning,analyze,create,draw,discard,win,aiIndex};
 if(typeof module!=='undefined')module.exports=api;else root.Mahjong=api;
 })(globalThis);

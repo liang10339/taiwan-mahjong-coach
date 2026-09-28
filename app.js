@@ -1,7 +1,14 @@
 'use strict';
 const E=Mahjong, $=s=>document.querySelector(s);
-const seats=['你（東家・莊家）','南家','西家','北家'];
-let game=E.create(), selected=null, timer=null, generation=0, suggestions=[], lessonStep=0;
+const seats=['你（東家・莊家）','南家','西家','北家'],WINDS=['東','南','西','北'],REL=['','下家','對家','上家'];
+// 設定（存在本機）：電腦難度、教練提示、危險度、抓位、底台
+const settings={level:'normal',coach:true,danger:false,seatDraw:true,stake:'100/20'};
+try{Object.assign(settings,JSON.parse(localStorage.getItem('mahjong-coach-settings')||'{}'));}catch(e){}
+function saveSettings(){try{localStorage.setItem('mahjong-coach-settings',JSON.stringify(settings));}catch(e){}}
+// 一將：莊家、圈風、連莊次數與四家累計分數。第一次開頁直接由你當東家莊家，按 ↻ 才抓位。
+let session={firstDealer:0,dealer:0,round:0,streak:0,hand:1,scores:[0,0,0,0],settled:false,last:null,next:null};
+let game=E.create(Date.now(),{dealer:0}), selected=null, timer=null, generation=0, suggestions=[], lessonStep=0;
+let peek=false, replayIndex=0, replayMistakes=false, dangerCache={key:'',value:null};
 let scoreCache={log:-1,value:null};
 let lastDrawn=null, turnLog=[], lastReview=null, explainCache={key:'',value:null};
 let reviewTimeline=[];
@@ -11,7 +18,8 @@ function decisionKey(){return JSON.stringify([game.phase,game.hands[0],game.meld
 function currentClaim(){const key=decisionKey();if(claimCache.key!==key)claimCache={key,value:Coach.claimDecision(game,0)};return claimCache.value;}
 function currentKans(){const key=decisionKey();if(kanCache.key!==key)kanCache={key,value:Coach.selfKanDecision(game,0)};return kanCache.value;}
 try{neatRiver=localStorage.getItem('mahjong-coach-river')==='neat';}catch(e){}
-function notify(text){$('#toast').textContent=text;$('#toast').classList.add('show');clearTimeout(notify.timer);notify.timer=setTimeout(()=>$('#toast').classList.remove('show'),2400);}
+// 提示訊息用 CSS 動畫淡出，不另外排計時器
+function notify(text){const t=$('#toast');t.textContent=text;t.classList.remove('show');void t.offsetWidth;t.classList.add('show');}
 function tile(t){return E.names[t];}
 const actionName={chi:'吃',pon:'碰',kan:'明槓',ron:'胡',concealed:'暗槓',added:'加槓'};
 function readiness(n){return n===0?'已聽牌':(['','一','兩','三','四','五','六','七','八','九','十'][n]||n)+'進聽';}
@@ -61,8 +69,13 @@ function coach(){
  if(game.phase==='ended'){
   title.textContent=game.result;
   const ws=winScore();if(ws)body.append(scoreCard(ws));
+  if(session.last)body.append(settleCard());
   const good=turnLog.filter(x=>x.judge.verdict==='best').length;
   body.append(copy);copy.textContent=turnLog.length?'這局你出牌 '+turnLog.length+' 次，其中 '+good+' 次和教練首選相同。到「牌局覆盤」可以逐手回看差在哪裡。':'可到牌局覆盤查看本局操作，或重新開始。';return;
+ }
+ if(!settings.coach&&!peek){
+  title.textContent=game.phase==='claim'&&waiting()?'有人出牌：自己決定吃碰槓胡或略過':game.turn===0?'教練提示已關閉':'等待'+seats[game.turn];
+  copy.textContent='專心打這一局；打完可到「牌局覆盤」逐手回放，看每一手和教練首選差在哪裡。需要時按「看提示」臨時看一次。';return;
  }
  if(game.phase==='claim'){
   title.replaceChildren(el('span',null,seats[game.pending.from]+(game.pending.kind==='robkan'?'加槓，是否搶胡？':'打出 ')),Tiles.node(game.pending.tile,'sm'));
@@ -177,10 +190,13 @@ function render(){
  $('#sortButton').disabled=!mine||game.phase==='ended'||game.phase==='claim';
  $('#askSelected').disabled=!choosing||selected===null;
  $('#askAnswer').textContent='';
+ if(game.phase==='ended'&&!session.settled)finishHand();
+ renderSeats();
  renderClaims();
  const hand=$('#hand');hand.replaceChildren();
+ const risk=settings.danger&&choosing?dangerMap():null;
  const own=game.hands[0],justDrew=choosing&&lastDrawn!==null&&own[own.length-1]===lastDrawn;
- own.forEach((t,i)=>{const b=document.createElement('button');b.className='tile mj mj-lg'+(selected===i?' selected':'')+(justDrew&&i===own.length-1?' drawn':'');b.innerHTML=Tiles.svg(t);b.setAttribute('aria-label',tile(t)+'，第 '+(i+1)+' 張');b.setAttribute('aria-pressed',selected===i);b.title=Coach.label(t);b.disabled=!choosing;b.onclick=()=>{if(selected===i){$('#discardButton').onclick();return;}selected=i;if(typeof Sound!=='undefined')Sound.play('select');render();};hand.append(b);});
+ own.forEach((t,i)=>{const b=document.createElement('button');b.className='tile mj mj-lg'+(selected===i?' selected':'')+(justDrew&&i===own.length-1?' drawn':'');b.innerHTML=Tiles.svg(t);b.setAttribute('aria-label',tile(t)+'，第 '+(i+1)+' 張');b.setAttribute('aria-pressed',selected===i);b.title=Coach.label(t);if(risk){const r=risk[t];b.className+=' risk-'+r.level;b.title+='・危險度：'+r.text;b.append(el('i','risk-dot'));}b.disabled=!choosing;b.onclick=()=>{if(selected===i){$('#discardButton').onclick();return;}selected=i;if(typeof Sound!=='undefined')Sound.play('select');render();};hand.append(b);});
  renderRiver();
  document.querySelectorAll('[data-seat]').forEach(box=>{const p=+box.dataset.seat;box.replaceChildren(...game.hands[p].map(()=>Tiles.back('xs')));box.title=seats[p]+'手牌 '+game.hands[p].length+' 張';});
  document.querySelectorAll('[data-meld-seat]').forEach(box=>{
@@ -234,8 +250,9 @@ function renderReview(){
  const review=$('#reviewView .empty-review');review.replaceChildren();
  const ws=winScore();if(ws)review.append(scoreCard(ws));
  if(!reviewTimeline.length){review.append(el('strong',null,'還沒有可覆盤的決策'),el('small',null,'出牌、吃碰槓與略過都會記錄當時的比較。'));return;}
- const good=turnLog.filter(x=>x.judge.verdict==='best').length;
- review.append(el('p','review-summary','你出牌 '+turnLog.length+' 次，其中 '+good+' 次與教練首選相同。不同不代表錯誤，可以比較進聽數與有效牌差在哪裡。'));
+ const good=turnLog.filter(x=>x.judge.verdict==='best').length,miss=turnLog.filter(x=>x.mistake).length;
+ review.append(el('p','review-summary','你出牌 '+turnLog.length+' 次，其中 '+good+' 次與教練首選相同；標記為關鍵失誤 '+miss+' 次（退一步或少 4 張以上進張）。不同不代表錯誤，可以比較進聽數與有效牌差在哪裡。'));
+ replayPanel(review);
  reviewTimeline.forEach((x,i)=>{
   if(x.kind){
    const item=el('div','review-item claim-detail');
@@ -243,8 +260,8 @@ function renderReview(){
    item.append(el('strong',null,(i+1)+'. '+(x.choice.type==='pass'?'略過':actionName[x.choice.type])+' '+chosenTiles),el('p',null,x.summary),el('p',null,resolutionText(x)));
    const details=el('details');details.append(el('summary',null,'當時行動／略過比較'),el('p',null,x.details));item.append(details);review.append(item);return;
   }
-  const item=el('div','review-item '+x.judge.verdict),head=el('div','review-head');
-  head.append(el('span','review-turn','第 '+(i+1)+' 手'),el('span',null,'摸'),x.drawn==null?el('span',null,'—'):Tiles.node(x.drawn,'xs'),el('span',null,'打'),Tiles.node(x.tile,'xs'),el('span','verdict',x.judge.verdict==='best'?'✓ 與教練相同':'教練建議'),...(x.judge.verdict==='best'?[]:[Tiles.node(x.best,'xs')]));
+  const item=el('div','review-item '+x.judge.verdict+(x.mistake?' mistake':'')),head=el('div','review-head');
+  head.append(el('span','review-turn',(x.mistake?'⚠ ':'')+'第 '+(i+1)+' 手'),el('span',null,'摸'),x.drawn==null?el('span',null,'—'):Tiles.node(x.drawn,'xs'),el('span',null,'打'),Tiles.node(x.tile,'xs'),el('span','verdict',x.judge.verdict==='best'?'✓ 與教練相同':'教練建議'),...(x.judge.verdict==='best'?[]:[Tiles.node(x.best,'xs')]));
   item.append(head,el('p',null,x.judge.text+(x.reason?' '+x.reason:'')));if(x.defense)item.append(el('p','defense-note','當時的防守觀察：'+x.defense));review.append(item);
  });
  const log=el('details','review-log');log.append(el('summary',null,'完整動作紀錄'));
@@ -254,7 +271,7 @@ function analyze(){suggestions=game.turn===0&&game.phase==='discard'?E.analyze(g
 function computers(){
  if(game.phase==='claim'){
   for(let p=1;p<4&&game.phase==='claim';p++)if(!game.pending.decisions[p]){
-   const choice=Coach.chooseClaim(game,p);
+   const choice=AI.chooseClaim(game,p,settings.level);
    E.respond(game,p,choice);
   }
   analyze();render();
@@ -264,10 +281,7 @@ function computers(){
  const epoch=generation;
  timer=setTimeout(()=>{
   if(epoch!==generation)return;
-  const p=game.turn;
-  if(game.phase==='draw'){E.draw(game,p);if(game.phase==='discard'&&E.winning(game.hands[p],game.melds[p].length))E.win(game,p);}
-  else if(E.winning(game.hands[p],game.melds[p].length))E.win(game,p);
-  else {const kan=Coach.chooseKan(game,p);if(kan)E.selfKan(game,p,kan);else {const best=E.analyze(game.hands[p],E.publicTiles(game,p),game.melds[p].length)[0];E.discard(game,p,game.hands[p].indexOf(best.tile));}}
+  AI.act(game,game.turn,settings.level);
   render();computers();
  },450);
 }
@@ -277,13 +291,96 @@ $('#discardButton').onclick=()=>{
  const t=game.hands[0][selected],ex=currentExplain(),best=ex?ex.best:suggestions[0];
  const kans=currentKans(),skipped=kans.length?decisionRecord({type:'pass'},kans,'未槓，選擇打'+tile(t),'skip-kan'):null;
  const record=best?{tile:t,drawn:lastDrawn,best:best.tile,judge:Coach.judge(suggestions,t,best),reason:Coach.tileRole(game.hands[0],best.tile,E.publicTiles(game),game.melds[0].length)}:null;
- if(record)record.defense=Defense.describe(Defense.inspect(game,0,t));
- if(E.discard(game,0,selected)){if(skipped)reviewTimeline.push(skipped);if(record){turnLog.push(record);reviewTimeline.push(record);lastReview=record;}selected=null;lastDrawn=null;suggestions=[];render();computers();}
+ if(record){
+  record.defense=Defense.describe(Defense.inspect(game,0,t));
+  const pick=suggestions.find(o=>o.tile===t),lost=pick?best.remaining-pick.remaining:0;
+  record.mistake=!!pick&&(pick.shanten>best.shanten||lost>=4);
+  record.warning=!record.mistake?'':pick.shanten>best.shanten?'這張打掉退了一步：'+readiness(best.shanten)+' 變成 '+readiness(pick.shanten)+'（建議打'+tile(best.tile)+'）':'這張打掉損失了 '+lost+' 張進張（建議打'+tile(best.tile)+'）';
+  record.snapshot={hand:game.hands[0].slice(),melds:game.melds.map(ms=>ms.map(m=>({...m,tiles:m.tiles.slice()}))),rivers:game.rivers.map(r=>r.slice()),wall:game.wall.length,options:suggestions.slice(0,4).map(o=>({tile:o.tile,shanten:o.shanten,remaining:o.remaining}))};
+ }
+ if(E.discard(game,0,selected)){if(skipped)reviewTimeline.push(skipped);if(record){turnLog.push(record);reviewTimeline.push(record);lastReview=record;if(record.warning&&settings.coach)notify('⚠ '+record.warning);}selected=null;lastDrawn=null;suggestions=[];peek=false;render();computers();}
 };
 $('#winButton').onclick=()=>{if(E.win(game,0)){clearTimeout(timer);render();}};
 $('#sortButton').onclick=()=>{game.hands[0].sort((a,b)=>a-b);selected=null;render();};
-$('#resetButton').onclick=()=>{generation++;clearTimeout(timer);game=E.create();scoreCache={log:-1,value:null};selected=null;suggestions=[];lastDrawn=null;turnLog=[];reviewTimeline=[];lastReview=null;heard={log:0,phase:game.phase};if(typeof Sound!=='undefined'){Sound.stop();Sound.play('shuffle');}render();};
-$('#hintButton').onclick=()=>{analyze();coach();};
+$('#resetButton').onclick=()=>newMatch();
+$('#hintButton').onclick=()=>{peek=true;analyze();coach();};
+// 新的一將：抓位（四張風牌蓋著洗，你抽一張）決定座位，抽到東的人當莊
+function newMatch(){
+ let dealer=0,msg='';
+ if(settings.seatDraw){const w=Math.floor(Math.random()*4);dealer=(4-w)%4;msg='抓位：你抽到「'+WINDS[w]+'」，坐'+WINDS[w]+'位'+(w?'；東位的'+REL[dealer]+'當莊。':'，由你當莊。');}
+ session={firstDealer:dealer,dealer,round:0,streak:0,hand:1,scores:[0,0,0,0],settled:false,last:null,next:null};
+ newHand(msg);
+}
+function newHand(msg=''){
+ generation++;clearTimeout(timer);
+ game=E.create(Date.now(),{dealer:session.dealer,roundWind:session.round,streak:session.streak});
+ session.settled=false;session.last=null;session.next=null;
+ scoreCache={log:-1,value:null};selected=null;suggestions=[];lastDrawn=null;turnLog=[];reviewTimeline=[];lastReview=null;peek=false;replayIndex=0;
+ heard={log:0,phase:game.phase};if(typeof Sound!=='undefined'){Sound.stop();Sound.play('shuffle');}
+ updateSeats();
+ const d=game.dice;notify((msg?msg+' ':'')+(game.dealer===0?'你':seats[game.dealer])+'擲骰 '+d.join('＋')+'＝'+(d[0]+d[1]+d[2])+'，從'+(game.wallOwner===0?'你':seats[game.wallOwner])+'的牌牆開門。');
+ render();computers();
+}
+function updateSeats(){for(let p=0;p<4;p++){const w=WINDS[E.seatWind(game,p)],d=p===game.dealer;seats[p]=p===0?'你（'+w+'家'+(d?'・莊家':'')+'）':w+'家'+(d?'（莊）':'');}}
+function roundName(){return WINDS[session.round]+'風'+WINDS[((game.dealer-session.firstDealer)%4+4)%4]+'局'+(game.streak?'・連'+game.streak:'');}
+function fmt(n){return (n>0?'+':'')+n;}
+function renderSeats(){
+ $('#roundWind').textContent=WINDS[session.round];$('#roundName').textContent=roundName();
+ for(const p of [1,2,3])$('#seatInfo'+p).textContent=WINDS[E.seatWind(game,p)]+'家・'+REL[p]+(p===game.dealer?'・莊':'')+'｜'+fmt(session.scores[p]);
+ $('#myInfo').textContent='我的手牌｜'+fmt(session.scores[0])+(game.dealer===0?'・莊':'');
+}
+// 一局結束：計台、算點數、決定連莊或下莊，並記錄學習進度
+function finishHand(){
+ session.settled=true;
+ const ws=winScore(),[base,perTai]=settings.stake.split('/').map(Number);
+ let deltas=[0,0,0,0],payments=[];
+ if(ws&&typeof Scoring!=='undefined'&&Scoring.settle){({deltas,payments}=Scoring.settle(game,ws.result,{base,perTai}));}
+ session.scores=session.scores.map((v,i)=>v+deltas[i]);
+ const dealerStays=!ws||ws.winner===game.dealer,nextDealer=dealerStays?game.dealer:(game.dealer+1)%4;
+ const nextRound=!dealerStays&&nextDealer===session.firstDealer?(session.round+1)%4:session.round;
+ session.next={dealer:nextDealer,streak:dealerStays?game.streak+1:0,round:nextRound};
+ session.last={winner:ws?ws.winner:null,deltas,payments,dealerStays,base,perTai};
+ if(typeof Quiz!=='undefined'){const p=Quiz.load();Quiz.recordGame(p,{won:!!ws&&ws.winner===0,tsumo:!!ws&&ws.winner===0&&ws.result.tsumo,dealIn:!!ws&&!ws.result.tsumo&&ws.result.ctx.from===0,draw:!ws,mistakes:turnLog.filter(x=>x.mistake).length,delta:deltas[0]});Quiz.save(p);}
+}
+function settleCard(){
+ const x=session.last,card=el('div','settle-card');
+ card.append(el('h5',null,'本局結算（'+x.base+' 底 '+x.perTai+' 台）'));
+ if(x.payments.length)x.payments.forEach(y=>card.append(el('p',null,(y.payer===0?'你':seats[y.payer])+' 付 '+y.amount+'（'+y.tai+' 台）')));
+ else card.append(el('p',null,'流局，沒有人付錢。'));
+ const board=el('div','score-board');[0,1,2,3].forEach(p=>{const cell=el('span',x.deltas[p]>0?'up':x.deltas[p]<0?'down':'');cell.append(el('b',null,p===0?'你':seats[p]),el('small',null,fmt(x.deltas[p])+' → '+fmt(session.scores[p])));board.append(cell);});card.append(board);
+ const n=session.next;card.append(el('p','settle-next',x.dealerStays?'莊家'+(x.winner===null?'流局':'胡牌')+'，連莊（下一局連 '+n.streak+'）。':'下莊，下一局由'+(n.dealer===0?'你':'你的'+REL[n.dealer])+'當莊'+(n.round!==session.round?'，進入'+WINDS[n.round]+'風圈':'')+'。'));
+ const go=document.createElement('button');go.className='primary-button next-hand';go.textContent='下一局 ▶';go.onclick=()=>{Object.assign(session,session.next);session.hand++;newHand();};card.append(go);
+ return card;
+}
+// 危險度：依公開資訊估計三家的威脅程度，算出每張牌可被胡的組合
+function dangerMap(){
+ const key=decisionKey();if(dangerCache.key===key)return dangerCache.value;
+ const list=AI.threats(game,0),map={};
+ for(const t of new Set(game.hands[0])){const d=AI.danger(game,0,t,list),lv=AI.dangerLevel(d);map[t]={level:lv,text:(lv==='safe'?'低':lv==='mid'?'中':'高')+'（'+d.per.map(x=>WINDS[E.seatWind(game,x.player)]+'家 '+x.ways+' 種'+(x.level?'・威脅'+x.level:'')).join('、')+'）'};}
+ dangerCache={key,value:map};return map;
+}
+// 逐手回放：每一手的手牌快照、實際打出與教練首選；可只看關鍵失誤
+function replayPanel(root){
+ const list=turnLog.filter(x=>x.snapshot&&(!replayMistakes||x.mistake));
+ const box=el('section','replay');root.append(box);
+ const bar=el('div','replay-bar');box.append(bar);
+ bar.append(el('strong',null,'逐手回放'));
+ const only=el('button','secondary-button'+(replayMistakes?' on':''),replayMistakes?'顯示全部':'只看關鍵失誤');only.onclick=()=>{replayMistakes=!replayMistakes;replayIndex=0;renderReview();};
+ if(!list.length){bar.append(only);box.append(el('p',null,replayMistakes?'這局沒有關鍵失誤。':'出牌後就能逐手回放。'));return;}
+ replayIndex=Math.min(replayIndex,list.length-1);
+ const x=list[replayIndex],prev=el('button','secondary-button','◀ 上一手'),next=el('button','secondary-button','下一手 ▶');
+ prev.disabled=replayIndex===0;next.disabled=replayIndex===list.length-1;
+ prev.onclick=()=>{replayIndex--;renderReview();};next.onclick=()=>{replayIndex++;renderReview();};
+ bar.append(prev,el('span','replay-count',(replayIndex+1)+' / '+list.length),next,only);
+ const n=turnLog.indexOf(x)+1,snap=x.snapshot;
+ box.append(el('p','replay-head',(x.mistake?'⚠ 關鍵失誤・':'')+'你的第 '+n+' 次出牌（牌牆剩 '+snap.wall+' 張）'+(x.drawn==null?'':'，摸進 '+Coach.label(x.drawn))));
+ const hand=el('div','replay-hand'),pickAt=snap.hand.indexOf(x.tile),bestAt=x.best===x.tile?-1:snap.hand.indexOf(x.best);snap.hand.forEach((t,i)=>{const n=Tiles.node(t,'sm');if(i===pickAt)n.classList.add('picked');if(i===bestAt)n.classList.add('best');hand.append(n);});
+ box.append(el('small','replay-legend','紅框：你打出的牌　綠框：教練首選'));box.append(hand);
+ box.append(el('p',null,'你打 '+Coach.label(x.tile)+(x.best===x.tile?'，與教練首選相同。':'；教練首選 '+Coach.label(x.best)+'。')+' '+x.judge.text));
+ if(x.warning)box.append(el('p','defense-note',x.warning));
+ const opts=el('div','compare-table');snap.options.forEach(o=>{const row=el('div','compare-row'+(o.tile===x.best?' top':'')+(o.tile===x.tile?' picked':''));row.append(Tiles.node(o.tile,'xs'),el('span','rank',readiness(o.shanten)),el('span','count',o.remaining+' 張'));opts.append(row);});box.append(opts);
+ const rivers=el('details','replay-rivers');rivers.append(el('summary',null,'當時的牌河'));snap.rivers.forEach((r,p)=>{const row=el('div','river-line');row.append(el('small',null,p===0?'你':seats[p]));r.forEach(t=>row.append(Tiles.node(t,'xs')));rivers.append(row);});box.append(rivers);
+}
 $('#explainButton').onclick=()=>{const open=!$('#coachGlossary').classList.toggle('hidden');$('#explainButton').setAttribute('aria-expanded',String(open));};
 function askCoach(question){
  if(/防守|安全|危險|放槍/.test(question)){if(game.turn===0&&game.phase==='discard'){analyze();$('#askAnswer').textContent=Defense.summary(game,suggestions)+(selected===null?'':'\n你選的牌：'+Defense.describe(Defense.inspect(game,0,game.hands[0][selected])));}else $('#askAnswer').textContent='輪到你出牌時可比較防守；吃碰回應卡會提示後續出牌風險。';return;}
@@ -297,6 +394,7 @@ $('#riverToggle').onclick=()=>{neatRiver=!neatRiver;try{localStorage.setItem('ma
 $('#soundButton').onclick=()=>{Sound.setEnabled(!Sound.isEnabled());syncToggles();if(Sound.isEnabled())Sound.play('tick');};
 function syncToggles(){
  $('#riverToggle').textContent=neatRiver?'牌河：分家':'牌河：散落';$('#riverToggle').setAttribute('aria-pressed',String(neatRiver));
+ $('#coachQuick').textContent=settings.coach?'提示：開':'提示：關';$('#coachQuick').setAttribute('aria-pressed',String(settings.coach));
  if(typeof Sound!=='undefined'){const on=Sound.isEnabled();$('#soundButton').textContent=on?'🔊':'🔇';$('#soundButton').title=on?'音效：開':'音效：關';$('#soundButton').setAttribute('aria-pressed',String(on));}
 }
 // 鍵盤：空白鍵摸牌、Enter 確認出牌、← → 選牌
@@ -309,6 +407,7 @@ document.addEventListener?.('keydown',e=>{
 });
 function renderClaims(){
  const target=$('#claimActions');target.replaceChildren();
+ if(game.phase==='ended'&&session.next){const b=document.createElement('button');b.className='primary-button next-hand';b.textContent='下一局 ▶';b.onclick=()=>{Object.assign(session,session.next);session.hand++;newHand();};target.append(b);return;}
  if(waiting()){
   for(const a of [...E.claims(game,0),{type:'pass'}]){
    const button=document.createElement('button');button.className='secondary-button';
@@ -337,8 +436,21 @@ function setupCoachSize(){
  const sync=()=>{const rect=table.getBoundingClientRect(),parent=column.getBoundingClientRect();if(rect.height){card.style.setProperty('--table-height',rect.height+'px');card.style.setProperty('--table-offset',(rect.top-parent.top)+'px');}};
  const observer=new ResizeObserver(sync);observer.observe(table);observer.observe(column);sync();
 }
-setupVoice();syncToggles();render();setupCoachSize();
-if(typeof setupLessons==='function')setupLessons($,mode);
+function setupSettings(){
+ const level=$('#levelSelect'),coachBox=$('#coachToggle'),dangerBox=$('#dangerToggle'),seatBox=$('#seatDrawToggle'),stake=$('#stakeSelect');
+ level.value=settings.level;coachBox.checked=settings.coach;dangerBox.checked=settings.danger;seatBox.checked=settings.seatDraw;stake.value=settings.stake;
+ level.onchange=()=>{settings.level=level.value;saveSettings();notify('電腦難度：'+AI.LEVELS[settings.level]);};
+ coachBox.onchange=()=>{settings.coach=coachBox.checked;saveSettings();syncToggles();render();};
+ dangerBox.onchange=()=>{settings.danger=dangerBox.checked;saveSettings();render();};
+ seatBox.onchange=()=>{settings.seatDraw=seatBox.checked;saveSettings();};
+ stake.onchange=()=>{settings.stake=stake.value;saveSettings();};
+ $('#coachQuick').onclick=()=>{settings.coach=!settings.coach;coachBox.checked=settings.coach;saveSettings();syncToggles();render();};
+ $('#rotateDismiss').onclick=()=>{$('#rotateHint').classList.add('hidden');try{localStorage.setItem('mahjong-coach-rotate','1');}catch(e){}};
+ try{if(localStorage.getItem('mahjong-coach-rotate'))$('#rotateHint').classList.add('hidden');}catch(e){}
+}
+setupVoice();setupSettings();updateSeats();syncToggles();render();setupCoachSize();
+if(typeof setupLessons==='function')setupLessons($,name=>{if(typeof Stages!=='undefined')Stages.complete(0);mode(name);});
+if(typeof Stages!=='undefined')Stages.setup($,mode);
 if('serviceWorker' in navigator){
  let reloading=false;
  const hadController=!!navigator.serviceWorker.controller; // 第一次安裝時不重新整理，避免打到一半的牌局被重置
