@@ -95,6 +95,11 @@ function showStart() {
 /** 開始目前已洗好的這一局（完整開局模式會先演示擲骰、開門、配牌、補花） */
 function startCurrentHand() {
   if (typeof Sound !== 'undefined' && Sound.unlock) Sound.unlock();
+  // 從分享連結打開：改發分享的那副牌（newHand 會自己處理開局演示）
+  if (pendingDeal) {
+    newHand();
+    return;
+  }
   if (settings.opening === 'full') runCeremony(beginPlay);
   else beginPlay();
 }

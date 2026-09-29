@@ -196,7 +196,9 @@ function startMatch(w) {
 function newHand(msg = '') {
   generation++;
   clearTimeout(timer);
-  game = E.create(Date.now(), ruleOpts());
+  const dealt = dealGame(); // 一般是隨機洗牌；從分享連結來的就用同一副牌
+  game = dealt.game;
+  if (dealt.shared && !msg) msg = '這是分享的牌局：配牌與牌牆都和分享者相同。';
   saveSession();
   session.settled = false;
   session.last = null;

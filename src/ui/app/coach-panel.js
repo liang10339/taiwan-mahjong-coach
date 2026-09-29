@@ -71,6 +71,7 @@ function coach() {
     const ws = winScore();
     if (ws) body.append(scoreCard(ws));
     if (session.last) body.append(settleCard());
+    body.append(fairnessCard());
     const good = turnLog.filter((x) => x.judge.verdict === 'best').length;
     body.append(copy);
     copy.textContent = turnLog.length

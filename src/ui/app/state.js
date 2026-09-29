@@ -70,7 +70,7 @@ function ruleOpts() {
     passWater: settings.passWater,
   };
 }
-let game = E.create(Date.now(), ruleOpts()),
+let game = E.create(Date.now() >>> 0, ruleOpts()), // 種子存成 32 位元（洗牌只用低 32 位元），公開驗證時數字才一致
   selected = null,
   timer = null,
   generation = 0,

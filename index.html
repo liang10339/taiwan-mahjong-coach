@@ -21,6 +21,7 @@
     <link rel="stylesheet" href="styles/opening.css?v=23" />
     <link rel="stylesheet" href="styles/notebook.css?v=23" />
     <link rel="stylesheet" href="styles/growth.css?v=23" />
+    <link rel="stylesheet" href="styles/fairness.css?v=23" />
     <title>牌桌教練｜台灣麻將練習</title>
   </head>
   <body>
@@ -123,9 +124,11 @@
                 <div class="table-info"
                   ><div class="wind" id="roundWind">東</div
                   ><div class="round"
-                    ><span id="roundName">東風東局</span><br />可摸 <b id="wallCount">0</b> 張</div
-                  ></div
-                >
+                    ><span id="roundName">東風東局</span><br />可摸 <b id="wallCount">0</b> 張<br /><small
+                      class="deal-print"
+                      id="dealPrint"
+                    ></small></div
+                ></div>
                 <div class="turn-status" id="turnStatus" role="status">輪到你摸牌</div>
                 <div class="discard-river pile" id="discardRiver" aria-label="牌河"></div>
                 <div class="player-seat"
@@ -312,6 +315,7 @@
     <script src="src/core/value.js?v=23"></script>
     <script src="src/core/notebook.js?v=23"></script>
     <script src="src/core/growth.js?v=23"></script>
+    <script src="src/core/fairness.js?v=23"></script>
     <script src="src/ui/tiles.js?v=23"></script>
     <script src="src/ui/sound.js?v=23"></script>
     <script src="src/ui/lessons.js?v=23"></script>
@@ -324,6 +328,7 @@
     <script src="src/ui/app/review.js?v=23"></script>
     <script src="src/ui/app/notebook-panel.js?v=23"></script>
     <script src="src/ui/app/growth-panel.js?v=23"></script>
+    <script src="src/ui/app/fairness-panel.js?v=23"></script>
     <script src="src/ui/app/flow.js?v=23"></script>
     <script src="src/ui/app/opening.js?v=23"></script>
     <script src="src/ui/app/settings-panel.js?v=23"></script>
