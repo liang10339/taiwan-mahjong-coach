@@ -172,6 +172,7 @@
     const single = waitsBefore.length === 1;
 
     let best = null;
+    /** @type {{kind: 'standard' | 'ligu', d?: any}[]} 標準拆法，以及可能的嚦咕嚦咕 */
     const options = decs.map((d) => ({ kind: 'standard', d }));
     if (ligu) options.push({ kind: 'ligu' });
     for (const opt of options) {

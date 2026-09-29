@@ -297,7 +297,8 @@ $('#askForm').onsubmit = (e) => {
 };
 // 鍵盤：空白鍵摸牌、Enter 確認出牌、← → 選牌
 document.addEventListener?.('keydown', (e) => {
-  if (e.target && /INPUT|TEXTAREA|SELECT|BUTTON|SUMMARY/.test(e.target.tagName)) return;
+  const target = /** @type {HTMLElement | null} */ (e.target);
+  if (target && /INPUT|TEXTAREA|SELECT|BUTTON|SUMMARY/.test(target.tagName)) return;
   const choosing = game.turn === 0 && game.phase === 'discard';
   if (e.key === ' ' && !$('#drawButton').disabled) {
     e.preventDefault();

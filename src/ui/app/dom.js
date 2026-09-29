@@ -1,6 +1,9 @@
 'use strict';
 // 共用的 DOM 小工具：查元素、建元素、提示訊息、是否播放動畫
+/** 查單一元素。回傳 any：各處會直接設定 onclick、value 等屬性。 @type {(selector: string) => any} */
 const $ = (s) => document.querySelector(s);
+/** 查多個元素，回傳一般陣列。 @type {(selector: string) => any[]} */
+const $$ = (s) => [...document.querySelectorAll(s)];
 function el(tag, cls, text) {
   const x = document.createElement(tag);
   if (cls) x.className = cls;

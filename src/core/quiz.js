@@ -31,6 +31,12 @@
     return tiles;
   }
 
+  /**
+   * 新手學堂的階段。lessons 每一項是 [標題, 說明, 範例牌型（每列一組牌）]。
+   * @typedef {[string, string, number[][]?]} StageLesson
+   * @typedef {{id: number, name: string, who: string, goal: string, lessons?: StageLesson[]}} Stage
+   * @type {Stage[]}
+   */
   const STAGES = [
     { id: 0, name: '入門', who: '完全不會', goal: '認牌、順刻對、胡牌結構，開局流程互動演示' },
     {

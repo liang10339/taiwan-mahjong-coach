@@ -129,6 +129,12 @@
   function who(g, p) {
     return p === 0 ? '你' : names[27 + seatWind(g, p)] + '家';
   }
+  /**
+   * 開一局新牌：洗牌、擲骰、配牌（含補花）。同一個 seed 與 opts 一定得到同一局。
+   * @param {number} [seed] 洗牌種子
+   * @param {RuleOptions} [opts] 莊家、圈風、連莊、保留牌數、過水
+   * @returns {Game}
+   */
   function create(seed = Date.now(), opts = {}) {
     let n = seed >>> 0;
     const random = () => {
@@ -152,6 +158,7 @@
     // 洗好的牌視為已從開門處排起：陣列尾端是摸牌端，陣列頭是牌尾（補花、補槓從這裡拿）。
     const dice = [0, 0, 0].map(() => 1 + Math.floor(random() * 6)),
       wallOwner = (dealer + dice[0] + dice[1] + dice[2] - 1) % 4;
+    /** @type {Game} */
     const g = {
       seed,
       wall,

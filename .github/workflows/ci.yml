@@ -1,0 +1,24 @@
+# 每次推送與 PR 都自動檢查：格式、型別、全部測試。任何一項失敗，PR 上會顯示紅燈。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: 格式檢查（Prettier）
+        run: npm run format:check
+      - name: 型別檢查（TypeScript 檢查 JS）
+        run: npm run typecheck
+      - name: 測試
+        run: npm test

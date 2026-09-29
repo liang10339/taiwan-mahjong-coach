@@ -2,11 +2,9 @@
 // 設定與切換：分頁、牌河／音效開關、報牌聲音、⚙ 選項
 function mode(name) {
   for (const n of ['table', 'lesson', 'review']) $('#' + n + 'View').classList.toggle('hidden', n !== name);
-  document
-    .querySelectorAll('.mode-tab')
-    .forEach((b) => b.classList.toggle('active', b.dataset.mode === name));
+  $$('.mode-tab').forEach((b) => b.classList.toggle('active', b.dataset.mode === name));
 }
-document.querySelectorAll('.mode-tab').forEach((b) => (b.onclick = () => mode(b.dataset.mode)));
+$$('.mode-tab').forEach((b) => (b.onclick = () => mode(b.dataset.mode)));
 $('#riverToggle').onclick = () => {
   neatRiver = !neatRiver;
   try {
@@ -111,11 +109,13 @@ function setupSettings() {
     settings.stake = stake.value;
     saveSettings();
   };
-  for (const [id, key, live] of [
+  /** @type {[string, string, boolean][]} [勾選框, 設定名稱, 是否立即重畫（否則下一局生效）] */
+  const toggles = [
     ['#passWaterToggle', 'passWater', false],
     ['#reserveToggle', 'reserve', false],
     ['#cutsToggle', 'showCuts', true],
-  ]) {
+  ];
+  for (const [id, key, live] of toggles) {
     const box = $(id);
     box.checked = !!settings[key];
     box.onchange = () => {

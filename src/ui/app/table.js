@@ -32,7 +32,7 @@ function rectsOf(box) {
     : [];
 }
 function rackBox(p) {
-  return p === 0 ? $('#hand') : document.querySelector('[data-seat="' + p + '"]');
+  return p === 0 ? $('#hand') : $('[data-seat="' + p + '"]');
 }
 function snapshot(p) {
   return { p, rects: rectsOf(rackBox(p)), log: game.log.length };
@@ -74,7 +74,7 @@ function animateDiscard(snap) {
         ? n - 1
         : Math.max(0, Math.min(n - 2, Math.floor(n / 2) + ((e.tile * 5 + snap.log) % 5) - 2));
   const src = old[from],
-    target = document.querySelector('#discardRiver .latest'),
+    target = $('#discardRiver .latest'),
     hand = e.cut !== 'tsumo';
   if (src && target && target.animate && target.getBoundingClientRect) {
     const r = target.getBoundingClientRect(),
@@ -204,7 +204,7 @@ function render() {
       (justDrew && i === own.length - 1 ? ' drawn' : '');
     b.innerHTML = Tiles.svg(t);
     b.setAttribute('aria-label', tile(t) + '，第 ' + (i + 1) + ' 張');
-    b.setAttribute('aria-pressed', selected === i);
+    b.setAttribute('aria-pressed', String(selected === i));
     b.title = Coach.label(t);
     if (risk) {
       const r = risk[t];
@@ -225,7 +225,7 @@ function render() {
     hand.append(b);
   });
   renderRiver();
-  document.querySelectorAll('[data-seat]').forEach((box) => {
+  $$('[data-seat]').forEach((box) => {
     const p = +box.dataset.seat,
       fresh = game.phase === 'discard' && game.turn === p && game.fresh && game.fresh.player === p;
     box.replaceChildren(
@@ -237,7 +237,7 @@ function render() {
     );
     box.title = seats[p] + '手牌 ' + game.hands[p].length + ' 張';
   });
-  document.querySelectorAll('[data-meld-seat]').forEach((box) => {
+  $$('[data-meld-seat]').forEach((box) => {
     const p = +box.dataset.meldSeat,
       items = [];
     game.melds[p].forEach((m) => {
@@ -312,7 +312,9 @@ function renderClaims() {
     return;
   }
   if (waiting()) {
-    for (const a of [...E.claims(game, 0), { type: 'pass' }]) {
+    /** @type {{type: string, tiles?: number[]}[]} 可以做的動作，最後加上「略過」 */
+    const actions = [...E.claims(game, 0), { type: 'pass' }];
+    for (const a of actions) {
       const button = document.createElement('button');
       button.className = 'secondary-button';
       button.textContent =

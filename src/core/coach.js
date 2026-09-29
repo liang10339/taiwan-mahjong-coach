@@ -194,6 +194,7 @@
   function decompose(hand, open = 0) {
     const c = Array(34).fill(0);
     hand.forEach((t) => c[t]++);
+    /** @type {[number, number, boolean][]} 四種花色在牌型編號中的範圍：[起, 迄, 是否字牌] */
     const ranges = [
       [0, 9, false],
       [9, 18, false],
@@ -201,6 +202,7 @@
       [27, 34, true],
     ];
     const lists = ranges.map(([a, b, h]) => suitDecomps(c.slice(a, b), h));
+    /** @type {{score: number, q: number, pick: number[]} | null} */
     let best = null;
     const pick = [0, 0, 0, 0];
     (function walk(si, m, t, p, q) {
@@ -329,9 +331,9 @@
       .sort(
         (a, b) =>
           rank(a) - rank(b) ||
-          next.has(b.tile) - next.has(a.tile) ||
+          Number(next.has(b.tile)) - Number(next.has(a.tile)) ||
           seen(b.tile) - seen(a.tile) ||
-          (b.tile === drawn) - (a.tile === drawn) ||
+          Number(b.tile === drawn) - Number(a.tile === drawn) ||
           a.tile - b.tile,
       );
   }
@@ -646,12 +648,17 @@
       (added ? '\n加槓須先通過其他家的搶槓胡回應；此建議不估計對手胡牌機率。' : '');
     return { action: a, baseline, outcomes, narrower, worse, recommend, compact, text };
   }
+  /**
+   * 一個吃／碰／槓／胡選項的比較結果。胡牌沒有 after；槓牌另有補牌情境（outcomes 等）。
+   * @typedef {{action: any, recommend: boolean, compact: string, text: string, after?: any, baseline?: any}} ClaimOption
+   */
   function claimDecision(g, p = 0) {
     const hand = g.hands[p],
       pub = E.publicTiles(g, p),
       open = g.melds[p].length,
       known = knownCounts(hand, pub),
       baseline = waitValue(hand, open, known);
+    /** @type {ClaimOption[]} */
     const options = E.claims(g, p).map((action) => {
       if (action.type === 'ron')
         return {
