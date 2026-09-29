@@ -233,11 +233,33 @@
   function label(t) {
     return LABELS[t];
   }
+  // 每種牌的 SVG 只解析一次，之後直接複製節點；比每張牌都用 innerHTML 重新解析快很多
+  const parsed = new Map();
+  let canClone = null;
+  /** 把第 t 種牌的牌面放進元素裡 */
+  function fill(el, t) {
+    if (canClone === null) {
+      const probe = document.createElement('template');
+      canClone = !!(probe && probe.content && probe.content.cloneNode);
+    }
+    if (!canClone) {
+      el.innerHTML = svg(t);
+      return;
+    }
+    let cached = parsed.get(t);
+    if (!cached) {
+      const template = document.createElement('template');
+      template.innerHTML = svg(t);
+      cached = template.content.firstElementChild;
+      parsed.set(t, cached);
+    }
+    el.append(cached.cloneNode(true));
+  }
   // 建立一張牌的元素；size：'lg'（手牌）、'md'、'sm'（牌河、攤牌）、'xs'（教練列表）
   function node(t, size = 'sm', tag = 'span') {
     const el = document.createElement(tag);
     el.className = 'mj mj-' + size + (t >= 34 ? ' mj-flower' : '');
-    el.innerHTML = svg(t);
+    fill(el, t);
     if (el.setAttribute) {
       el.setAttribute('role', 'img');
       el.setAttribute('aria-label', label(t));
@@ -250,7 +272,7 @@
     el.className = 'mj mj-back mj-' + size;
     return el;
   }
-  const api = { svg, node, back, label, face };
+  const api = { svg, fill, node, back, label, face };
   if (typeof module !== 'undefined') module.exports = api;
   else root.Tiles = api;
 })(globalThis);

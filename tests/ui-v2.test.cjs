@@ -99,6 +99,7 @@ assert.equal(run('turnLog.at(-1).mistake'), true);
 assert.match(run('turnLog.at(-1).warning'), /退了一步|損失了/);
 assert.match(get('#toast').textContent, /⚠/);
 // 覆盤：逐手回放面板
+run("mode('review')"); // 覆盤頁要切過去才會畫
 const review = get('#reviewView .empty-review');
 assert.ok(review.children.some((n) => /逐手回放/.test(text(n))));
 // 關閉提示：教練面板只留簡短說明；看提示可臨時顯示

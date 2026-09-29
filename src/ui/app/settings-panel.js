@@ -1,8 +1,10 @@
 'use strict';
 // 設定與切換：分頁、牌河／音效開關、報牌聲音、⚙ 選項
 function mode(name) {
+  currentMode = name;
   for (const n of ['table', 'lesson', 'review']) $('#' + n + 'View').classList.toggle('hidden', n !== name);
   $$('.mode-tab').forEach((b) => b.classList.toggle('active', b.dataset.mode === name));
+  if (name === 'review') renderReview();
 }
 $$('.mode-tab').forEach((b) => (b.onclick = () => mode(b.dataset.mode)));
 $('#riverToggle').onclick = () => {

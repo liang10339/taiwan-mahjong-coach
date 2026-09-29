@@ -65,3 +65,14 @@ const { createUiContext } = require('./helpers.cjs');
 }
 
 console.log('PASS: 開始畫面、直接開始、完整開局五步驟、開門位置、演示時電腦不出牌、跳過開局與設定記憶。');
+
+// 4. 手牌下方的狀態只描述自己：別家的回合不能寫「請出牌」
+{
+  const ui = createUiContext();
+  ui.button('#openingActions', '開始').onclick();
+  assert.equal(ui.get('.player-label small').textContent, '輪到你：請摸牌');
+  ui.run("game.turn = 2; game.phase = 'discard'; render();");
+  assert.match(ui.get('.player-label small').textContent, /^等待.*出牌$/);
+  assert.doesNotMatch(ui.get('.player-label small').textContent, /請出牌/);
+  console.log('PASS: 手牌下方狀態只描述自己。');
+}

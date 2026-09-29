@@ -109,17 +109,20 @@ function cutShown(p, cut) {
 function cutName(c) {
   return c === 'tsumo' ? '摸切' : c === 'empty' ? '空切' : '手切';
 }
+/** 散落牌堆已經畫在桌上的牌：只補上新打出的，不整堆重畫（每次重畫約 60 張牌 SVG 很耗時） */
+let pileView = { base: '', pile: [], nodes: [], caption: null };
 function renderRiver() {
   const river = $('#discardRiver');
-  river.replaceChildren();
   river.classList.toggle('neat', neatRiver);
   river.classList.toggle('show-cuts', !!settings.showCuts);
   if (neatRiver) {
+    pileView.base = '';
+    river.replaceChildren();
+    const lastDiscard = discardPile().at(-1);
     game.rivers.forEach((tiles, p) => {
       const section = el('div', 'river-group');
       section.append(el('strong', null, seats[p]));
       const box = el('div', 'river-tiles');
-      const lastDiscard = discardPile().at(-1);
       tiles.forEach((t, i) => {
         const n = Tiles.node(t, 'sm'),
           c = cutShown(p, (game.cuts && game.cuts[p] && game.cuts[p][i]) || 'hand');
@@ -133,27 +136,70 @@ function renderRiver() {
     });
     return;
   }
-  const pile = discardPile(),
-    w = (river.clientWidth || 420) / 2 - 18,
-    h = (river.clientHeight || 240) / 2 - 22;
-  pile.forEach((d, i) => {
-    const node = Tiles.node(d.tile, 'sm'),
+  renderPile(river, discardPile());
+}
+/**
+ * 牌河區的大小。只在大小真的改變時量（ResizeObserver），不在每次重畫時讀 clientWidth：
+ * 重畫手牌後馬上讀尺寸會逼瀏覽器立刻重算整頁版面，是每次重畫最耗時的一步。
+ */
+let riverSize = null;
+function measureRiver(river) {
+  if (!riverSize) riverSize = { w: river.clientWidth || 420, h: river.clientHeight || 240 };
+  return riverSize;
+}
+function watchRiverSize() {
+  if (typeof ResizeObserver === 'undefined') return;
+  new ResizeObserver(([entry]) => {
+    const { width, height } = entry.contentRect;
+    if (!width || (riverSize && riverSize.w === width && riverSize.h === height)) return;
+    riverSize = { w: width, h: height };
+    renderRiver(); // 牌桌大小變了（例如手機轉向），整堆重排
+  }).observe($('#discardRiver'));
+}
+function renderPile(river, pile) {
+  const size = measureRiver(river),
+    w = size.w / 2 - 18,
+    h = size.h / 2 - 22;
+  // 換局、換座位名稱或牌桌大小改變，或有牌被吃碰拿走時，才整堆重畫
+  const base = generation + '|' + Math.round(w) + 'x' + Math.round(h) + '|' + seats.join();
+  const prefix =
+    pileView.base === base &&
+    pileView.pile.length <= pile.length &&
+    pileView.pile.every((d, i) => d.tile === pile[i].tile && d.player === pile[i].player);
+  if (!prefix) {
+    river.replaceChildren();
+    pileView = { base, pile: [], nodes: [], caption: null };
+  }
+  for (let i = pileView.pile.length; i < pile.length; i++) {
+    const d = pile[i],
+      node = Tiles.node(d.tile, 'sm'),
       pos = scatter(i);
     node.classList.add('pile-tile', 'cut-' + cutShown(d.player, d.cut));
-    if (i === pile.length - 1) node.classList.add('latest');
     node.style.left = Math.round(w + pos.x * w) + 'px';
     node.style.top = Math.round(h + pos.y * h) + 'px';
     node.style.setProperty?.('--rot', pos.rot.toFixed(1) + 'deg');
     if (node.dataset) node.dataset.rot = pos.rot.toFixed(1);
     node.title = seats[d.player] + cutName(cutShown(d.player, d.cut)) + ' ' + Coach.label(d.tile);
     river.append(node);
-  });
-  shownPile = pile.length;
-  if (pile.length && game.phase !== 'ended') {
-    const last = pile[pile.length - 1],
-      tag = el('span', 'pile-caption', seats[last.player] + '打出 ' + Coach.label(last.tile));
-    river.append(tag);
+    pileView.pile.push(d);
+    pileView.nodes.push(node);
   }
+  pileView.nodes.forEach((n, i) => n.classList.toggle('latest', i === pileView.nodes.length - 1));
+  // 最上方的說明「某家打出某張」
+  if (pileView.caption) pileView.caption.remove?.();
+  pileView.caption = null;
+  if (pile.length && game.phase !== 'ended') {
+    const last = pile[pile.length - 1];
+    pileView.caption = el('span', 'pile-caption', seats[last.player] + '打出 ' + Coach.label(last.tile));
+    river.append(pileView.caption);
+  }
+}
+/** 手牌下方只說「你」現在該做什麼；全桌狀態顯示在牌桌右上角 */
+function myStatus() {
+  if (game.phase === 'ended') return game.result;
+  if (game.phase === 'claim') return waiting() ? '有人出牌：決定吃碰槓胡，或略過' : '等待其他家回應';
+  if (game.turn === 0) return game.phase === 'draw' ? '輪到你：請摸牌' : '輪到你：請出牌';
+  return '等待' + seats[game.turn] + (game.phase === 'draw' ? '摸牌' : '出牌');
 }
 function render() {
   const mine = game.turn === 0,
@@ -169,7 +215,7 @@ function render() {
           : seats[game.turn] + (game.phase === 'draw' ? '：請摸牌' : '：請出牌');
   $('#turnStatus').textContent = status;
   $('#wallCount').textContent = drawable();
-  $('.player-label small').textContent = status;
+  $('.player-label small').textContent = myStatus();
   const drawnAt =
     choosing && lastDrawn !== null && game.hands[0][game.hands[0].length - 1] === lastDrawn
       ? game.hands[0].length - 1
@@ -202,7 +248,7 @@ function render() {
       'tile mj mj-lg' +
       (selected === i ? ' selected' : '') +
       (justDrew && i === own.length - 1 ? ' drawn' : '');
-    b.innerHTML = Tiles.svg(t);
+    Tiles.fill(b, t);
     b.setAttribute('aria-label', tile(t) + '，第 ' + (i + 1) + ' 張');
     b.setAttribute('aria-pressed', String(selected === i));
     b.title = Coach.label(t);
@@ -259,7 +305,7 @@ function render() {
     box.replaceChildren(...items);
   });
   coach();
-  renderReview();
+  if (currentMode === 'review') renderReview(); // 覆盤頁看不到時不重畫，切過去時才畫
   soundEvents();
 }
 function updateSeats() {
@@ -377,12 +423,3 @@ function setupCoachSize() {
   observer.observe(column);
   sync();
 }
-// 視窗大小改變（例如手機轉向）時重新排牌堆位置，避免散落的牌跑出牌桌中央
-let resizeTimer = null;
-globalThis.addEventListener?.('resize', () => {
-  cancelAnimationFrame?.(resizeTimer);
-  resizeTimer = requestAnimationFrame?.(() => {
-    shownPile = Infinity;
-    renderRiver();
-  });
-});

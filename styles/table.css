@@ -1253,3 +1253,36 @@
     animation: none;
   }
 }
+/* 窄螢幕：頂列分頁與圖示按鈕收緊，避免超出畫面造成左右晃動 */
+@media (max-width: 580px) {
+  .topbar .mode-tabs {
+    gap: 10px;
+  }
+  .topbar-actions {
+    gap: 0;
+  }
+}
+@media (max-width: 380px) {
+  .topbar {
+    gap: 4px;
+    padding: 0 6px;
+  }
+  .topbar .mode-tab {
+    font-size: 12px;
+  }
+  .topbar .icon-button {
+    width: 30px;
+  }
+}
+/* 極窄螢幕（320px 等舊手機）：頂列換成兩行，不隱藏任何功能 */
+@media (max-width: 350px) {
+  .topbar {
+    flex-wrap: wrap;
+    height: auto;
+    padding-block: 4px;
+    row-gap: 2px;
+  }
+  .topbar-actions {
+    margin-left: auto;
+  }
+}

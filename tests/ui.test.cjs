@@ -121,6 +121,7 @@ get('#claimActions').children.at(-1).onclick();
 assert.equal(vm.runInContext('reviewTimeline.length', c), 1);
 assert.equal(vm.runInContext('reviewTimeline[0].choice.type', c), 'pass');
 assert.match(vm.runInContext('resolutionText(reviewTimeline[0])', c), /全員略過/);
+vm.runInContext("mode('review')", c); // 覆盤頁要切過去才會畫
 assert.ok(
   get('#reviewView .empty-review').children.some((x) =>
     x.children.some((y) => /略過/.test(y.textContent || '')),

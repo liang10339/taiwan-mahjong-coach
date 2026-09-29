@@ -23,56 +23,91 @@
     }
     return c;
   };
-  // Standard 16-tile hand: five melds and one pair. No special hands.
+  // ---- 進聽數（shanten）：一般胡牌為五組加一對，不含特殊牌型 ----
+  // 做法：把手牌分成萬、筒、索、字四門，各自列出「面子數、搭子數、有沒有眼」的所有可能，
+  // 結果依該門的牌型快取；四門再合併取最佳。和逐張搜尋整副手牌的結果完全相同，
+  // 但同一門的牌型會重複出現，所以快很多（教練、電腦、危險度、未來的期望值模擬都靠它）。
+  // 公式：進聽數 = 10 − 2×面子 − min(搭子, 5 − 面子) − 眼；−1 表示已胡牌。
+  /** @type {[number, number, boolean][]} 四門在牌型編號中的範圍：[起, 迄, 是否字牌] */
+  const SUITS = [
+    [0, 9, false],
+    [9, 18, false],
+    [18, 27, false],
+    [27, 34, true],
+  ];
+  /** 各門牌型的拆法快取：key 是「字牌與否＋各張數」，value 是 [面子, 搭子, 眼] 的所有組合 */
+  const suitCache = new Map();
+  function suitStates(c, from, to, honor) {
+    let key = honor ? 'h' : 's';
+    for (let i = from; i < to; i++) key += c[i];
+    const cached = suitCache.get(key);
+    if (cached) return cached;
+    const cnt = c.slice(from, to),
+      memo = new Map();
+    // 回傳剩下的牌能拆出的 (面子, 搭子, 眼) 組合，編碼為 面子*100 + 搭子*10 + 眼
+    function walk() {
+      const id = cnt.join('');
+      const hit = memo.get(id);
+      if (hit) return hit;
+      const i = cnt.findIndex((n) => n > 0),
+        out = new Set();
+      if (i < 0) out.add(0);
+      else {
+        const add = (delta, rest) => rest.forEach((v) => out.add(v + delta));
+        const tryRemove = (tiles, delta) => {
+          tiles.forEach((j) => cnt[j]--);
+          add(delta, walk());
+          tiles.forEach((j) => cnt[j]++);
+        };
+        if (cnt[i] >= 3) tryRemove([i, i, i], 100); // 刻子
+        if (!honor && i + 2 < cnt.length && cnt[i + 1] && cnt[i + 2]) tryRemove([i, i + 1, i + 2], 100); // 順子
+        if (cnt[i] >= 2) {
+          cnt[i] -= 2;
+          const rest = walk();
+          rest.forEach((v) => {
+            if (v % 10 === 0) out.add(v + 1); // 當眼
+            out.add(v + 10); // 當搭子（對子）
+          });
+          cnt[i] += 2;
+        }
+        if (!honor) for (const d of [1, 2]) if (i + d < cnt.length && cnt[i + d]) tryRemove([i, i + d], 10); // 兩面、邊張、嵌張
+        tryRemove([i], 0); // 孤張
+      }
+      memo.set(id, out);
+      return out;
+    }
+    const states = [...walk()].map((v) => [Math.floor(v / 100), Math.floor(v / 10) % 10, v % 10]);
+    if (suitCache.size > 200000) suitCache.clear(); // 避免長時間使用後記憶體無限增加
+    suitCache.set(key, states);
+    return states;
+  }
   function shanten(hand, open = 0) {
     const c = countsOf(hand);
-    let best = 10;
-    const seen = new Set();
-    function visit(m, t, p) {
-      const key = c.join('') + ':' + m + ',' + t + ',' + p;
-      if (seen.has(key)) return;
-      seen.add(key);
-      const i = c.findIndex((n) => n > 0);
-      if (i < 0) {
-        best = Math.min(best, 10 - 2 * m - Math.min(t, 5 - m) - p);
-        return;
+    // 逐門合併：面子、搭子最多算到 5（再多也不會更好），眼最多一個
+    let states = new Set([Math.min(open, 5) * 100]);
+    for (const [from, to, honor] of SUITS) {
+      const next = new Set();
+      for (const s of states) {
+        const m = Math.floor(s / 100),
+          t = Math.floor(s / 10) % 10,
+          p = s % 10;
+        for (const [dm, dt, dp] of suitStates(c, from, to, honor)) {
+          if (p && dp) continue;
+          next.add(Math.min(5, m + dm) * 100 + Math.min(5, t + dt) * 10 + (p || dp));
+        }
       }
-      if (m < 5 && c[i] >= 3) {
-        c[i] -= 3;
-        visit(m + 1, t, p);
-        c[i] += 3;
-      }
-      if (m < 5 && i < 27 && i % 9 <= 6 && c[i + 1] && c[i + 2]) {
-        c[i]--;
-        c[i + 1]--;
-        c[i + 2]--;
-        visit(m + 1, t, p);
-        c[i]++;
-        c[i + 1]++;
-        c[i + 2]++;
-      }
-      if (c[i] >= 2) {
-        c[i] -= 2;
-        if (!p) visit(m, t, 1);
-        if (t < 5) visit(m, t + 1, p);
-        c[i] += 2;
-      }
-      if (t < 5 && i < 27)
-        for (const d of [1, 2])
-          if ((i % 9) + d < 9 && c[i + d]) {
-            c[i]--;
-            c[i + d]--;
-            visit(m, t + 1, p);
-            c[i]++;
-            c[i + d]++;
-          }
-      c[i]--;
-      visit(m, t, p);
-      c[i]++;
+      states = next;
     }
-    visit(open, 0, 0);
+    let best = 10;
+    for (const s of states) {
+      const m = Math.floor(s / 100),
+        t = Math.floor(s / 10) % 10,
+        p = s % 10;
+      best = Math.min(best, 10 - 2 * m - Math.min(t, 5 - m) - p);
+    }
     return best;
   }
+
   // 嚦咕嚦咕：門清，七對加一刻
   function liguLigu(hand, open = 0) {
     if (open || hand.length !== 17) return false;

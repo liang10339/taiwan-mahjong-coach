@@ -85,8 +85,9 @@ let lastDrawn = null,
   explainCache = { key: '', value: null };
 let reviewTimeline = [];
 let heard = { log: 0, phase: game.phase },
-  neatRiver = false,
-  shownPile = 0;
+  neatRiver = false;
+/** 目前顯示的分頁（table／lesson／review）；覆盤頁只在看得到時才重畫 */
+let currentMode = 'table';
 let claimCache = { key: '', value: null },
   kanCache = { key: '', value: [] };
 function decisionKey() {
