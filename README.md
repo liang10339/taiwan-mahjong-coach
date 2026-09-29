@@ -1,9 +1,32 @@
-# 牌桌教練 v2.2
-台灣 16 張的單機教練練習。仍採下列簡化桌規，並非完整比賽規則。
+# 牌桌教練 v2.3
+台灣 16 張的單機教練練習（PWA，可離線、可安裝到手機主畫面）。仍採下列簡化桌規，並非完整比賽規則。
 
 ## 開啟
-在本資料夾執行 `python -m http.server 4176 --bind 127.0.0.1`，開啟 http://localhost:4176 。
-右上角顯示「教練練習 v2.2」。
+- 需要 [Node.js](https://nodejs.org/) 20 以上。第一次先執行 `npm install`（安裝格式與型別檢查工具）。
+- `npm start`，開啟 http://localhost:4176 。右上角顯示「教練練習 v2.3」。
+- 沒有 Node.js 時也可以：`python -m http.server 4176 --bind 127.0.0.1`。
+- 發布後的網址：main 更新時會自動部署到 GitHub Pages（見下方「開發」）。
+
+## 開發
+| 指令 | 用途 |
+|---|---|
+| `npm start` | 本機伺服器 http://localhost:4176 |
+| `npm test` | 平行執行 `tests/` 全部測試（約 8 秒） |
+| `npm run typecheck` | TypeScript 檢查 `src/` 的 JavaScript（依 JSDoc 型別） |
+| `npm run format` | 用 Prettier 統一排版 |
+| `npm run check` | 格式＋型別＋測試，送 PR 前跑一次 |
+| `npm run bump` | 改版時更新離線快取版本（sw.js 與 index.html 的 `?v=` 一起改） |
+
+- 程式架構、資料流與日後擴充的方式見 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
+- 每個 PR 都會由 GitHub Actions 自動跑格式、型別與測試（`.github/workflows/ci.yml`）。
+- main 更新後自動發布到 GitHub Pages（`.github/workflows/pages.yml`）。第一次使用前，到 GitHub 專案 **Settings → Pages**，把 **Source** 設為 **GitHub Actions**。
+
+## v2.3 更新：打底——可維護性、效能、開局模式
+- **開始畫面與開局模式**：開頁先選「直接開始」或「完整開局」。完整開局依序演示抓位（親手抽風牌）→ 擲骰（從莊家逆時針數點數）→ 開門（在 18 墩牌牆上數墩）→ 配牌（四輪、每次兩墩）→ 補花，用的是這一局真實的骰子、開門位置與花牌；每一步都能跳過。選擇會記住，⚙ 也能改。
+- **修正第一局沒有聲音**：瀏覽器規定使用者先點一下才能出聲，現在第一次點擊或按鍵就解鎖音效與報牌；語音清單較晚載入的瀏覽器（例如 Windows 的 Chrome）會先排隊、載入後補唸。
+- **速度**：進聽數計算改為逐門快取（結果和原本完全相同，快約 8 倍），電腦評估槓牌時不再卡頓（最久約 0.9 秒 → 30 毫秒內）；牌河改成只補新打出的牌，平均每次重畫約 26 毫秒 → 3 毫秒。
+- **修正**：手牌下方的狀態只說明你自己該做什麼（別家回合不再顯示「請出牌」）；手機寬度 320px 以上都不會左右晃動。
+- **程式整理**：檔案分成 `src/core`（規則、計台、教練、AI，不碰畫面）、`src/ui`、`styles`、`tests`；原本 543 行的 app.js 依功能拆成 9 個檔案；全部程式用 Prettier 排版；加上 TypeScript 型別檢查、牌局資料模型說明（`src/types/game.d.ts`）、自動測試與自動部署。
 
 ## v2.2 更新：用動作看出摸切、手切、空切；隨時整理手牌
 - 出牌改成從牌實際所在的位置飛進牌河，不再用文字標示：
@@ -147,18 +170,22 @@ v0.8 每項出牌顯示各種有效牌的未見張數，合計與原推薦一致
 - [台大盃麻將賽規則：另一套抽位與起莊方式](https://www.ptt.cc/bbs/NTU-MJ/M.1249441186.A.55B.html)
 
 ## 測試
-- `node engine.test.cjs`：40局牌數守恆、回合限制、胡牌與教練。
-- `node claims.test.cjs`：吃牌限制、回應優先權、各種槓、補牌、副露胡與20局含吃碰牌數守恆。
-- `node ui.test.cjs`：事件處理器、摸打鎖定、電腦輪流與重開。
-- `node lessons.test.cjs`：抓位、擲骰、選墩、配牌、答錯與通關。
-- `node coach.test.cjs`：截圖白板並列、提問、非推薦牌差異，以及三花色九種三面聽驗算。
-- `node rules.test.cjs`：摸切／手切／空切、被鳴牌時同步移除、過水與解除、保留八墩流局與海底、連續摸切與同花色讀牌。
-- `node ui-v21.test.cjs`：預設桌規、摸切／空切操作、整理手牌、讀牌筆記、過水封鎖胡牌、客風優先。
-- `node ai-levels.test.cjs`：三種難度完整牌局、高級棄胡、危險度分級、初級貪吃碰。
-- `node quiz.test.cjs`：聽牌題、算台題、何切題、防守題、攻守題與學習進度。
-- `node ui-v2.test.cjs`：連莊、下莊、結算、下一局、電腦當莊先動、打錯提醒、逐手回放、提示開關與危險度。
-- `node scoring.test.cjs`：各種台數項目、天地人胡、花牌胡、嚦咕嚦咕，以及 60 局實戰胡牌都能計台。
-- `node explain.test.cjs`：手牌拆解與進聽數一致、搭子等牌、並列建議順序、聽牌解說與出牌評語。
+`npm test` 會平行執行 `tests/` 裡的全部測試；`npm test -- scoring` 只跑檔名含 scoring 的測試。
+- `engine.test.cjs`：40局牌數守恆、回合限制、胡牌與教練。
+- `shanten.test.cjs`：進聽數與改寫前的原始實作逐手比對（6,660 手完全相同），並確認速度。
+- `claims.test.cjs`：吃牌限制、回應優先權、各種槓、補牌、副露胡與20局含吃碰牌數守恆。
+- `rules.test.cjs`：摸切／手切／空切、被鳴牌時同步移除、過水與解除、保留八墩流局與海底、連續摸切與同花色讀牌。
+- `scoring.test.cjs`：各種台數項目、天地人胡、花牌胡、嚦咕嚦咕，以及 60 局實戰胡牌都能計台。
+- `coach.test.cjs`：截圖白板並列、提問、非推薦牌差異，以及三花色九種三面聽驗算。
+- `explain.test.cjs`：手牌拆解與進聽數一致、搭子等牌、並列建議順序、聽牌解說與出牌評語。
+- `ai-levels.test.cjs`：三種難度完整牌局、高級棄胡、危險度分級、初級貪吃碰。
+- `ai-fairness.test.cjs`：打亂牌牆與別家暗牌後電腦的決定不變（證明沒有偷看）。
+- `quiz.test.cjs`：聽牌題、算台題、何切題、防守題、攻守題與學習進度。
+- `ui.test.cjs`、`ui-v2.test.cjs`、`ui-v21.test.cjs`：實際的按鈕處理、摸打鎖定、連莊下莊結算、覆盤、提示開關、危險度。
+- `opening.test.cjs`：開始畫面、直接開始、完整開局五步驟、開門位置、跳過、設定記憶、手牌下方狀態。
+- `lessons.test.cjs`：抓位、擲骰、選墩、配牌、答錯與通關。
+- `sound.test.cjs`：報牌、聲線設定、靜音、語音晚載入時排隊補唸、第一次點擊解鎖。
+- `assets.test.cjs`：index.html、離線快取清單、版本號與圖示一致。
 
 ## 參考資料（v2.1 比對的教學）
 - 維基教科書〈臺灣麻將〉：過水、詐胡、留八墩流局、連莊與補花規則。https://zh.wikibooks.org/zh-tw/臺灣麻將
