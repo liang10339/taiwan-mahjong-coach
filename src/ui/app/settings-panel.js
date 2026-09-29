@@ -123,6 +123,7 @@ function setupSettings() {
     ['#passWaterToggle', 'passWater', false],
     ['#reserveToggle', 'reserve', false],
     ['#cutsToggle', 'showCuts', true],
+    ['#valueToggle', 'value', true],
   ];
   for (const [id, key, live] of toggles) {
     const box = $(id);

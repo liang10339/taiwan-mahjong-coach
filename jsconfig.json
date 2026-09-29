@@ -10,5 +10,6 @@
     "skipLibCheck": true,
     "types": []
   },
-  "include": ["src/**/*.js", "src/types/*.d.ts"]
+  "include": ["src/**/*.js", "src/types/*.d.ts"],
+  "exclude": ["src/workers/**"]
 }
