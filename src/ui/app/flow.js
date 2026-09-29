@@ -55,29 +55,52 @@ $('#drawButton').onclick = () => {
   }
   render();
 };
+/** 教練建議先守時的評語 */
+function foldJudge(t, decision) {
+  const guard = decision.tile;
+  return t === guard
+    ? { verdict: 'best', text: '和教練一樣先守：' + decision.situation.guard.why + '。' }
+    : {
+        verdict: 'other',
+        text:
+          '教練建議先守打' +
+          Coach.label(guard) +
+          '（' +
+          decision.situation.guard.why +
+          '）；你打的' +
+          Coach.label(t) +
+          '是進攻的選擇，要承擔放槍風險。',
+      };
+}
 $('#discardButton').onclick = () => {
   if (selected === null || game.phase !== 'discard' || game.turn !== 0) return;
   const t = game.hands[0][selected],
     ex = currentExplain(),
-    best = ex ? ex.best : suggestions[0];
+    decision = currentDecision(),
+    best = ex ? ex.best : suggestions[0], // 牌效率首選（算進張損失用）
+    folding = !!decision && decision.folding; // 教練這手建議先守
   const kans = currentKans(),
     skipped = kans.length
       ? decisionRecord({ type: 'pass' }, kans, '未槓，選擇打' + tile(t), 'skip-kan')
       : null;
+  // 覆盤的「教練建議」就是當時標題上的建議，和教練欄一致
   const record = best
     ? {
         tile: t,
         drawn: lastDrawn,
-        best: best.tile,
-        judge: Coach.judge(suggestions, t, best),
-        reason: Coach.tileRole(game.hands[0], best.tile, E.publicTiles(game), game.melds[0].length),
+        best: folding ? decision.tile : best.tile,
+        judge: folding ? foldJudge(t, decision) : Coach.judge(suggestions, t, best),
+        reason: folding
+          ? decision.situation.guard.why + '。'
+          : Coach.tileRole(game.hands[0], best.tile, E.publicTiles(game), game.melds[0].length),
       }
     : null;
   if (record) {
     record.defense = Defense.describe(Defense.inspect(game, 0, t));
     const pick = suggestions.find((o) => o.tile === t),
       lost = pick ? best.remaining - pick.remaining : 0;
-    record.mistake = !!pick && (pick.shanten > best.shanten || lost >= 4);
+    // 要守的局面拆牌是對的，不算牌效率失誤
+    record.mistake = !folding && !!pick && (pick.shanten > best.shanten || lost >= 4);
     record.warning = !record.mistake
       ? ''
       : pick.shanten > best.shanten
@@ -306,6 +329,7 @@ function askCoach(question) {
     question,
     game,
     selected === null ? null : game.hands[0][selected],
+    waiting() ? currentClaim() : null,
   );
 }
 $('#askSelected').onclick = () => askCoach('這張可以嗎');

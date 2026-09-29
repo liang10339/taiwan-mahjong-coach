@@ -141,7 +141,7 @@ function coach() {
   }
   if (game.turn !== 0) {
     title.textContent = '等待' + seats[game.turn];
-    body.replaceChildren(title); // 不需要說明段落
+    copy.hidden = true; // 這裡不需要說明段落
     situationSection(body, 1);
     reviewCard(body);
     readingCard(body);
@@ -149,7 +149,7 @@ function coach() {
   }
   if (game.phase === 'draw') {
     title.textContent = '輪到你摸牌';
-    body.replaceChildren(title); // 不需要說明段落
+    copy.hidden = true; // 這裡不需要說明段落
     situationSection(body, 1);
     reviewCard(body);
     readingCard(body);
@@ -164,15 +164,16 @@ function coach() {
   const ex = currentExplain();
   if (!ex) {
     title.textContent = '請選牌出牌';
-    body.replaceChildren(title); // 不需要說明段落
+    copy.hidden = true; // 這裡不需要說明段落
     return;
   }
+  // 標題就是決策核心的最後建議；要守而和牌效率首選不同時，旁邊標出效率首選
   const best = ex.best,
-    sit = currentSituation();
-  const folding = sit && sit.stance === 'fold' && sit.guard && sit.guard.tile !== best.tile;
+    decision = currentDecision(),
+    folding = !!decision && decision.folding;
   title.replaceChildren(
     el('span', null, folding ? '建議先守：打 ' : '建議打出 '),
-    Tiles.node(folding ? sit.guard.tile : best.tile, 'md'),
+    Tiles.node(decision ? decision.tile : best.tile, 'md'),
   );
   copy.className = 'coach-chips';
   copy.replaceChildren(
@@ -282,7 +283,7 @@ function coach() {
   });
   body.append(groups);
   if (pick) {
-    const j = Coach.judge(suggestions, pick.tile, best);
+    const j = folding ? foldJudge(pick.tile, decision) : Coach.judge(suggestions, pick.tile, best);
     const card = el('div', 'coach-last ' + j.verdict),
       head = el('div', 'coach-last-head');
     head.append(el('span', 'coach-tag', '你選的牌'), Tiles.node(pick.tile, 'xs'));

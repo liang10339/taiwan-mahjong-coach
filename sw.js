@@ -28,6 +28,7 @@ const FILES = [
   './src/core/scoring.js' + v,
   './src/core/ai.js' + v,
   './src/core/situation.js' + v,
+  './src/core/advisor.js' + v,
   './src/core/quiz.js' + v,
   './src/core/value.js' + v,
   './src/core/notebook.js' + v,

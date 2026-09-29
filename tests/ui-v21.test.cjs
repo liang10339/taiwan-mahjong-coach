@@ -49,6 +49,8 @@ c.Defense = require('../src/core/defense.js');
 c.Coach = require('../src/core/coach.js');
 c.Scoring = require('../src/core/scoring.js');
 c.AI = require('../src/core/ai.js');
+c.Situation = require('../src/core/situation.js');
+c.Advisor = require('../src/core/advisor.js');
 c.Quiz = require('../src/core/quiz.js');
 c.Sound = { play() {}, say() {}, tileName: () => '', stop() {}, setEnabled() {}, isEnabled: () => true };
 require('./helpers.cjs').loadApp(c);

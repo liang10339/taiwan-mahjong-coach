@@ -83,8 +83,7 @@ let peek = false,
 let scoreCache = { log: -1, value: null };
 let lastDrawn = null,
   turnLog = [],
-  lastReview = null,
-  explainCache = { key: '', value: null };
+  lastReview = null;
 let reviewTimeline = [];
 let heard = { log: 0, phase: game.phase },
   neatRiver = false;
@@ -106,7 +105,7 @@ function decisionKey() {
 }
 function currentClaim() {
   const key = decisionKey();
-  if (claimCache.key !== key) claimCache = { key, value: Coach.claimDecision(game, 0) };
+  if (claimCache.key !== key) claimCache = { key, value: Advisor.claims(game, 0) };
   return claimCache.value;
 }
 function currentKans() {
@@ -133,28 +132,30 @@ function waiting() {
 function valueTiles(p) {
   return [31, 32, 33, 27 + E.seatWind(game, p), 27 + (game.roundWind || 0)];
 }
-function currentExplain() {
-  if (!(game.turn === 0 && game.phase === 'discard' && suggestions.length)) return null;
-  const pub = E.publicTiles(game),
-    key = game.hands[0].join(',') + '|' + lastDrawn + '|' + pub.length + '|' + game.melds[0].length;
-  if (explainCache.key !== key)
-    explainCache = {
+/**
+ * 輪到你出牌時決策核心（src/core/advisor.js）的建議；標題、場況、覆盤評分都用它。
+ * explain 是牌效率的文字解說，和 decision.efficiency 用同一套取捨，所以首選一定相同。
+ */
+let decisionCache = { key: '', value: null };
+function currentDecision() {
+  if (!(game.turn === 0 && game.phase === 'discard')) return null;
+  const key = JSON.stringify([decisionKey(), game.log.length, game.fresh]);
+  if (decisionCache.key !== key) {
+    const d = Advisor.decide(game, 0);
+    decisionCache = {
       key,
-      value: Coach.explainTurn(game.hands[0], suggestions, {
-        drawn: lastDrawn,
-        publicTiles: pub,
-        open: game.melds[0].length,
-        value: valueTiles(0),
-        nextRiver: game.rivers[1],
-      }),
+      value: d && { ...d, explain: Coach.explainTurn(game.hands[0], d.options, d.ctx) },
     };
-  return explainCache.value;
+  }
+  return decisionCache.value;
+}
+function currentExplain() {
+  const d = suggestions.length ? currentDecision() : null;
+  return d ? d.explain : null;
 }
 function analyze() {
-  suggestions =
-    game.turn === 0 && game.phase === 'discard'
-      ? E.analyze(game.hands[0], E.publicTiles(game), game.melds[0].length)
-      : [];
+  const d = currentDecision();
+  suggestions = d ? d.options : [];
 }
 // 胡牌後的台數（依牌局紀錄計算一次後快取）
 function winScore() {

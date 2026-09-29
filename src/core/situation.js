@@ -99,15 +99,16 @@
   /**
    * 讀整張桌子。options 是輪到你出牌時 engine.analyze 的結果（沒有就是摸牌前或別家回合）。
    * 回傳局勢、一句總結，以及依重要性排好的重點（weight 越大越重要；5 是一定要講的警告）。
-   * @param {Game} g @param {number} [viewer] @param {any[] | null} [options]
+   * lead 是決策核心依口訣挑出的效率首選（沒給就用 options[0]），講「你要打的牌」時用它。
+   * @param {Game} g @param {number} [viewer] @param {any[] | null} [options] @param {any} [lead]
    */
-  function read(g, viewer = 0, options = null) {
+  function read(g, viewer = 0, options = null, lead = null) {
     const hand = g.hands[viewer],
       open = g.melds[viewer].length,
       pub = E.publicTiles(g, viewer),
       left = drawable(g),
       myDraws = Math.ceil(left / 4);
-    const best = options && options.length ? options[0] : null,
+    const best = lead || (options && options.length ? options[0] : null),
       sh = best ? best.shanten : E.shanten(hand, open);
     const others = [1, 2, 3].map((d) => {
       const q = (viewer + d) % 4;

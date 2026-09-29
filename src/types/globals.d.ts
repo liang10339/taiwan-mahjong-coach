@@ -6,6 +6,7 @@ declare var Defense: typeof import('../core/defense.js');
 declare var Scoring: typeof import('../core/scoring.js');
 declare var AI: typeof import('../core/ai.js');
 declare var Situation: typeof import('../core/situation.js');
+declare var Advisor: typeof import('../core/advisor.js');
 declare var Quiz: typeof import('../core/quiz.js');
 declare var Value: typeof import('../core/value.js');
 declare var Notebook: typeof import('../core/notebook.js');
