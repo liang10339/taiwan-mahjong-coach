@@ -1,0 +1,55 @@
+/* 場況判斷：教練欄最上方，依局勢換顏色（做牌綠、進攻藍、攻守兼顧黃、先守橘） */
+.situation {
+  --stance: #426b56;
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border-left: 4px solid var(--stance);
+  background: #fff;
+}
+.situation.stance-push {
+  --stance: #2f5f8a;
+}
+.situation.stance-balance {
+  --stance: #a07a1c;
+}
+.situation.stance-fold {
+  --stance: #b4552b;
+}
+.situation-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.situation-head p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.situation .stance {
+  flex: none;
+  padding: 1px 8px;
+  border-radius: 99px;
+  background: var(--stance);
+  color: #fff;
+  font-size: 12px;
+  line-height: 20px;
+  white-space: nowrap;
+}
+.situation-points {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.situation-points li + li {
+  margin-top: 4px;
+}
+.situation-points li.urgent {
+  font-weight: 600;
+}
+.coach-more summary {
+  cursor: pointer;
+  color: #6f756b;
+  font-size: 13px;
+}

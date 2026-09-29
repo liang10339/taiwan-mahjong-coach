@@ -21,8 +21,11 @@ function defenseCard(body) {
     options = lead ? [lead, ...suggestions.filter((o) => o !== lead)] : suggestions;
   const report = Defense.compare(game, options);
   if (!report) return;
-  const card = el('section', 'defense-card');
-  card.append(el('h5', null, '攻守取捨（不自動替你出牌）'), el('p', null, Defense.summary(game, options)));
+  // 平常收起來；場況判斷認為要守或攻守兼顧時才展開
+  const card = el('details', 'defense-card'),
+    sit = currentSituation();
+  card.open = !!sit && (sit.stance === 'fold' || sit.stance === 'balance');
+  card.append(el('summary', null, '攻守取捨（組合排除）'), el('p', null, Defense.summary(game, options)));
   const t = selected === null ? report.guard.option.tile : game.hands[0][selected],
     risk = Defense.inspect(game, 0, t),
     details = el('details');
@@ -138,17 +141,16 @@ function coach() {
   }
   if (game.turn !== 0) {
     title.textContent = '等待' + seats[game.turn];
-    copy.textContent = '電腦依自己的手牌出牌。看牠怎麼打：直接丟出最右邊那張是摸切；從牌列中間抽一張是手切。';
+    body.replaceChildren(title); // 不需要說明段落
+    situationSection(body, 1);
     reviewCard(body);
     readingCard(body);
     return;
   }
   if (game.phase === 'draw') {
     title.textContent = '輪到你摸牌';
-    copy.textContent =
-      '目前' +
-      readiness(E.shanten(game.hands[0], game.melds[0].length)) +
-      '。摸牌後，教練會解說這一手該怎麼打。';
+    body.replaceChildren(title); // 不需要說明段落
+    situationSection(body, 1);
     reviewCard(body);
     readingCard(body);
     return;
@@ -162,18 +164,25 @@ function coach() {
   const ex = currentExplain();
   if (!ex) {
     title.textContent = '請選牌出牌';
-    copy.remove();
+    body.replaceChildren(title); // 不需要說明段落
     return;
   }
-  const best = ex.best;
-  defenseCard(body);
-  readingCard(body);
-  title.replaceChildren(el('span', null, '建議打出 '), Tiles.node(best.tile, 'md'));
+  const best = ex.best,
+    sit = currentSituation();
+  const folding = sit && sit.stance === 'fold' && sit.guard && sit.guard.tile !== best.tile;
+  title.replaceChildren(
+    el('span', null, folding ? '建議先守：打 ' : '建議打出 '),
+    Tiles.node(folding ? sit.guard.tile : best.tile, 'md'),
+  );
   copy.className = 'coach-chips';
   copy.replaceChildren(
+    ...(folding ? [el('span', 'chip', '只看效率會打 ' + Coach.label(best.tile))] : []),
     el('span', 'chip', best.shanten === 0 ? '打後聽牌' : '打後' + readiness(best.shanten)),
     el('span', 'chip', (best.shanten === 0 ? '可胡 ' : '有效牌 ') + best.remaining + ' 張'),
   );
+  situationSection(body, 3);
+  defenseCard(body);
+  readingCard(body);
   const recommendedKan = currentKans().find((o) => o.recommend);
   if (recommendedKan) {
     title.replaceChildren(
@@ -182,10 +191,18 @@ function coach() {
     );
     copy.textContent = '先看上方槓／不槓比較；以下是選擇不槓時的出牌方案。';
   }
-  body.append(el('h5', null, recommendedKan ? '若不槓，這一手怎麼打' : '這一手怎麼看'));
+  // 牌效率的解說：前兩句（摸進的牌、為什麼是這張）直接看，其餘收進「牌效率細節」
+  body.append(el('h5', null, recommendedKan ? '若不槓，這一手怎麼打' : '牌效率：為什麼是這張'));
   const list = el('ul', 'coach-lines');
-  ex.lines.forEach((line) => list.append(el('li', null, line)));
+  ex.lines.slice(0, 2).forEach((line) => list.append(el('li', null, line)));
   body.append(list);
+  if (ex.lines.length > 2) {
+    const more = el('details', 'coach-more'),
+      rest = el('ul', 'coach-lines');
+    ex.lines.slice(2).forEach((line) => rest.append(el('li', null, line)));
+    more.append(el('summary', null, '牌效率細節（進張、結構、次佳打法）'), rest);
+    body.append(more);
+  }
   valueSection(body); // 胡牌率與台數（模擬，算好後自動更新）
   body.append(el('h5', null, best.shanten === 0 ? '聽的牌（未見張數）' : '打掉後的有效牌（未見張數）'));
   const outs = el('div', 'out-grid');
@@ -399,8 +416,8 @@ function settleCard() {
 function readingCard(body) {
   if (game.phase === 'ended') return;
   const notes = [1, 2, 3].map((p) => ({ p, r: AI.reading(game, p), lv: AI.threat(game, p) }));
+  // 重點已經寫在「場況判斷」裡，這裡是三家的完整筆記，預設收起來
   const box = el('details', 'reading-card');
-  if (notes.some((n) => n.lv > 0)) box.open = true;
   box.append(
     el(
       'summary',

@@ -24,6 +24,7 @@ src/
     defense.js          防守：依公開資訊排除對手可能的胡法
     ai.js               電腦對手（初級、中級、高級）與讀牌
     quiz.js             新手學堂的階段與題庫
+    situation.js        場況判斷：局勢（做牌／進攻／攻守兼顧／先守）、對手放過的牌、牌牆、死搭子、台數方向
     value.js            期望值模擬：每張候選牌的胡牌率、平均台數、期望台數（蒙地卡羅）
     notebook.js         錯題本：失誤題目與間隔重複排程
     growth.js           成長報告：一致率、失誤率、胡牌放槍率與進退步比較
@@ -40,6 +41,7 @@ src/
       state.js          設定、一將（session）、目前這一局（game）與計算快取
       table.js          牌桌：手牌、牌河、四家牌架、出牌動畫、吃碰槓按鈕
       coach-panel.js    教練欄：逐手解說、吃碰槓比較、攻守、讀牌、台數卡
+      situation-panel.js 教練欄最上方的場況判斷（快取、同樣的話幾手內不重複）
       value-panel.js    教練欄的期望值區塊（送工作給 Worker、顯示結果）
       review.js         牌局覆盤：決策紀錄、逐手回放、歷史牌局
       notebook-panel.js 錯題本畫面與本機存取（覆盤分頁）

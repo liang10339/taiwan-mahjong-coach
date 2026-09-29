@@ -212,6 +212,7 @@ function newHand(msg = '') {
   lastReview = null;
   peek = false;
   replayIndex = 0;
+  resetSituation();
   heard = { log: 0, phase: game.phase };
   if (typeof Sound !== 'undefined') {
     Sound.stop();
