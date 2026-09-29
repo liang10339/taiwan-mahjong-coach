@@ -21,11 +21,15 @@
     return Math.max(0.01, Math.min(0.6, (0.45 - shanten * 0.12) * time + Math.min(remaining, 30) * 0.004));
   }
 
+  /** 統計只分到「三進聽以上」；再多一步大約少一半機會 */
+  const FAR_STEP = 0.5;
+
   /** 打出這張後，這局最後胡牌的機率 */
   function winProb(shanten, remaining, left, table = CAL && CAL.win) {
     const row = table && table[winKey(shanten, remaining, left)],
-      prior = fallbackWin(shanten, remaining, left);
-    return row ? (row[0] + prior * 20) / (row[1] + 20) : prior;
+      prior = fallbackWin(shanten, remaining, left),
+      p = row ? (row[0] + prior * 20) / (row[1] + 20) : prior;
+    return p * FAR_STEP ** Math.max(0, shanten - 3);
   }
 
   /** 效率首選以外的牌，期望值要高出這麼多（台）才換：差不多時照牌效率打，建議才穩定、好理解 */
@@ -52,13 +56,16 @@
     // 胡牌收入：自摸三家都付，胡別人只有放槍的人付
     const income = (base + myTai) * (tsumoShare * 3 + (1 - tsumoShare));
     const byTile = new Map(safety.map((s) => [s.tile, s]));
+    const effWin = winProb(efficiency.shanten, efficiency.remaining, left);
     const seen = new Set();
     const rows = [];
     for (const o of options) {
       if (seen.has(o.tile)) continue;
       seen.add(o.tile);
       const s = byTile.get(o.tile),
-        win = winProb(o.shanten, o.remaining, left),
+        // 退一步的打法不可能比效率首選更容易胡（離聽牌越遠，有效牌張數反而越多，不能直接比）
+        raw = winProb(o.shanten, o.remaining, left),
+        win = o.shanten > efficiency.shanten ? Math.min(raw, effWin * FAR_STEP) : raw,
         dealIn = s ? s.dealIn : 0,
         loss = s ? s.per.reduce((n, x) => n + x.p * (base + x.tai + dealerExtra), 0) : 0;
       rows.push({ option: o, tile: o.tile, win, dealIn, gain: win * income, loss, ev: win * income - loss });

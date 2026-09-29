@@ -69,7 +69,8 @@ function play(seed, useCoach) {
 
 const n = Number(process.argv[2]) || 300;
 const sum = { coach: { won: 0, dealIn: 0, delta: 0, stances: {} }, plain: { won: 0, dealIn: 0, delta: 0 } };
-for (let seed = 1; seed <= n; seed++) {
+const start = Number(process.env.START) || 0;
+for (let seed = start + 1; seed <= start + n; seed++) {
   for (const [key, use] of [
     ['coach', true],
     ['plain', false],
