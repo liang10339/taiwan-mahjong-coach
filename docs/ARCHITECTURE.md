@@ -24,6 +24,12 @@ src/
     defense.js          防守：依公開資訊排除對手可能的胡法
     ai.js               電腦對手（初級、中級、高級）與讀牌
     quiz.js             新手學堂的階段與題庫
+    value.js            期望值模擬：每張候選牌的胡牌率、平均台數、期望台數（蒙地卡羅）
+    notebook.js         錯題本：失誤題目與間隔重複排程
+    growth.js           成長報告：一致率、失誤率、胡牌放槍率與進退步比較
+    fairness.js         公平性：牌牆指紋、用種子重洗驗證、分享字串編解碼
+  workers/
+    value-worker.js     在背景執行緒跑 value.js，畫面不卡
   ui/                   畫面
     tiles.js            牌面 SVG（實體台麻外觀）
     sound.js            音效（Web Audio 合成）與中文報牌
@@ -34,7 +40,11 @@ src/
       state.js          設定、一將（session）、目前這一局（game）與計算快取
       table.js          牌桌：手牌、牌河、四家牌架、出牌動畫、吃碰槓按鈕
       coach-panel.js    教練欄：逐手解說、吃碰槓比較、攻守、讀牌、台數卡
+      value-panel.js    教練欄的期望值區塊（送工作給 Worker、顯示結果）
       review.js         牌局覆盤：決策紀錄、逐手回放、歷史牌局
+      notebook-panel.js 錯題本畫面與本機存取（覆盤分頁）
+      growth-panel.js   成長報告畫面與趨勢圖（覆盤分頁）
+      fairness-panel.js 開局公布指紋、局後攤牌驗證、同一副牌分享與重打
       flow.js           流程：電腦輪流、摸打按鈕、開新局、結算、音效事件、鍵盤
       opening.js        開始畫面與完整開局（抓位、擲骰、開門、配牌、補花）
       settings-panel.js 分頁切換、各種開關、⚙ 設定、報牌聲音設定
@@ -87,7 +97,7 @@ docs/                   文件
 
 - **進聽數**（`engine.shanten`）是最熱的函式：教練、電腦、危險度都大量呼叫。它逐門拆解並快取，改動時務必跑 `tests/shanten.test.cjs`（和原始實作逐手比對）。
 - **重畫**：`render()` 每次動作都會執行。耗時的計算要依牌局狀態快取（參考 `state.js` 的 `explainCache`、`claimCache`），不要在重畫時讀取版面尺寸（`clientWidth` 等會逼瀏覽器重算整頁版面；參考 `table.js` 的 `watchRiverSize`）。
-- 需要大量模擬的功能（例如台數期望值）建議放進 Web Worker，見下方。
+- 需要大量模擬的功能放進 Web Worker：期望值模擬（`value.js`）由 `src/workers/value-worker.js` 在背景執行，主執行緒只送牌局、收結果；不支援 Worker 時才在主執行緒用較少的模擬次數。
 
 ## 擴充指南
 
@@ -102,8 +112,8 @@ docs/                   文件
 - `src/core/ai.js` 的 `chooseDiscard`、`chooseClaim`、`chooseKan` 依 `level` 分支；新增難度時加一個 level，並在 `index.html` 的難度選單加選項。
 - AI 只能讀公開資訊與自己的手牌（`E.publicTiles(g, p)`），不能偷看牌牆與別家暗牌。`tests/ai-fairness.test.cjs` 會把看不到的牌打亂、確認決定不變；新的 AI 也必須通過（教練的吃碰槓建議由 `tests/claim-coach.test.cjs` 檢查）。
 
-### 把運算移到 Web Worker（期望值模擬、更強 AI）
-`src/core` 不碰 DOM，可以直接在 Worker 裡 `importScripts('src/core/engine.js', ...)`。做法：主執行緒把 `game` 以 JSON 傳進 Worker（`Game` 全是一般資料），Worker 回傳決策（例如 `{type: 'discard', index}`），主執行緒再呼叫 `engine` 套用。這樣電腦思考時畫面不會卡。
+### 把運算移到 Web Worker（更強 AI）
+`src/core` 不碰 DOM，可以直接在 Worker 裡 `importScripts('src/core/engine.js', ...)`。`src/workers/value-worker.js` 就是範例：主執行緒把 `game` 以 JSON 傳進 Worker（`Game` 全是一般資料），附上工作編號；Worker 回傳結果，主執行緒只採用最新一筆。更強的 AI 可以照同樣方式回傳決策（例如 `{type: 'discard', index}`），再由主執行緒呼叫 `engine` 套用。
 
 ### 多人連線
 - 伺服器用 Node.js 直接 `require('./src/core/engine.js')`，由伺服器保管完整的 `game`（含牌牆與四家手牌），每位玩家只收到「自己看得到的部分」——這正是 `E.publicTiles(g, viewer)` 的概念。
@@ -111,7 +121,8 @@ docs/                   文件
 - 前端的 `render()` 已經是「依 game 重畫」，連線版只要把 `game` 換成伺服器送來的公開狀態即可。
 
 ### 牌譜分享與公平驗證
-`game.seed` 加上 `game.log` 的動作序列就能完整重現一局：把兩者編碼進網址，開啟時重跑一次即可回放。結束後公開種子，任何人都能重算洗牌結果，證明沒有偷換牌。
+目前已完成：`fairness.js` 在開局公布整副牌的指紋，一局結束後公開種子並重洗驗證；`#deal=種子.莊.圈.連莊.留牌.過水` 連結可以打同一副牌（`fairness-panel.js` 的 `pendingDeal`）。電腦沒有用到亂數，所以同一副牌、你做同樣的動作，整局就會完全相同。
+下一步若要完整回放別人的牌局：把你的動作序列（出第幾張、吃碰槓胡或略過）也編進網址，開啟時從同一副牌依序重跑；`game.log` 已經有需要的資訊。
 
 ### 更換或加速引擎（Rust／WebAssembly）
 只要新的實作提供和 `src/core/engine.js` 相同的函式與 `Game` 資料結構，其他模組都不用改。可以先只把 `shanten` 換成 WebAssembly 版本，用 `tests/shanten.test.cjs` 比對結果。
