@@ -221,7 +221,7 @@ function render() {
       ? game.hands[0].length - 1
       : -1;
   $('#phaseHelp').textContent = !choosing
-    ? status
+    ? myStatus()
     : selected !== null && drawnAt >= 0 && selected !== drawnAt && game.hands[0][selected] === lastDrawn
       ? '空切：打出手中和剛摸進相同的' + tile(lastDrawn) + '，別人看起來像手切，不會知道你摸到什麼。'
       : selected === drawnAt && drawnAt >= 0

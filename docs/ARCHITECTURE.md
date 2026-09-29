@@ -1,0 +1,124 @@
+# 程式架構與擴充指南
+
+這份文件說明牌桌教練的程式怎麼分層、資料怎麼流動，以及日後要擴充（規則變體、多人連線、更強的 AI、改寫成 TypeScript 等）時該從哪裡下手。
+
+## 設計原則
+
+1. **不需要建置工具**：瀏覽器直接載入 `index.html` 列出的 `<script>`，開檔就能跑、改完重新整理就生效。
+2. **規則與畫面分開**：`src/core/` 不碰 DOM，只用資料進、資料出，所以能在 Node（測試）、Web Worker、將來的伺服器上執行。
+3. **牌局可以重現**：同一個洗牌種子（`game.seed`）加上同樣的動作，一定得到同一局。牌譜分享、公平驗證、逐手回放都建立在這一點上。
+4. **一切從牌局紀錄推導**：出牌、吃碰槓、胡牌都寫進 `game.log`，覆盤、音效、計台、讀牌筆記都從紀錄算出來，不另外記一份。
+5. **註解與介面文字用台灣中文**：這是給台灣玩家的產品，程式註解也寫給會打台麻的人看。
+
+## 目錄
+
+```
+index.html              頁面骨架；<script> 的順序就是載入順序（測試也照這個順序載入）
+sw.js                   離線快取（Service Worker）；VERSION 是整個網站的快取版本
+manifest.webmanifest    PWA 設定（名稱、圖示）
+src/
+  core/                 純邏輯，不碰畫面
+    engine.js           牌局引擎：洗牌、摸打、吃碰槓胡、補花、過水、保留八墩、進聽數
+    scoring.js          台數（北部台算法）與結算
+    coach.js            教練：牌效率比較、拆牌解說、吃碰槓建議
+    defense.js          防守：依公開資訊排除對手可能的胡法
+    ai.js               電腦對手（初級、中級、高級）與讀牌
+    quiz.js             新手學堂的階段與題庫
+  ui/                   畫面
+    tiles.js            牌面 SVG（實體台麻外觀）
+    sound.js            音效（Web Audio 合成）與中文報牌
+    lessons.js          新手學堂第 0 階段的互動開局教學
+    stages.js           新手學堂階段選單與練習題畫面
+    app/                實戰畫面，依功能分檔（共用同一個全域範圍）
+      dom.js            $、$$、el 等 DOM 小工具
+      state.js          設定、一將（session）、目前這一局（game）與計算快取
+      table.js          牌桌：手牌、牌河、四家牌架、出牌動畫、吃碰槓按鈕
+      coach-panel.js    教練欄：逐手解說、吃碰槓比較、攻守、讀牌、台數卡
+      review.js         牌局覆盤：決策紀錄、逐手回放、歷史牌局
+      flow.js           流程：電腦輪流、摸打按鈕、開新局、結算、音效事件、鍵盤
+      opening.js        開始畫面與完整開局（抓位、擲骰、開門、配牌、補花）
+      settings-panel.js 分頁切換、各種開關、⚙ 設定、報牌聲音設定
+      main.js           啟動（最後載入）
+  types/
+    game.d.ts           牌局資料模型（Game、Meld、LogEvent…）——擴充時的「合約」
+    globals.d.ts        讓型別檢查知道各全域名稱（Mahjong、Coach…）對應哪個檔案
+styles/                 樣式表
+tests/                  測試（*.test.cjs），helpers.cjs 提供假 DOM 與載入工具
+scripts/                npm 指令用的小工具（平行測試、改版、本機伺服器）
+docs/                   文件
+```
+
+## 資料流
+
+```
+使用者點擊 ──► flow.js 的按鈕處理 ──► src/core/engine.js 改變 game
+                                          │
+電腦回合（計時器）──► ai.js 決定動作 ──────┘
+                                          ▼
+                              game.log 多了一筆紀錄
+                                          ▼
+                    table.js 的 render()：依 game 重畫整個畫面
+                     ├─ 手牌、牌河（只補新打出的牌）、牌架、攤牌
+                     ├─ coach-panel.js：教練解說（結果依牌局狀態快取）
+                     ├─ review.js：覆盤（只在覆盤頁看得到時重畫）
+                     └─ flow.js 的 soundEvents()：依新增的紀錄播放音效與報牌
+```
+
+重點：畫面永遠是「目前 game 的樣子」，不在畫面上另外保存狀態。要加新功能時，先想它在 `game`（或 `session`）裡怎麼表示，畫面只負責把它畫出來。
+
+## 全域名稱與載入順序
+
+`src/core` 與 `src/ui` 的每個檔案都用同一個寫法：在 Node 裡 `module.exports`，在瀏覽器裡掛到 `globalThis`（例如 `Mahjong`、`Coach`、`Tiles`）。`src/ui/app/*.js` 是一般的 `<script>`，彼此共用同一個全域範圍（在 `state.js` 宣告的 `game`，其他檔案可以直接用）。
+
+因此：
+
+- 新增檔案時，要在 `index.html` 加 `<script>`，也要加到 `sw.js` 的 `FILES`。漏了會被 `tests/assets.test.cjs` 抓到。
+- 一個檔案「載入時就立刻執行」的程式，只能用到比它早載入的檔案；啟動流程統一放在最後的 `main.js`。
+
+## 型別檢查
+
+不改成 TypeScript，而是用 JSDoc 註解寫型別，由 `npm run typecheck`（`tsc -p jsconfig.json`）檢查：
+
+- `src/types/game.d.ts` 定義牌局資料模型，`engine.create()` 標註回傳 `Game`。
+- 新的函式建議加上 JSDoc，例如 `/** @param {Game} g @param {number} p @returns {number} */`。
+- 將來若要全面改用 TypeScript：因為型別已經在 JSDoc 與 `.d.ts` 裡，可以一個檔案一個檔案把 `.js` 改成 `.ts`，再加上打包步驟（例如 esbuild）。
+
+## 效能
+
+- **進聽數**（`engine.shanten`）是最熱的函式：教練、電腦、危險度都大量呼叫。它逐門拆解並快取，改動時務必跑 `tests/shanten.test.cjs`（和原始實作逐手比對）。
+- **重畫**：`render()` 每次動作都會執行。耗時的計算要依牌局狀態快取（參考 `state.js` 的 `explainCache`、`claimCache`），不要在重畫時讀取版面尺寸（`clientWidth` 等會逼瀏覽器重算整頁版面；參考 `table.js` 的 `watchRiverSize`）。
+- 需要大量模擬的功能（例如台數期望值）建議放進 Web Worker，見下方。
+
+## 擴充指南
+
+### 新增桌規（例如無花玩法、一炮多響、Migi）
+1. 在 `src/types/game.d.ts` 的 `RuleOptions` 與 `Game` 加上欄位並寫說明。
+2. `engine.create(seed, opts)` 讀取選項並存進 `game`；引擎內依 `game.xxx` 分支。
+3. `scoring.js` 依同一個欄位計台。
+4. `state.js` 的 `settings` 加預設值、`ruleOpts()` 傳進引擎；`index.html` 的 ⚙ 設定加選項、`settings-panel.js` 綁定。
+5. 在 `tests/` 加測試：規則本身、計台，以及至少一局完整牌局的牌數守恆。
+
+### 新增電腦難度或更強的 AI
+- `src/core/ai.js` 的 `chooseDiscard`、`chooseClaim`、`chooseKan` 依 `level` 分支；新增難度時加一個 level，並在 `index.html` 的難度選單加選項。
+- AI 只能讀公開資訊與自己的手牌（`E.publicTiles(g, p)`），不能偷看牌牆與別家暗牌。`tests/ai-fairness.test.cjs` 會把看不到的牌打亂、確認決定不變；新的 AI 也必須通過（教練的吃碰槓建議由 `tests/claim-coach.test.cjs` 檢查）。
+
+### 把運算移到 Web Worker（期望值模擬、更強 AI）
+`src/core` 不碰 DOM，可以直接在 Worker 裡 `importScripts('src/core/engine.js', ...)`。做法：主執行緒把 `game` 以 JSON 傳進 Worker（`Game` 全是一般資料），Worker 回傳決策（例如 `{type: 'discard', index}`），主執行緒再呼叫 `engine` 套用。這樣電腦思考時畫面不會卡。
+
+### 多人連線
+- 伺服器用 Node.js 直接 `require('./src/core/engine.js')`，由伺服器保管完整的 `game`（含牌牆與四家手牌），每位玩家只收到「自己看得到的部分」——這正是 `E.publicTiles(g, viewer)` 的概念。
+- 玩家送出動作（摸、打、吃碰槓胡），伺服器用引擎驗證（引擎本來就會拒絕不合法的動作）後廣播新的紀錄。
+- 前端的 `render()` 已經是「依 game 重畫」，連線版只要把 `game` 換成伺服器送來的公開狀態即可。
+
+### 牌譜分享與公平驗證
+`game.seed` 加上 `game.log` 的動作序列就能完整重現一局：把兩者編碼進網址，開啟時重跑一次即可回放。結束後公開種子，任何人都能重算洗牌結果，證明沒有偷換牌。
+
+### 更換或加速引擎（Rust／WebAssembly）
+只要新的實作提供和 `src/core/engine.js` 相同的函式與 `Game` 資料結構，其他模組都不用改。可以先只把 `shanten` 換成 WebAssembly 版本，用 `tests/shanten.test.cjs` 比對結果。
+
+## 發布流程
+
+1. 開分支、改程式、加測試。
+2. `npm run check`（格式、型別、測試）。
+3. 有改到網站檔案時執行 `npm run bump`，讓已安裝的 PWA 取得新版。
+4. 開 PR；GitHub Actions 自動檢查。合併到 main 後自動部署到 GitHub Pages。
