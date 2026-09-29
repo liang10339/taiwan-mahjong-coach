@@ -53,6 +53,45 @@ S.stop();
 voices.length = 0;
 assert.equal(S.say('八萬'), false);
 S.play('discard');
+// 語音清單稍後才載入：先排隊，載入後補唸（只留最近 3 句）
+{
+  const later = [],
+    said = [],
+    handlers = {},
+    windowHandlers = {};
+  let resumed = 0;
+  const ctx2 = vm.createContext({
+    localStorage: { getItem: () => null, setItem() {} },
+    addEventListener: (type, fn) => (windowHandlers[type] = fn),
+    AudioContext: function () {
+      this.state = 'suspended';
+      this.resume = () => resumed++;
+    },
+    speechSynthesis: {
+      getVoices: () => later,
+      speak: (u) => said.push(u.text),
+      cancel() {},
+      addEventListener: (type, fn) => (handlers[type] = fn),
+    },
+    SpeechSynthesisUtterance: function (text) {
+      this.text = text;
+    },
+  });
+  vm.runInContext(source, ctx2);
+  const S2 = ctx2.Sound;
+  for (const t of ['一萬', '二萬', '三萬', '四萬']) assert.equal(S2.say(t), false);
+  assert.equal(said.length, 0, '語音還沒載入時不能出聲');
+  later.push({ voiceURI: 'tw', lang: 'zh-TW', name: 'TW' });
+  handlers.voiceschanged();
+  assert.deepEqual(said, ['二萬', '三萬', '四萬'], '載入後補唸最近 3 句');
+  // 第一次點擊時解鎖音效與語音
+  assert.ok(windowHandlers.pointerdown, '要監聽第一次點擊');
+  windowHandlers.pointerdown();
+  assert.equal(resumed, 1, '解鎖時要 resume AudioContext');
+  assert.equal(said.at(-1), ' ', '解鎖時唸一段無聲內容取得語音授權');
+  windowHandlers.keydown();
+  assert.equal(resumed, 1, '只解鎖一次');
+}
 console.log(
-  'PASS: Chinese tile names, voice selection/styles, persistence, queued calls, mute/reset, missing voices and unavailable audio.',
+  'PASS: Chinese tile names, voice selection/styles, persistence, queued calls, mute/reset, missing voices and unavailable audio, voices loading late, first-click unlock.',
 );

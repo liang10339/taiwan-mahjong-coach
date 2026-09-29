@@ -18,6 +18,7 @@
     <link rel="stylesheet" href="styles/state.css?v=23" />
     <link rel="stylesheet" href="styles/tiles.css?v=23" />
     <link rel="stylesheet" href="styles/table.css?v=23" />
+    <link rel="stylesheet" href="styles/opening.css?v=23" />
     <title>牌桌教練｜台灣麻將練習</title>
   </head>
   <body>
@@ -35,6 +36,12 @@
             ><summary class="icon-button" title="牌局設定" aria-label="牌局設定">⚙</summary
             ><div class="voice-panel settings-panel"
               ><strong>牌局設定</strong
+              ><label
+                >開局方式
+                <select id="openingSelect"
+                  ><option value="quick">直接開始</option
+                  ><option value="full">完整開局（抓位、擲骰、開門、配牌、補花）</option></select
+                ></label
               ><label
                 >電腦難度
                 <select id="levelSelect"
@@ -282,6 +289,14 @@
         >
       </main>
     </div>
+    <div class="opening hidden" id="opening" role="dialog" aria-modal="true" aria-labelledby="openingTitle">
+      <div class="opening-card">
+        <h2 id="openingTitle">牌桌教練</h2>
+        <p id="openingText" aria-live="polite"></p>
+        <div id="openingStage"></div>
+        <div class="opening-actions" id="openingActions"></div>
+      </div>
+    </div>
     <div class="toast" id="toast" role="status"></div>
     <script src="src/core/engine.js?v=23"></script>
     <script src="src/core/coach.js?v=23"></script>
@@ -299,6 +314,7 @@
     <script src="src/ui/app/coach-panel.js?v=23"></script>
     <script src="src/ui/app/review.js?v=23"></script>
     <script src="src/ui/app/flow.js?v=23"></script>
+    <script src="src/ui/app/opening.js?v=23"></script>
     <script src="src/ui/app/settings-panel.js?v=23"></script>
     <script src="src/ui/app/main.js?v=23"></script>
   </body>

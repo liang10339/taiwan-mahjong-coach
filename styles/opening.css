@@ -1,0 +1,264 @@
+/* 開始畫面與完整開局（抓位、擲骰、開門、配牌、補花） */
+.opening {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(20, 38, 29, 0.55);
+  backdrop-filter: blur(3px);
+}
+.opening.hidden {
+  display: none;
+}
+.opening-card {
+  width: min(620px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 26px 26px 22px;
+  border-radius: 16px;
+  background: var(--card, #fffefa);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+}
+.opening-card h2 {
+  margin: 0 0 8px;
+  font-size: 24px;
+  color: var(--green, #426b56);
+}
+#openingText {
+  margin: 0 0 16px;
+  min-height: 3em;
+  font-size: 15px;
+  line-height: 1.8;
+  color: #35403a;
+}
+.opening-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+.opening-actions button {
+  min-height: 44px;
+}
+
+/* 開局方式選擇 */
+.opening-modes {
+  display: grid;
+  gap: 10px;
+}
+.opening-mode {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--line, #e4e1d9);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.opening-mode.on {
+  border-color: var(--green, #426b56);
+  background: #eef4e6;
+}
+.opening-mode input {
+  grid-row: span 2;
+}
+.opening-mode small {
+  color: #6f756b;
+}
+
+/* 抓位 */
+.opening-row {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  padding: 10px 0;
+}
+.opening-pick {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.opening-pick:hover,
+.opening-pick:focus-visible {
+  transform: translateY(-6px);
+}
+.opening-reveal {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  animation: flip 0.35s ease-out;
+}
+.opening-reveal.mine .mj {
+  outline: 3px solid #eaf05e;
+  outline-offset: 2px;
+}
+@keyframes flip {
+  from {
+    transform: rotateY(90deg);
+  }
+  to {
+    transform: none;
+  }
+}
+
+/* 擲骰 */
+.opening-dice {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  padding: 6px 0 14px;
+}
+.die {
+  font-size: 58px;
+  line-height: 1;
+  color: #b8232f;
+}
+.opening-ring {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.ring-seat {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 8px;
+  background: #f3f1e8;
+  text-align: center;
+  font-size: 13px;
+}
+.ring-seat small {
+  color: #6f756b;
+  font-family: 'DM Mono', monospace;
+}
+.ring-seat.target {
+  background: #fbe9c6;
+  outline: 2px solid #d8a93c;
+}
+
+/* 開門：一面 18 墩的牌牆 */
+.opening-wall {
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+.stack {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 2px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+.stack small {
+  font-size: 10px;
+  color: #6f756b;
+}
+.stack.counted {
+  background: #e4ecd6;
+}
+.stack.cut {
+  background: #fbe9c6;
+  outline: 2px solid #d8a93c;
+}
+
+/* 配牌 */
+.opening-deal {
+  display: grid;
+  grid-template-areas:
+    '. top .'
+    'left . right'
+    '. bottom .';
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  min-height: 220px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #3e7157;
+}
+.deal-seat {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  align-content: center;
+  padding: 8px;
+  border-radius: 8px;
+  color: #eef4dc;
+  font-size: 13px;
+  transition: background 0.15s;
+}
+.deal-seat.top {
+  grid-area: top;
+}
+.deal-seat.left {
+  grid-area: left;
+}
+.deal-seat.right {
+  grid-area: right;
+}
+.deal-seat.bottom {
+  grid-area: bottom;
+}
+.deal-seat.taking {
+  background: rgba(234, 240, 94, 0.25);
+}
+.deal-seat.dealer b {
+  color: #eff58d;
+}
+.deal-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px;
+  min-height: 16px;
+}
+
+/* 補花 */
+.opening-flowers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0;
+}
+.opening-flowers small {
+  color: #6f756b;
+}
+
+@media (max-width: 580px) {
+  .opening-card {
+    padding: 20px 16px 16px;
+  }
+  .die {
+    font-size: 46px;
+  }
+  .opening-ring {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .opening-wall {
+    gap: 1px;
+  }
+  .stack {
+    padding: 1px;
+  }
+  .stack .mj {
+    --w: 10px;
+  }
+  .stack small {
+    font-size: 9px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .opening-reveal {
+    animation: none;
+  }
+}

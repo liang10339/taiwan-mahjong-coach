@@ -15,6 +15,8 @@ const settings = {
   passWater: true,
   reserve: true,
   showCuts: false,
+  /** 開局方式：quick 直接開始、full 完整開局（抓位、擲骰、開門、配牌、補花） */
+  opening: 'quick',
 };
 try {
   Object.assign(settings, JSON.parse(localStorage.getItem('mahjong-coach-settings') || '{}'));

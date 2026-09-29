@@ -110,6 +110,17 @@
       const t = c.currentTime;
       [392, 329.63, 261.63].forEach((f, i) => tone(c, t + i * 0.16, f, 0.5, 0.14));
     },
+    // 三顆骰子在碗裡滾動
+    dice: (c) => {
+      const t = c.currentTime;
+      for (let i = 0; i < 9; i++)
+        clack(c, t + i * 0.055 + Math.random() * 0.03, {
+          gain: 0.12 + Math.random() * 0.12,
+          pitch: 3200 + Math.random() * 1200,
+          thump: 0,
+          length: 0.03,
+        });
+    },
     tick: (c) => tone(c, c.currentTime, 880, 0.08, 0.06, 'sine'),
   };
   function play(name) {
@@ -153,13 +164,61 @@
     } catch (e) {}
   }
   function stop() {
+    waiting.length = 0;
     try {
       root.speechSynthesis?.cancel();
     } catch (e) {}
   }
+
+  // 瀏覽器規定：使用者點一下或按鍵之後，網頁才能出聲。
+  // 第一次互動時同時解鎖音效（AudioContext）與語音，之後電腦出牌的音效和報牌才不會被擋掉。
+  let unlocked = false;
+  function unlock() {
+    if (unlocked) return;
+    unlocked = true;
+    try {
+      audio(); // 建立或恢復 AudioContext（必須在使用者互動當下）
+    } catch (e) {}
+    try {
+      // 唸一段無聲的內容，讓語音引擎取得使用者互動授權（Chrome 需要）
+      if (root.speechSynthesis && root.SpeechSynthesisUtterance) {
+        const u = new root.SpeechSynthesisUtterance(' ');
+        u.volume = 0;
+        root.speechSynthesis.speak(u);
+      }
+    } catch (e) {}
+  }
+  if (root.addEventListener)
+    for (const type of ['pointerdown', 'keydown', 'touchend'])
+      root.addEventListener(type, unlock, { capture: true, passive: true });
+
+  // 有些瀏覽器（例如 Windows 的 Chrome）開頁時語音清單是空的，稍後才載入。
+  // 還沒載入時先把報牌排隊（只留最近幾句），載入後補唸，第一局就不會沒有聲音。
+  const waiting = [];
+  function voicesReady() {
+    try {
+      return root.speechSynthesis.getVoices().length > 0;
+    } catch (e) {
+      return false;
+    }
+  }
+  function flush() {
+    while (waiting.length && voices().length) speakNow(waiting.shift());
+  }
+  try {
+    root.speechSynthesis?.addEventListener?.('voiceschanged', flush);
+  } catch (e) {}
   // 排隊報牌，不能讓下一家的報牌把前一張切斷。
   function say(text) {
     if (!text || !enabled || !root.speechSynthesis || !root.SpeechSynthesisUtterance) return false;
+    if (!voicesReady()) {
+      waiting.push(text);
+      if (waiting.length > 3) waiting.shift();
+      return false;
+    }
+    return speakNow(text);
+  }
+  function speakNow(text) {
     try {
       const available = voices(),
         voice =
@@ -191,6 +250,7 @@
   const api = {
     play,
     say,
+    unlock,
     tileName,
     voices,
     profiles,

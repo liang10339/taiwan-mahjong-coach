@@ -158,10 +158,18 @@ $('#hintButton').onclick = () => {
 };
 // 新的一將：抓位（四張風牌蓋著洗，你抽一張）決定座位，抽到東的人當莊
 function newMatch() {
+  // 完整開局：先讓你親手抽風牌決定座位
+  if (settings.opening === 'full' && settings.seatDraw) {
+    runSeatDraw((w) => startMatch(w));
+    return;
+  }
+  startMatch(settings.seatDraw ? Math.floor(Math.random() * 4) : null);
+}
+/** 以抽到的風（0 東…3 北；null 表示不抓位、你坐東）開始新的一將 */
+function startMatch(w) {
   let dealer = 0,
     msg = '';
-  if (settings.seatDraw) {
-    const w = Math.floor(Math.random() * 4);
+  if (w !== null) {
     dealer = (4 - w) % 4;
     msg =
       '抓位：你抽到「' +
@@ -207,6 +215,13 @@ function newHand(msg = '') {
     Sound.play('shuffle');
   }
   updateSeats();
+  render();
+  // 完整開局：演示擲骰、開門、配牌、補花之後才開始打；直接開始則用一行提示帶過
+  if (settings.opening === 'full') {
+    runCeremony(beginPlay);
+    return;
+  }
+  openingClose();
   const d = game.dice;
   notify(
     (msg ? msg + ' ' : '') +
@@ -219,7 +234,6 @@ function newHand(msg = '') {
       (game.wallOwner === 0 ? '你' : seats[game.wallOwner]) +
       '的牌牆開門。',
   );
-  render();
   computers();
 }
 // 一局結束：計台、算點數、決定連莊或下莊，並記錄學習進度
@@ -298,6 +312,7 @@ $('#askForm').onsubmit = (e) => {
 // 鍵盤：空白鍵摸牌、Enter 確認出牌、← → 選牌
 document.addEventListener?.('keydown', (e) => {
   const target = /** @type {HTMLElement | null} */ (e.target);
+  if (openingActive) return; // 開局畫面顯示中不處理快捷鍵
   if (target && /INPUT|TEXTAREA|SELECT|BUTTON|SUMMARY/.test(target.tagName)) return;
   const choosing = game.turn === 0 && game.phase === 'discard';
   if (e.key === ' ' && !$('#drawButton').disabled) {

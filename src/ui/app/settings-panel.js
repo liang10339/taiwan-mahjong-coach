@@ -80,6 +80,13 @@ function setupSettings() {
     dangerBox = $('#dangerToggle'),
     seatBox = $('#seatDrawToggle'),
     stake = $('#stakeSelect');
+  const opening = $('#openingSelect');
+  opening.value = settings.opening;
+  opening.onchange = () => {
+    settings.opening = opening.value;
+    saveSettings();
+    notify(settings.opening === 'full' ? '下一局起完整開局：擲骰、開門、配牌、補花' : '下一局起直接開始');
+  };
   level.value = settings.level;
   coachBox.checked = settings.coach;
   dangerBox.checked = settings.danger;
