@@ -203,7 +203,11 @@ function write(stats) {
     JSON.stringify(data) +
     ";\n  if (typeof module !== 'undefined') module.exports = data;\n  else root.Calibration = data;\n})(globalThis);\n";
   fs.writeFileSync(path.join(ROOT, 'src/core/data/calibration.js'), js);
-  fs.writeFileSync(path.join(ROOT, 'docs/CALIBRATION.md'), report(stats, data));
+  // 「實戰驗證」一節由 scripts/evaluate-coach.cjs 的結果手動整理，重新校準時保留
+  const doc = path.join(ROOT, 'docs/CALIBRATION.md'),
+    old = fs.existsSync(doc) ? fs.readFileSync(doc, 'utf8') : '',
+    keep = old.includes('## 實戰驗證') ? '\n' + old.slice(old.indexOf('## 實戰驗證')) : '';
+  fs.writeFileSync(doc, report(stats, data) + keep);
   console.log('已寫入 src/core/data/calibration.js 與 docs/CALIBRATION.md（' + stats.games + ' 局）');
 }
 
