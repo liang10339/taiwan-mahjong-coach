@@ -39,6 +39,8 @@ function run(file) {
     if (r.code !== 0) console.log(r.output.replace(/^/gm, '     '));
   }
   const failed = results.filter((r) => r.code !== 0).length;
-  console.log(`\n${results.length - failed}/${results.length} passed in ${((Date.now() - started) / 1000).toFixed(1)}s`);
+  console.log(
+    `\n${results.length - failed}/${results.length} passed in ${((Date.now() - started) / 1000).toFixed(1)}s`,
+  );
   process.exit(failed ? 1 : 0);
 })();
