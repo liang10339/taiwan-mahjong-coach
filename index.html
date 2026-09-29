@@ -12,9 +12,9 @@
     <link rel="stylesheet" href="enhancements.css" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@900&display=swap" />
-    <link rel="stylesheet" href="state.css?v=21" />
-    <link rel="stylesheet" href="tiles.css?v=21" />
-    <link rel="stylesheet" href="table.css?v=21" />
+    <link rel="stylesheet" href="state.css?v=22" />
+    <link rel="stylesheet" href="tiles.css?v=22" />
+    <link rel="stylesheet" href="table.css?v=22" />
     <title>牌桌教練｜台灣麻將練習</title>
   </head>
   <body>
@@ -26,7 +26,7 @@
           <button class="mode-tab" data-mode="lesson">新手學堂</button>
           <button class="mode-tab" data-mode="review">牌局覆盤</button>
         </nav>
-        <div class="topbar-actions"><span class="status-dot"></span><span class="version">教練練習 v2.1</span><details class="voice-settings game-settings"><summary class="icon-button" title="牌局設定" aria-label="牌局設定">⚙</summary><div class="voice-panel settings-panel"><strong>牌局設定</strong><label>電腦難度 <select id="levelSelect"><option value="easy">初級：只管湊牌，漏洞多</option><option value="normal">中級：懂牌效率</option><option value="hard">高級：會看海底、會棄胡</option></select></label><label class="check"><input type="checkbox" id="coachToggle" /> 教練即時提示</label><label class="check"><input type="checkbox" id="dangerToggle" /> 顯示手牌危險度（進階）</label><label class="check"><input type="checkbox" id="seatDrawToggle" /> 新的一將先抓位（隨機座位）</label><label class="check"><input type="checkbox" id="cutsToggle" /> 牌河標示摸切／手切</label><label class="check"><input type="checkbox" id="passWaterToggle" /> 過水（放過胡牌後，打出一張前不能胡）</label><label class="check"><input type="checkbox" id="reserveToggle" /> 保留八墩（剩 16 張流局）</label><label>底／台 <select id="stakeSelect"><option value="50/20">50 底 20 台</option><option value="100/20">100 底 20 台</option><option value="300/100">300 底 100 台</option></select></label><p class="settings-note">難度與底台從下一局起生效；提示與危險度立即生效。↻ 開始新的一將（分數歸零）。</p></div></details><details class="voice-settings"><summary class="icon-button" title="報牌聲音設定" aria-label="報牌聲音設定">🗣</summary><div class="voice-panel"><strong>報牌聲音設定</strong><div class="voice-controls"><label>系統聲線 <select id="voiceSelect"></select></label><label>聲音風格 <select id="voiceStyle"></select></label><button class="secondary-button" id="voicePreview" type="button">試聽：八萬</button></div><p id="voiceStatus" role="status"></p></div></details><button class="icon-button" id="soundButton" title="音效：開" aria-pressed="true">🔊</button><button class="icon-button" id="resetButton" title="新的一將（分數歸零）">↻</button></div>
+        <div class="topbar-actions"><span class="status-dot"></span><span class="version">教練練習 v2.2</span><details class="voice-settings game-settings"><summary class="icon-button" title="牌局設定" aria-label="牌局設定">⚙</summary><div class="voice-panel settings-panel"><strong>牌局設定</strong><label>電腦難度 <select id="levelSelect"><option value="easy">初級：只管湊牌，漏洞多</option><option value="normal">中級：懂牌效率</option><option value="hard">高級：會看海底、會棄胡</option></select></label><label class="check"><input type="checkbox" id="coachToggle" /> 教練即時提示</label><label class="check"><input type="checkbox" id="dangerToggle" /> 顯示手牌危險度（進階）</label><label class="check"><input type="checkbox" id="seatDrawToggle" /> 新的一將先抓位（隨機座位）</label><label class="check"><input type="checkbox" id="cutsToggle" /> 牌河用灰底輔助標示摸切（預設關）</label><label class="check"><input type="checkbox" id="passWaterToggle" /> 過水（放過胡牌後，打出一張前不能胡）</label><label class="check"><input type="checkbox" id="reserveToggle" /> 保留八墩（剩 16 張流局）</label><label>底／台 <select id="stakeSelect"><option value="50/20">50 底 20 台</option><option value="100/20">100 底 20 台</option><option value="300/100">300 底 100 台</option></select></label><p class="settings-note">難度與底台從下一局起生效；提示與危險度立即生效。↻ 開始新的一將（分數歸零）。</p></div></details><details class="voice-settings"><summary class="icon-button" title="報牌聲音設定" aria-label="報牌聲音設定">🗣</summary><div class="voice-panel"><strong>報牌聲音設定</strong><div class="voice-controls"><label>系統聲線 <select id="voiceSelect"></select></label><label>聲音風格 <select id="voiceStyle"></select></label><button class="secondary-button" id="voicePreview" type="button">試聽：八萬</button></div><p id="voiceStatus" role="status"></p></div></details><button class="icon-button" id="soundButton" title="音效：開" aria-pressed="true">🔊</button><button class="icon-button" id="resetButton" title="新的一將（分數歸零）">↻</button></div>
       </header>
 
       <main class="page">
@@ -42,7 +42,6 @@
                 <div class="table-info"><div class="wind" id="roundWind">東</div><div class="round"><span id="roundName">東風東局</span><br>可摸 <b id="wallCount">0</b> 張</div></div>
                 <div class="turn-status" id="turnStatus" role="status">輪到你摸牌</div>
                 <div class="discard-river pile" id="discardRiver" aria-label="牌河"></div>
-                <div class="cut-legend" id="cutLegend"><span class="swatch tsumo"></span>摸切 <span class="swatch hand"></span>手切</div>
                 <div class="player-seat"><div class="exposed mine" data-meld-seat="0"></div><div class="player-label"><span class="avatar you">你</span><div><strong id="myInfo">我的手牌</strong><small>你（東家・莊家）</small></div></div><div class="hand" id="hand" aria-label="你的手牌"></div></div>
               </div>
             </div>
@@ -93,16 +92,16 @@
       </main>
     </div>
     <div class="toast" id="toast" role="status"></div>
-    <script src="engine.js?v=21"></script>
-    <script src="tiles.js?v=21"></script>
-    <script src="sound.js?v=21"></script>
-    <script src="coach.js?v=21"></script>
-    <script src="lessons.js?v=21"></script>
-    <script src="defense.js?v=21"></script>
-    <script src="scoring.js?v=21"></script>
-    <script src="ai.js?v=21"></script>
-    <script src="quiz.js?v=21"></script>
-    <script src="stages.js?v=21"></script>
-    <script src="app.js?v=21"></script>
+    <script src="engine.js?v=22"></script>
+    <script src="tiles.js?v=22"></script>
+    <script src="sound.js?v=22"></script>
+    <script src="coach.js?v=22"></script>
+    <script src="lessons.js?v=22"></script>
+    <script src="defense.js?v=22"></script>
+    <script src="scoring.js?v=22"></script>
+    <script src="ai.js?v=22"></script>
+    <script src="quiz.js?v=22"></script>
+    <script src="stages.js?v=22"></script>
+    <script src="app.js?v=22"></script>
   </body>
 </html>

@@ -2,7 +2,7 @@
 const E=Mahjong, $=s=>document.querySelector(s);
 const seats=['你（東家・莊家）','南家','西家','北家'],WINDS=['東','南','西','北'],REL=['','下家','對家','上家'];
 // 設定（存在本機）：電腦難度、教練提示、危險度、抓位、底台
-const settings={level:'normal',coach:true,danger:false,seatDraw:true,stake:'100/20',passWater:true,reserve:true,showCuts:true};
+const settings={level:'normal',coach:true,danger:false,seatDraw:true,stake:'100/20',passWater:true,reserve:true,showCuts:false};
 try{Object.assign(settings,JSON.parse(localStorage.getItem('mahjong-coach-settings')||'{}'));}catch(e){}
 function saveSettings(){try{localStorage.setItem('mahjong-coach-settings',JSON.stringify(settings));}catch(e){}}
 // 一將：莊家、圈風、連莊次數與四家累計分數。第一次開頁直接由你當東家莊家，按 ↻ 才抓位。
@@ -93,7 +93,7 @@ function coach(){
   body.append(el('p','claim-limit',decision.limit));
   reviewCard(body);return;
  }
- if(game.turn!==0){title.textContent='等待'+seats[game.turn];copy.textContent='電腦依自己的手牌出牌，你可以趁這時看看牌河：灰底是摸切、白底是手切。';reviewCard(body);readingCard(body);return;}
+ if(game.turn!==0){title.textContent='等待'+seats[game.turn];copy.textContent='電腦依自己的手牌出牌。看牠怎麼打：直接丟出最右邊那張是摸切；從牌列中間抽一張是手切。';reviewCard(body);readingCard(body);return;}
  if(game.phase==='draw'){
   title.textContent='輪到你摸牌';copy.textContent='目前'+readiness(E.shanten(game.hands[0],game.melds[0].length))+'。摸牌後，教練會解說這一手該怎麼打。';reviewCard(body);readingCard(body);return;
  }
@@ -152,6 +152,36 @@ function scatter(i){
  const angle=i*2.39996+hash(i)*.9,radius=Math.sqrt(i+.6)/Math.sqrt(96);
  return {x:Math.cos(angle)*Math.min(radius,1.08)+(hash(i+7)-.5)*.12,y:Math.sin(angle)*Math.min(radius,1.08)+(hash(i+13)-.5)*.14,rot:(hash(i+29)-.5)*70};
 }
+// ---- 出牌動畫：從牌實際所在的位置飛進牌河，一眼看出摸切、手切、空切 ----
+// 摸切：最右邊隔開的那張（剛摸進）直接飛出，其他牌不動。
+// 手切／空切：從手牌中間抽出一張飛出，後面的牌補位，剛摸的那張滑進手牌。（空切看起來就是手切）
+function motionOK(){try{return !globalThis.matchMedia||!matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){return true;}}
+function rectsOf(box){return box&&box.children?[...box.children].map(n=>n.getBoundingClientRect?n.getBoundingClientRect():null):[];}
+function rackBox(p){return p===0?$('#hand'):document.querySelector('[data-seat="'+p+'"]');}
+function snapshot(p){return {p,rects:rectsOf(rackBox(p)),log:game.log.length};}
+// 左右兩家的牌架有旋轉，螢幕上的位移要換成牌架自己的方向
+function local(p,dx,dy){return p===3?[-dy,dx]:p===1?[dy,-dx]:[dx,dy];}
+function slideFrom(box,oldRects,p,delay=0){
+ if(!motionOK()||!box||!box.children)return;
+ [...box.children].forEach((node,i)=>{const o=oldRects[i];if(!o||!node.animate||!node.getBoundingClientRect)return;const r=node.getBoundingClientRect(),[dx,dy]=local(p,o.left-r.left,o.top-r.top);if(Math.abs(dx)+Math.abs(dy)<1)return;
+  node.animate([{transform:'translate('+dx+'px,'+dy+'px)'},{transform:'translate('+dx+'px,'+dy+'px)',offset:delay?0.35:0},{transform:'none'}],{duration:delay?620:300,easing:'ease-out'});});
+}
+function animateDiscard(snap){
+ if(!snap||!motionOK())return;
+ const e=game.log.slice(snap.log).find(x=>x.action==='discard'&&x.player===snap.p);if(!e)return;
+ const old=snap.rects,n=old.length;if(!n||!old[0])return;
+ // 抽出的是第幾張：自己的就是點的那張；別家摸切是最右邊，手切／空切從中間某張抽（別人看不到是哪張）
+ const from=snap.p===0?snap.index:e.cut==='tsumo'?n-1:Math.max(0,Math.min(n-2,Math.floor(n/2)+((e.tile*5+snap.log)%5)-2));
+ const src=old[from],target=document.querySelector('#discardRiver .latest'),hand=e.cut!=='tsumo';
+ if(src&&target&&target.animate&&target.getBoundingClientRect){
+  const r=target.getBoundingClientRect(),dx=src.left+src.width/2-(r.left+r.width/2),dy=src.top+src.height/2-(r.top+r.height/2),rot=+(target.dataset&&target.dataset.rot||0),sc=(src.width/r.width||1).toFixed(2);
+  const frames=hand?[{transform:'translate('+dx+'px,'+dy+'px) scale('+sc+')',offset:0},{transform:'translate('+dx+'px,'+(dy-30)+'px) scale('+sc+')',offset:0.3},{transform:'rotate('+rot+'deg)'}]  // 手切：先從牌列中抽起，再飛出
+   :[{transform:'translate('+dx+'px,'+dy+'px) scale('+sc+')'},{transform:'rotate('+rot+'deg)'}];                                                              // 摸切：直接丟出
+  target.animate(frames,{duration:hand?680:380,easing:'cubic-bezier(.2,.7,.3,1)'});
+ }
+ // 剩下的牌補位：舊位置 i 對應新位置（抽走的那張之後往左移一格）
+ slideFrom(rackBox(snap.p),[...Array(Math.max(0,n-1))].map((_,i)=>old[i<from?i:i+1]),snap.p,hand?1:0);
+}
 // 別家的空切看起來和手切一樣，只有自己的空切另外標示
 function cutShown(p,cut){return cut==='empty'&&p!==0?'hand':cut;}
 function cutName(c){return c==='tsumo'?'摸切':c==='empty'?'空切':'手切';}
@@ -159,18 +189,18 @@ function renderRiver(){
  const river=$('#discardRiver');river.replaceChildren();
  river.classList.toggle('neat',neatRiver);river.classList.toggle('show-cuts',!!settings.showCuts);
  if(neatRiver){
-  game.rivers.forEach((tiles,p)=>{const section=el('div','river-group');section.append(el('strong',null,seats[p]));const box=el('div','river-tiles');tiles.forEach((t,i)=>{const n=Tiles.node(t,'sm'),c=cutShown(p,(game.cuts&&game.cuts[p]&&game.cuts[p][i])||'hand');n.classList.add('cut-'+c);n.title=cutName(c)+' '+Coach.label(t);box.append(n);});section.append(box);river.append(section);});
+  game.rivers.forEach((tiles,p)=>{const section=el('div','river-group');section.append(el('strong',null,seats[p]));const box=el('div','river-tiles');const lastDiscard=discardPile().at(-1);tiles.forEach((t,i)=>{const n=Tiles.node(t,'sm'),c=cutShown(p,(game.cuts&&game.cuts[p]&&game.cuts[p][i])||'hand');n.classList.add('cut-'+c);if(lastDiscard&&lastDiscard.player===p&&i===tiles.length-1)n.classList.add('latest');n.title=cutName(c)+' '+Coach.label(t);box.append(n);});section.append(box);river.append(section);});
   return;
  }
  const pile=discardPile(),w=(river.clientWidth||420)/2-18,h=(river.clientHeight||240)/2-22;
  pile.forEach((d,i)=>{
   const node=Tiles.node(d.tile,'sm'),pos=scatter(i);
-  node.classList.add('pile-tile','cut-'+cutShown(d.player,d.cut));if(i===pile.length-1){node.classList.add('latest');if(pile.length>shownPile)node.classList.add('toss');}
-  node.style.left=Math.round(w+pos.x*w)+'px';node.style.top=Math.round(h+pos.y*h)+'px';node.style.setProperty?.('--rot',pos.rot.toFixed(1)+'deg');
+  node.classList.add('pile-tile','cut-'+cutShown(d.player,d.cut));if(i===pile.length-1)node.classList.add('latest');
+  node.style.left=Math.round(w+pos.x*w)+'px';node.style.top=Math.round(h+pos.y*h)+'px';node.style.setProperty?.('--rot',pos.rot.toFixed(1)+'deg');if(node.dataset)node.dataset.rot=pos.rot.toFixed(1);
   node.title=seats[d.player]+cutName(cutShown(d.player,d.cut))+' '+Coach.label(d.tile);river.append(node);
  });
  shownPile=pile.length;
- if(pile.length&&game.phase!=='ended'){const last=pile[pile.length-1],tag=el('span','pile-caption',seats[last.player]+(settings.showCuts?cutName(cutShown(last.player,last.cut)):'打出')+' '+Coach.label(last.tile));river.append(tag);}
+ if(pile.length&&game.phase!=='ended'){const last=pile[pile.length-1],tag=el('span','pile-caption',seats[last.player]+'打出 '+Coach.label(last.tile));river.append(tag);}
 }
 // 依牌局紀錄播放音效與喊牌
 function soundEvents(){
@@ -200,7 +230,7 @@ function render(){
  $('#drawButton').textContent='摸牌';
  $('#discardButton').disabled=!choosing||selected===null;
  $('#winButton').disabled=!choosing||!E.winning(game.hands[0],game.melds[0].length);
- $('#sortButton').disabled=!mine||game.phase==='ended'||game.phase==='claim';
+ $('#sortButton').disabled=false; // 隨時都可以整理手牌
  $('#askSelected').disabled=!choosing||selected===null;
  $('#askAnswer').textContent='';
  if(game.phase==='ended'&&!session.settled)finishHand();
@@ -211,7 +241,7 @@ function render(){
  const own=game.hands[0],justDrew=choosing&&lastDrawn!==null&&own[own.length-1]===lastDrawn;
  own.forEach((t,i)=>{const b=document.createElement('button');b.className='tile mj mj-lg'+(selected===i?' selected':'')+(justDrew&&i===own.length-1?' drawn':'');b.innerHTML=Tiles.svg(t);b.setAttribute('aria-label',tile(t)+'，第 '+(i+1)+' 張');b.setAttribute('aria-pressed',selected===i);b.title=Coach.label(t);if(risk){const r=risk[t];b.className+=' risk-'+r.level;b.title+='・危險度：'+r.text;b.append(el('i','risk-dot'));}b.disabled=!choosing;b.onclick=()=>{if(selected===i){$('#discardButton').onclick();return;}selected=i;if(typeof Sound!=='undefined')Sound.play('select');render();};hand.append(b);});
  renderRiver();
- document.querySelectorAll('[data-seat]').forEach(box=>{const p=+box.dataset.seat;box.replaceChildren(...game.hands[p].map(()=>Tiles.back('xs')));box.title=seats[p]+'手牌 '+game.hands[p].length+' 張';});
+ document.querySelectorAll('[data-seat]').forEach(box=>{const p=+box.dataset.seat,fresh=game.phase==='discard'&&game.turn===p&&game.fresh&&game.fresh.player===p;box.replaceChildren(...game.hands[p].map((_,i,a)=>{const b=Tiles.back('xs');if(fresh&&i===a.length-1)b.classList.add('drawn-slot');return b;}));box.title=seats[p]+'手牌 '+game.hands[p].length+' 張';});
  document.querySelectorAll('[data-meld-seat]').forEach(box=>{
   const p=+box.dataset.meldSeat,items=[];
   game.melds[p].forEach(m=>{const g=el('span','meld-group');g.title=actionName[m.type];m.tiles.forEach((t,i)=>g.append(m.type==='concealed'&&(p!==0||i===0||i===3)?Tiles.back('sm'):Tiles.node(t,'sm')));items.push(g);});
@@ -295,9 +325,10 @@ function computers(){
  const epoch=generation;
  timer=setTimeout(()=>{
   if(epoch!==generation)return;
+  const snap=game.phase==='discard'?snapshot(game.turn):null;
   AI.act(game,game.turn,settings.level);
-  render();computers();
- },450);
+  render();animateDiscard(snap);computers();
+ },700);
 }
 $('#drawButton').onclick=()=>{if(E.draw(game,0)){selected=null;lastDrawn=game.log[game.log.length-1].tile;analyze();}render();};
 $('#discardButton').onclick=()=>{
@@ -312,10 +343,12 @@ $('#discardButton').onclick=()=>{
   record.warning=!record.mistake?'':pick.shanten>best.shanten?'這張打掉退了一步：'+readiness(best.shanten)+' 變成 '+readiness(pick.shanten)+'（建議打'+tile(best.tile)+'）':'這張打掉損失了 '+lost+' 張進張（建議打'+tile(best.tile)+'）';
   record.snapshot={hand:game.hands[0].slice(),melds:game.melds.map(ms=>ms.map(m=>({...m,tiles:m.tiles.slice()}))),rivers:game.rivers.map(r=>r.slice()),wall:game.wall.length,options:suggestions.slice(0,4).map(o=>({tile:o.tile,shanten:o.shanten,remaining:o.remaining}))};
  }
- if(E.discard(game,0,selected)){if(skipped)reviewTimeline.push(skipped);const cut=(game.log.findLast?game.log.findLast(e=>e.action==='discard'&&e.player===0):[...game.log].reverse().find(e=>e.action==='discard'&&e.player===0))?.cut;if(record){record.cut=cut;turnLog.push(record);reviewTimeline.push(record);lastReview=record;if(record.warning&&settings.coach)notify('⚠ '+record.warning+(cut==='empty'?'　・你這手是空切，別家看起來是手切':''));else if(cut==='empty')notify('空切：你打出手中的'+tile(record.tile)+'，別家看起來是手切。');}selected=null;lastDrawn=null;suggestions=[];peek=false;render();computers();}
+ const snap=snapshot(0);snap.index=selected;
+ if(E.discard(game,0,selected)){if(skipped)reviewTimeline.push(skipped);const cut=(game.log.findLast?game.log.findLast(e=>e.action==='discard'&&e.player===0):[...game.log].reverse().find(e=>e.action==='discard'&&e.player===0))?.cut;if(record){record.cut=cut;turnLog.push(record);reviewTimeline.push(record);lastReview=record;if(record.warning&&settings.coach)notify('⚠ '+record.warning+(cut==='empty'?'　・你這手是空切，別家看起來是手切':''));else if(cut==='empty')notify('空切：你打出手中的'+tile(record.tile)+'，別家看起來是手切。');}selected=null;lastDrawn=null;suggestions=[];peek=false;render();animateDiscard(snap);computers();}
 };
 $('#winButton').onclick=()=>{if(E.win(game,0)){clearTimeout(timer);render();}};
-$('#sortButton').onclick=()=>{const h=game.hands[0],keep=game.phase==='discard'&&game.turn===0&&lastDrawn!==null&&h[h.length-1]===lastDrawn;const rest=keep?h.slice(0,-1):h.slice();rest.sort((a,b)=>a-b);game.hands[0]=keep?[...rest,lastDrawn]:rest;selected=null;render();};
+// 整理手牌：隨時可按；剛摸進、還沒打的那張留在最右邊，其餘排序（有動畫）
+$('#sortButton').onclick=()=>{const h=game.hands[0],keep=game.phase==='discard'&&game.turn===0&&lastDrawn!==null&&h[h.length-1]===lastDrawn;const before=rectsOf($('#hand')),order=h.map((t,i)=>({t,i}));const rest=keep?order.slice(0,-1):order.slice();rest.sort((a,b)=>a.t-b.t||a.i-b.i);const next=keep?[...rest,order[order.length-1]]:rest;game.hands[0]=next.map(x=>x.t);selected=null;render();slideFrom($('#hand'),next.map(x=>before[x.i]),0);};
 $('#resetButton').onclick=()=>newMatch();
 $('#hintButton').onclick=()=>{peek=true;analyze();coach();};
 // 新的一將：抓位（四張風牌蓋著洗，你抽一張）決定座位，抽到東的人當莊
@@ -340,8 +373,7 @@ function roundName(){return WINDS[session.round]+'風'+WINDS[((game.dealer-sessi
 function fmt(n){return (n>0?'+':'')+n;}
 function renderSeats(){
  $('#roundWind').textContent=WINDS[session.round];$('#roundName').textContent=roundName();$('#wallCount').textContent=drawable();
- $('#cutLegend').classList.toggle('hidden',!settings.showCuts);
- for(const p of [1,2,3]){const r=AI.reading(game,p);$('#seatInfo'+p).textContent=WINDS[E.seatWind(game,p)]+'家・'+REL[p]+(p===game.dealer?'・莊':'')+'｜'+fmt(session.scores[p])+(settings.showCuts&&r.streak>=2?'｜連續摸切 '+r.streak:'');}
+ for(const p of [1,2,3]){const r=AI.reading(game,p);$('#seatInfo'+p).textContent=WINDS[E.seatWind(game,p)]+'家・'+REL[p]+(p===game.dealer?'・莊':'')+'｜'+fmt(session.scores[p])+'';void r;}
  $('#myInfo').textContent='我的手牌｜'+fmt(session.scores[0])+(game.dealer===0?'・莊':'');
 }
 // 一局結束：計台、算點數、決定連莊或下莊，並記錄學習進度
