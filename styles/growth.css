@@ -1,0 +1,154 @@
+/* 成長報告（牌局覆盤分頁，錯題本下方） */
+.growth {
+  --growth-line: #426b56;
+  --growth-dot: #8fb09d;
+  --growth-grid: #dcd9cc;
+  --growth-ink: #6f756b;
+  margin: 20px 0;
+  padding: 16px;
+  border-radius: 12px;
+  background: #f3f1e8;
+}
+.growth h3 {
+  margin: 0 0 4px;
+  font-size: 17px;
+}
+.growth-meta {
+  display: block;
+  color: var(--growth-ink);
+  font-size: 12px;
+}
+.growth-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+}
+.growth-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fff;
+}
+.growth-stat small {
+  color: var(--growth-ink);
+  font-size: 12px;
+}
+.growth-stat strong {
+  font:
+    600 22px/1.2 'DM Mono',
+    monospace;
+}
+.growth-change {
+  color: var(--growth-ink);
+  font-size: 12px;
+}
+.growth-change.better {
+  color: #2f6b45;
+}
+.growth-change.worse {
+  color: #a4502a;
+}
+.growth-chart {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fff;
+}
+.growth-chart figcaption {
+  color: var(--growth-ink);
+  font-size: 12px;
+}
+.growth-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.growth-chart .grid {
+  stroke: var(--growth-grid);
+  stroke-width: 1;
+}
+.growth-chart .axis {
+  fill: var(--growth-ink);
+  font-size: 9px;
+}
+.growth-chart .avg {
+  fill: none;
+  stroke: var(--growth-line);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.growth-chart .dot {
+  fill: var(--growth-dot);
+  stroke: #fff;
+  stroke-width: 2;
+}
+.growth-chart .hit-area {
+  fill: transparent;
+}
+.growth-chart .hit:hover .dot {
+  fill: var(--growth-line);
+}
+.growth-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--growth-ink);
+  font-size: 12px;
+}
+.growth-legend .key {
+  display: inline-block;
+  margin-left: 8px;
+}
+.growth-legend .key:first-child {
+  margin-left: 0;
+}
+.growth-legend .dot-key {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--growth-dot);
+}
+.growth-legend .line-key {
+  width: 16px;
+  height: 2px;
+  background: var(--growth-line);
+}
+.growth-stages {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.growth-stages small {
+  color: var(--growth-ink);
+  font-size: 12px;
+}
+.growth-stage {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.growth-stage .bar {
+  height: 8px;
+  border-radius: 4px;
+  background:
+    linear-gradient(var(--growth-line), var(--growth-line)) 0 0 / var(--w, 0%) 100% no-repeat,
+    var(--growth-grid);
+}
+.growth-stage b {
+  font:
+    500 12px 'DM Mono',
+    monospace;
+  color: var(--growth-ink);
+}
+.growth-tips {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 14px;
+}

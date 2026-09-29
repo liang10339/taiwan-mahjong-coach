@@ -9,6 +9,7 @@ setupCoachSize();
 watchRiverSize();
 // 先顯示開始畫面：選開局方式，按下開始才開打（這一下點擊也解鎖音效與報牌）
 showStart();
+updateNotebookBadge();
 if (typeof setupLessons === 'function')
   setupLessons($, (name) => {
     if (typeof Stages !== 'undefined') Stages.complete(0);

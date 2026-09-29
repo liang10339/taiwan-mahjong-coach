@@ -98,6 +98,8 @@ function createUiContext({ storage = {} } = {}) {
     Scoring: require('../src/core/scoring.js'),
     AI: require('../src/core/ai.js'),
     Quiz: require('../src/core/quiz.js'),
+    Notebook: require('../src/core/notebook.js'),
+    Growth: require('../src/core/growth.js'),
     Sound: {
       play() {},
       say() {},

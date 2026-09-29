@@ -4,7 +4,11 @@ function mode(name) {
   currentMode = name;
   for (const n of ['table', 'lesson', 'review']) $('#' + n + 'View').classList.toggle('hidden', n !== name);
   $$('.mode-tab').forEach((b) => b.classList.toggle('active', b.dataset.mode === name));
-  if (name === 'review') renderReview();
+  if (name === 'review') {
+    renderNotebook();
+    renderGrowth();
+    renderReview();
+  }
 }
 $$('.mode-tab').forEach((b) => (b.onclick = () => mode(b.dataset.mode)));
 $('#riverToggle').onclick = () => {
