@@ -21,7 +21,8 @@
 
   /**
    * @typedef {{id: string, hand: number[], open: number, melds: number[][], pub: number[], played: number,
-   *   box: number, due: number, created: number, seen: number, right: number, label?: string}} NoteItem
+   *   box: number, due: number, created: number, seen: number, right: number, label?: string,
+   *   kind?: string, winner?: string, answers?: number[], safety?: {tile: number, dealIn: number, text: string}[]}} NoteItem
    */
 
   /** 從一次失誤建立題目 */
@@ -47,6 +48,43 @@
       created: time,
       seen: 0,
       right: 0,
+    };
+  }
+
+  /**
+   * 從一次放槍建立防守題：「這手打哪張最安全？」。
+   * 放槍機率在當時就算好存起來（牌局之後不在了），answers 是當時最安全的牌（容許 0.5% 以內並列）。
+   * @param {{hand: number[], open?: number, melds?: number[][], pub?: number[], played: number,
+   *   safety: {tile: number, dealIn: number, text: string}[], winner?: string, label?: string, time?: number}} x
+   */
+  function fromDealIn({
+    hand,
+    open = 0,
+    melds = [],
+    pub = [],
+    played,
+    safety,
+    winner = '',
+    label = '',
+    time = Date.now(),
+  }) {
+    const min = Math.min(...safety.map((r) => r.dealIn));
+    return {
+      ...fromMistake({ hand, open, melds, pub, played, label, time }),
+      id:
+        'def|' +
+        hand
+          .slice()
+          .sort((a, b) => a - b)
+          .join(',') +
+        '|' +
+        pub.length +
+        '|' +
+        played,
+      kind: 'defense',
+      winner,
+      answers: safety.filter((r) => r.dealIn <= min + 0.005).map((r) => r.tile),
+      safety: safety.map((r) => ({ tile: r.tile, dealIn: r.dealIn, text: r.text })),
     };
   }
 
@@ -80,6 +118,7 @@
    * @param {number} tile 這次選的牌
    */
   function check(item, tile) {
+    if (item.kind === 'defense') return checkDefense(item, tile);
     const options = E.analyze(item.hand, item.pub, item.open);
     const explain = C.explainTurn(item.hand, options, { publicTiles: item.pub, open: item.open });
     const best = explain.best,
@@ -92,6 +131,35 @@
       judge: C.judge(options, tile, best).text,
       lines: explain.lines,
       options: options.slice(0, 4),
+    };
+  }
+
+  /** 防守題的評分：用當時存下的放槍機率 */
+  function checkDefense(item, tile) {
+    const answers = item.answers || [],
+      correct = answers.includes(tile),
+      byTile = new Map((item.safety || []).map((r) => [r.tile, r]));
+    const best = answers[0],
+      mine = byTile.get(tile),
+      played = byTile.get(item.played);
+    const lines = [];
+    if (played)
+      lines.push(
+        '當時你打' +
+          C.label(item.played) +
+          (item.winner ? '放槍給' + item.winner : '放槍') +
+          '：' +
+          played.text,
+      );
+    if (byTile.get(best)) lines.push('最安全：' + byTile.get(best).text);
+    if (mine && !correct && tile !== item.played) lines.push('你這次選的：' + mine.text);
+    return {
+      correct,
+      answers,
+      best,
+      judge: correct ? '答對了：這張是當時最安全的牌。' : '這張不是最安全的牌。',
+      lines,
+      options: [],
     };
   }
 
@@ -113,7 +181,20 @@
     });
   }
 
-  const api = { fromMistake, add, due, stats, check, answer, INTERVALS, MASTERED, LIMIT, DAY, RETRY };
+  const api = {
+    fromMistake,
+    fromDealIn,
+    add,
+    due,
+    stats,
+    check,
+    answer,
+    INTERVALS,
+    MASTERED,
+    LIMIT,
+    DAY,
+    RETRY,
+  };
   if (typeof module !== 'undefined') module.exports = api;
   else root.Notebook = api;
 })(globalThis);

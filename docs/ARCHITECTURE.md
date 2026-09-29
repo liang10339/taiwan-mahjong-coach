@@ -20,11 +20,16 @@ src/
   core/                 純邏輯，不碰畫面
     engine.js           牌局引擎：洗牌、摸打、吃碰槓胡、補花、過水、保留八墩、進聽數
     scoring.js          台數（北部台算法）與結算
-    coach.js            教練：牌效率比較、拆牌解說、吃碰槓建議
-    defense.js          防守：依公開資訊排除對手可能的胡法
+    coach.js            教練：牌效率比較、拆牌解說、吃碰槓比較（吃碰後打哪張由 advisor 決定）
+    defense.js          舊的防守組合排除（高級電腦仍在用）
     ai.js               電腦對手（初級、中級、高級）與讀牌
+    data/calibration.js 自戰統計表（npm run calibrate 產生，請勿手改）
+    opponents.js        對手模型：三家聽牌機率、胡牌台數、放過的牌、最近手切
+    safety.js           防守 2.0：每張牌的放槍機率與理由（放過的牌、過水、壁、字牌見張數、手切附近、一色）
+    policy.js           攻守期望值：胡牌機率 × 收入 − 放槍機率 × 對方台數，決定打哪張與局勢
+    situation.js        場況判斷的文字：局勢、對手訊號、牌牆、死搭子、台數方向（只負責說明）
+    advisor.js          決策核心：所有「打哪張、要不要吃碰」的唯一來源
     quiz.js             新手學堂的階段與題庫
-    situation.js        場況判斷：局勢（做牌／進攻／攻守兼顧／先守）、對手放過的牌、牌牆、死搭子、台數方向
     value.js            期望值模擬：每張候選牌的胡牌率、平均台數、期望台數（蒙地卡羅）
     notebook.js         錯題本：失誤題目與間隔重複排程
     growth.js           成長報告：一致率、失誤率、胡牌放槍率與進退步比較
@@ -56,8 +61,8 @@ src/
     globals.d.ts        讓型別檢查知道各全域名稱（Mahjong、Coach…）對應哪個檔案
 styles/                 樣式表
 tests/                  測試（*.test.cjs），helpers.cjs 提供假 DOM 與載入工具
-scripts/                npm 指令用的小工具（平行測試、改版、本機伺服器）
-docs/                   文件
+scripts/                npm 指令用的小工具（平行測試、改版、本機伺服器、校準）
+docs/                   文件（CALIBRATION.md 是校準報告）
 ```
 
 ## 資料流
@@ -76,7 +81,25 @@ docs/                   文件
                      └─ flow.js 的 soundEvents()：依新增的紀錄播放音效與報牌
 ```
 
-重點：畫面永遠是「目前 game 的樣子」，不在畫面上另外保存狀態。要加新功能時，先想它在 `game`（或 `session`）裡怎麼表示，畫面只負責把它畫出來。
+重點：畫面永遠是「目前 game 的樣子」，不在畫面上另外保存狀態。
+
+## 教練的決策流程（決策核心）
+
+```
+Advisor.decide(game, 你)
+  ├─ engine.analyze          候選牌的進聽數與有效牌
+  ├─ coach.leadOrder         效率並列時依口訣取捨 → 效率首選
+  ├─ opponents.read          三家聽牌機率、胡了幾台、放過的牌、最近手切、過水
+  ├─ safety.evaluate         每張牌的放槍機率與理由
+  ├─ policy.choose           攻守期望值 → 最後要打的牌、局勢（做牌／進攻／攻守兼顧／先守）
+  └─ situation.read          把以上寫成給人看的判斷與重點
+Advisor.claims(game, 你)     每個吃／碰先做出吃碰後的局面，再問 decide()：
+                             卡片上的「吃後打 X」一定等於吃完後的建議（tests/advisor.test.cjs 逐一驗證）
+```
+
+教練標題、場況判斷、放槍風險卡、覆盤評分、錯題本、問教練全部讀同一個結果（`state.js` 的 `currentDecision()`、`currentClaim()`），畫面不自己再算一次。**新增任何「建議」相關功能時，都要從決策核心拿結果，不要在畫面裡另外判斷**，否則又會出現前後矛盾。
+
+機率來自 `npm run calibrate`：電腦自戰幾千局（知道每家真正手牌），依 `opponents.tenpaiKey`、`safety.tileFeatures`、`policy.winKey` 同一套分組統計，寫成 `src/core/data/calibration.js`，並在 `docs/CALIBRATION.md` 報告準確度（每 5 局留 1 局只做驗證）。改了分組或 AI 打法後要重新校準。要加新功能時，先想它在 `game`（或 `session`）裡怎麼表示，畫面只負責把它畫出來。
 
 ## 全域名稱與載入順序
 
@@ -98,7 +121,7 @@ docs/                   文件
 ## 效能
 
 - **進聽數**（`engine.shanten`）是最熱的函式：教練、電腦、危險度都大量呼叫。它逐門拆解並快取，改動時務必跑 `tests/shanten.test.cjs`（和原始實作逐手比對）。
-- **重畫**：`render()` 每次動作都會執行。耗時的計算要依牌局狀態快取（參考 `state.js` 的 `explainCache`、`claimCache`），不要在重畫時讀取版面尺寸（`clientWidth` 等會逼瀏覽器重算整頁版面；參考 `table.js` 的 `watchRiverSize`）。
+- **重畫**：`render()` 每次動作都會執行。耗時的計算要依牌局狀態快取（參考 `state.js` 的 `decisionCache`、`claimCache`；一次決策約 8 毫秒），不要在重畫時讀取版面尺寸（`clientWidth` 等會逼瀏覽器重算整頁版面；參考 `table.js` 的 `watchRiverSize`）。
 - 需要大量模擬的功能放進 Web Worker：期望值模擬（`value.js`）由 `src/workers/value-worker.js` 在背景執行，主執行緒只送牌局、收結果；不支援 Worker 時才在主執行緒用較少的模擬次數。
 
 ## 擴充指南

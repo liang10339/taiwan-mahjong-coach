@@ -1,66 +1,34 @@
 (function (root) {
   'use strict';
   // 場況判斷：像坐在旁邊的老師一樣看整張桌子，而不是只算牌效率。
-  // 看的東西：三家有沒有聽牌訊號、他們「放過」哪些牌、牌牆還剩多少、你的搭子是不是死了、
+  // 看的東西：三家聽牌的機率（opponents.js）、每張牌放槍的機率與理由（safety.js）、
+  // 攻守期望值（policy.js，由決策核心 advisor.js 算好傳進來）、牌牆還剩多少、你的搭子是不是死了、
   // 這手牌值不值錢（一色、字牌對子、碰碰胡、莊家）、下家在吃什麼。
-  // 每一手依局勢決定「做牌／進攻／攻守兼顧／守」，只挑最重要的幾點講，同樣的話不會每手重複。
+  // 每一手依局勢決定「做牌／進攻／攻守兼顧／先守」，只挑最重要的幾點講，同樣的話不會每手重複。
   const node = typeof module !== 'undefined';
   const E = node ? require('./engine.js') : root.Mahjong,
     C = node ? require('./coach.js') : root.Coach,
-    AI = node ? require('./ai.js') : root.AI;
+    O = node ? require('./opponents.js') : root.Opponents,
+    Safety = node ? require('./safety.js') : root.Safety;
   const label = C.label,
     tilesText = (ts) => ts.map(label).join('、');
   const SUITS = ['萬子', '筒子', '條子'];
   /** 相對座位的稱呼（1 下家、2 對家、3 上家） */
   const REL = ['你', '下家', '對家', '上家'];
   const STANCE = { build: '做牌', push: '進攻', balance: '攻守兼顧', fold: '先守' };
-  const HAND_CHANGES = ['chi', 'pon', 'kan', 'concealed', 'added'];
+  const drawable = O.drawable,
+    passedSince = O.passedSince,
+    pct = Safety.percent;
 
-  /** 還能摸的張數（扣掉保留的牌尾） @param {Game} g */
-  function drawable(g) {
-    return Math.max(0, g.wall.length - (g.reserve || 0));
-  }
-
-  /**
-   * q 最近一次改變手牌（手切、吃碰槓）之後「放過」的牌。
-   * 這段期間他的手牌組成沒變，聽的牌也沒變：他自己摸進又打掉的牌（沒自摸），
-   * 和別家打出他沒胡的牌，都不是他要胡的牌——除非他故意不胡。
-   * @param {Game} g @param {number} q
-   */
-  function passedSince(g, q) {
-    let start = 0;
-    for (let i = g.log.length - 1; i >= 0; i--) {
-      const e = g.log[i];
-      if (e.player !== q) continue;
-      if ((e.action === 'discard' && e.cut === 'hand') || HAND_CHANGES.includes(e.action)) {
-        start = i + 1;
-        break;
-      }
-    }
-    const passed = new Set();
-    for (let i = start; i < g.log.length; i++) {
-      const e = g.log[i];
-      if (e.action !== 'discard') continue;
-      if (e.player === q)
-        passed.add(e.tile); // 摸切或空切：手牌沒變
-      else {
-        // 別家打的牌：要等大家回應完（緊接著的 resolution）才確定他沒胡
-        const done = g.log.slice(i + 1).find((x) => x.action === 'resolution');
-        if (done && done.tile === e.tile && done.choice !== 'ron') passed.add(e.tile);
-      }
-    }
-    return passed;
-  }
-
-  /** 看出對手接近聽牌的理由（全部是公開資訊） */
-  function threatReasons(g, q) {
-    const r = AI.reading(g, q),
+  /** 看出對手接近聽牌的理由（全部是公開資訊） @param {{reading: any}} o opponents.read() 的一家 */
+  function threatReasons(o) {
+    const rd = o.reading,
       out = [];
-    if (r.melds) out.push('攤了 ' + r.melds + ' 組');
-    if (r.streak >= 3) out.push('連續摸切 ' + r.streak + ' 次、手牌沒再換過');
-    if (r.middleRun) out.push('最近連打中張');
-    if (r.oneSuit !== null) out.push('攤牌全是' + SUITS[r.oneSuit]);
-    if (!out.length && drawable(g) < 30) out.push('已經到後盤');
+    if (rd.melds) out.push('攤了 ' + rd.melds + ' 組');
+    if (rd.streak >= 3) out.push('連續摸切 ' + rd.streak + ' 次、手牌沒再換過');
+    if (rd.middleRun) out.push('最近連打中張');
+    if (rd.oneSuit !== null) out.push('攤牌全是' + SUITS[rd.oneSuit]);
+    if (!out.length) out.push('已經打出 ' + rd.discards + ' 張');
     return out;
   }
 
@@ -75,57 +43,66 @@
   }
 
   /**
-   * 守的時候打哪張：先找所有「很可能聽牌」的對手都放過的牌，再比可成立的胡牌組合與威脅程度。
-   * @returns {{tile: number, covered: number[], why: string}}
+   * 為什麼這張安全（給「先守：打 X」用）：一定安全的理由優先，否則講放槍機率與主要理由。
+   * @param {any} s safety.evaluate() 的一筆
    */
-  function guardTile(g, viewer, hot) {
-    const tiles = [...new Set(g.hands[viewer])];
-    const rated = tiles.map((t) => ({
-      t,
-      covered: hot.filter((h) => h.passed.has(t)).map((h) => h.q),
-      danger: AI.danger(g, viewer, t).score,
-    }));
-    rated.sort((a, b) => b.covered.length - a.covered.length || a.danger - b.danger || a.t - b.t);
-    const pick = rated[0];
-    const why =
-      pick.covered.length && pick.covered.length === hot.length
-        ? pick.covered.map((q) => REL[(q - viewer + 4) % 4]).join('、') +
-          '在手牌沒換過的這段時間放過' +
-          label(pick.t)
-        : '依場上看得到的牌，對手能用' + label(pick.t) + '胡的組合最少';
-    return { tile: pick.t, covered: pick.covered, why };
+  function guardWhy(s) {
+    const risky = s.per.filter((x) => !x.safe);
+    const safeText = () => Safety.safeReasons(s);
+    if (!risky.length) return safeText().join('；') + '，現在打不會放槍';
+    const safeFor = safeText();
+    const worst = risky.sort((a, b) => b.p - a.p)[0];
+    return (
+      (safeFor.length ? safeFor.join('；') + '；' : '') +
+      '放槍' +
+      pct(s.dealIn) +
+      (worst.reasons.length ? '（' + worst.reasons[0] + '）' : '')
+    );
   }
 
   /**
-   * 讀整張桌子。options 是輪到你出牌時 engine.analyze 的結果（沒有就是摸牌前或別家回合）。
+   * 讀整張桌子。
+   * input：輪到你出牌時由決策核心傳入 {options, lead, opps, safety, plan}；
+   * 摸牌前或別家回合可以不給（或只給 options 陣列）。
    * 回傳局勢、一句總結，以及依重要性排好的重點（weight 越大越重要；5 是一定要講的警告）。
-   * lead 是決策核心依口訣挑出的效率首選（沒給就用 options[0]），講「你要打的牌」時用它。
-   * @param {Game} g @param {number} [viewer] @param {any[] | null} [options] @param {any} [lead]
+   * @param {Game} g @param {number} [viewer] @param {any} [input] @param {any} [lead]
    */
-  function read(g, viewer = 0, options = null, lead = null) {
+  function read(g, viewer = 0, input = null, lead = null) {
+    const inp = Array.isArray(input) || input === null ? { options: input, lead } : input;
+    const options = inp.options || null;
     const hand = g.hands[viewer],
       open = g.melds[viewer].length,
       pub = E.publicTiles(g, viewer),
       left = drawable(g),
       myDraws = Math.ceil(left / 4);
-    const best = lead || (options && options.length ? options[0] : null),
+    const best = inp.lead || (options && options.length ? options[0] : null),
       sh = best ? best.shanten : E.shanten(hand, open);
-    const others = [1, 2, 3].map((d) => {
-      const q = (viewer + d) % 4;
-      return { q, rel: REL[d], level: AI.threat(g, q), reading: AI.reading(g, q), passed: passedSince(g, q) };
-    });
+    const opps = inp.opps || O.read(g, viewer);
+    const safety = inp.safety || Safety.evaluate(g, viewer, opps);
+    const others = opps.map((o) => ({ ...o, rel: REL[o.rel] }));
     const hot = others.filter((o) => o.level >= 2),
       warm = others.filter((o) => o.level === 1);
     const points = [];
     const say = (key, weight, text) => points.push({ key, weight, text });
 
-    // ---- 局勢 ----
-    let stance = 'build';
-    if (sh === 0) stance = 'push';
-    else if ((hot.length && sh >= 2) || (left <= 16 && sh >= 2)) stance = 'fold';
-    else if (hot.length || (warm.length && sh >= 2) || left <= 16) stance = 'balance';
-    else if (sh === 1) stance = 'push';
-    const guard = stance === 'fold' || stance === 'balance' ? guardTile(g, viewer, hot) : null;
+    // ---- 局勢：有攻守期望值就照它；沒有（摸牌前、別家回合）就依聽牌機率與牌牆判斷 ----
+    const plan = inp.plan || null;
+    let stance = plan ? plan.stance : 'build';
+    if (!plan) {
+      if (sh === 0) stance = 'push';
+      else if ((hot.length && sh >= 2) || (left <= 16 && sh >= 2)) stance = 'fold';
+      else if (hot.length || (warm.length && sh >= 2) || left <= 16) stance = 'balance';
+      else if (sh === 1) stance = 'push';
+    }
+    const safest = safety[0] || null;
+    const guardEntry =
+      plan && plan.option !== (plan.efficiency && plan.efficiency.option)
+        ? safety.find((s) => s.tile === plan.option.tile) || safest
+        : safest;
+    const guard =
+      (stance === 'fold' || stance === 'balance') && guardEntry
+        ? { tile: guardEntry.tile, why: guardWhy(guardEntry), dealIn: guardEntry.dealIn }
+        : null;
 
     // ---- 對手的威脅 ----
     for (const o of hot) {
@@ -134,21 +111,32 @@
         'hot:' + o.q,
         5,
         o.rel +
-          '很可能聽牌（' +
-          threatReasons(g, o.q).join('、') +
-          '）。' +
-          (safe.length
-            ? '你手上的' +
-              tilesText(safe) +
-              '是他手牌沒換過的這段時間放過的牌——當時沒胡，現在也不會胡，是對他最安全的牌。'
-            : '你手上沒有他放過的牌，生張的中張（3～7）最危險。'),
+          '很可能聽牌（約 ' +
+          Math.round(o.tenpai * 100) +
+          '%：' +
+          threatReasons(o).join('、') +
+          '）' +
+          (o.tai >= 4 ? '，而且胡了大約 ' + o.tai + ' 台' : '') +
+          '。' +
+          (o.water
+            ? '他正在過水，打出下一張牌前不能胡別人的牌，這一巡打什麼都不會放槍給他。'
+            : safe.length
+              ? '你手上的' +
+                tilesText(safe) +
+                '是他手牌沒換過的這段時間放過的牌——當時沒胡，現在也不會胡，是對他最安全的牌。'
+              : '你手上沒有他放過的牌，生張的中張（3～7）最危險。'),
       );
     }
     for (const o of warm)
       say(
         'warm:' + o.q,
         2,
-        o.rel + '可能接近聽牌（' + threatReasons(g, o.q).join('、') + '），打生張前先想一下。',
+        o.rel +
+          '可能接近聽牌（約 ' +
+          Math.round(o.tenpai * 100) +
+          '%：' +
+          threatReasons(o).join('、') +
+          '），打生張前先想一下。',
       );
     for (const o of others) {
       if (o.reading.oneSuit === null) continue;
@@ -165,6 +153,44 @@
           '和字牌餵他最危險' +
           (hits ? '，而你現在要打的' + label(best.tile) + '正好是這一類。' : '。'),
       );
+    }
+
+    // ---- 攻守期望值：為什麼這手照效率打、或為什麼改打安全牌 ----
+    if (plan) {
+      const c = plan.chosen,
+        e = plan.efficiency,
+        taiText = (x) => (x.ev >= 0 ? '+' : '') + Math.round(x.ev * 10) / 10 + ' 台';
+      if (c !== e)
+        say(
+          'ev',
+          4,
+          '只看效率會打' +
+            label(e.tile) +
+            '：放槍' +
+            pct(e.dealIn) +
+            '、之後胡牌約 ' +
+            Math.round(e.win * 100) +
+            '%，期望 ' +
+            taiText(e) +
+            '；改打' +
+            label(c.tile) +
+            '：放槍' +
+            pct(c.dealIn) +
+            '，期望 ' +
+            taiText(c) +
+            '。',
+        );
+      else if (c.dealIn >= 0.03) {
+        const entry = safety.find((s) => s.tile === c.tile);
+        say(
+          'risk:' + c.tile,
+          4,
+          (entry ? Safety.explain(entry) : label(c.tile) + '：放槍' + pct(c.dealIn)) +
+            '。它的進攻價值（之後胡牌約 ' +
+            Math.round(c.win * 100) +
+            '%）仍然比打安全牌划算，所以照打。',
+        );
+      }
     }
 
     // ---- 時間（牌牆） ----
@@ -382,7 +408,7 @@
     }
   }
 
-  const api = { read, passedSince, threatReasons, guardTile, drawable, STANCE };
+  const api = { read, passedSince, threatReasons, guardWhy, drawable, STANCE };
   if (node) module.exports = api;
   else root.Situation = api;
 })(globalThis);

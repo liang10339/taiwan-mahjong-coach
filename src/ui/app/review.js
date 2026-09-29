@@ -99,7 +99,7 @@ function renderReview() {
       ...(x.judge.verdict === 'best' ? [] : [Tiles.node(x.best, 'xs')]),
     );
     item.append(head, el('p', null, x.judge.text + (x.reason ? ' ' + x.reason : '')));
-    if (x.defense) item.append(el('p', 'defense-note', '當時的防守觀察：' + x.defense));
+    if (x.defense) item.append(el('p', 'defense-note', '這張的放槍風險：' + x.defense));
     review.append(item);
   });
   const log = el('details', 'review-log');

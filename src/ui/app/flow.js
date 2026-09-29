@@ -96,7 +96,14 @@ $('#discardButton').onclick = () => {
       }
     : null;
   if (record) {
-    record.defense = Defense.describe(Defense.inspect(game, 0, t));
+    const risk = decision && decision.safety.find((r) => r.tile === t);
+    record.defense = risk ? Safety.explain(risk) : '';
+    record.dealIn = risk ? risk.dealIn : 0;
+    // 放槍時要出防守題，所以先存下當時每張牌的放槍機率與理由
+    record.safety = decision
+      ? decision.safety.map((r) => ({ tile: r.tile, dealIn: r.dealIn, text: Safety.explain(r) }))
+      : [];
+    record.pub = E.publicTiles(game);
     const pick = suggestions.find((o) => o.tile === t),
       lost = pick ? best.remaining - pick.remaining : 0;
     // 要守的局面拆牌是對的，不算牌效率失誤
@@ -280,6 +287,9 @@ function finishHand() {
     !dealerStays && nextDealer === session.firstDealer ? (session.round + 1) % 4 : session.round;
   session.next = { dealer: nextDealer, streak: dealerStays ? game.streak + 1 : 0, round: nextRound };
   session.last = { winner: ws ? ws.winner : null, deltas, payments, dealerStays, base, perTai };
+  // 你放槍：把那一手存成錯題本的防守題
+  if (ws && !ws.result.tsumo && ws.result.ctx.from === 0 && turnLog.length)
+    rememberDealIn(turnLog[turnLog.length - 1], seats[ws.winner]);
   saveSession();
   try {
     const list = JSON.parse(localStorage.getItem('mahjong-coach-history') || '[]');
@@ -317,11 +327,15 @@ function askCoach(question) {
   if (/防守|安全|危險|放槍/.test(question)) {
     if (game.turn === 0 && game.phase === 'discard') {
       analyze();
+      const d = currentDecision(),
+        pick = selected === null ? null : d.safety.find((r) => r.tile === game.hands[0][selected]);
       $('#askAnswer').textContent =
-        Defense.summary(game, suggestions) +
-        (selected === null
-          ? ''
-          : '\n你選的牌：' + Defense.describe(Defense.inspect(game, 0, game.hands[0][selected])));
+        d.situation.headline +
+        '\n最安全：' +
+        Safety.explain(d.safety[0]) +
+        '\n最危險：' +
+        Safety.explain(d.safety[d.safety.length - 1]) +
+        (pick ? '\n你選的牌：' + Safety.explain(pick) : '');
     } else $('#askAnswer').textContent = '輪到你出牌時可比較防守；吃碰回應卡會提示後續出牌風險。';
     return;
   }

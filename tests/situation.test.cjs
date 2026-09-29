@@ -60,7 +60,7 @@ const r = read(fold);
 assert.equal(r.stance, 'fold');
 assert.equal(r.guard.tile, 27, '他放過的東風最安全');
 assert.match(r.headline, /下家很可能聽牌.*打東/);
-assert.match(r.points[0].text, /下家很可能聽牌（攤了 3 組）.*東.*最安全/);
+assert.match(r.points[0].text, /下家很可能聽牌（約 \d+%：攤了 3 組）.*東.*最安全/);
 
 // 3. 已聽牌、沒人有威脅：進攻，說明聽哪些牌、剩幾張
 const tenpai = [0, 1, 2, 3, 4, 5, 9, 10, 11, 18, 19, 20, 27, 27, 12, 13, 31];

@@ -105,7 +105,7 @@ function decisionKey() {
 }
 function currentClaim() {
   const key = decisionKey();
-  if (claimCache.key !== key) claimCache = { key, value: Advisor.claims(game, 0) };
+  if (claimCache.key !== key) claimCache = { key, value: Advisor.claims(game, 0, { base: baseTai() }) };
   return claimCache.value;
 }
 function currentKans() {
@@ -141,7 +141,7 @@ function currentDecision() {
   if (!(game.turn === 0 && game.phase === 'discard')) return null;
   const key = JSON.stringify([decisionKey(), game.log.length, game.fresh]);
   if (decisionCache.key !== key) {
-    const d = Advisor.decide(game, 0);
+    const d = Advisor.decide(game, 0, { base: baseTai() });
     decisionCache = {
       key,
       value: d && { ...d, explain: Coach.explainTurn(game.hands[0], d.options, d.ctx) },
@@ -172,31 +172,23 @@ function drawable() {
 function fmt(n) {
   return (n > 0 ? '+' : '') + n;
 }
-// 危險度：依公開資訊估計三家的威脅程度，算出每張牌可被胡的組合
+/** 底換算成幾台（例如 50 底 20 台 → 2.5），攻守期望值用 */
+function baseTai() {
+  const [base, perTai] = settings.stake.split('/').map(Number);
+  return perTai ? base / perTai : 2.5;
+}
+// 危險度：每張牌的放槍機率（src/core/safety.js）。低於 1% 為低、4% 以上為高
 function dangerMap() {
-  const key = decisionKey();
+  const key = JSON.stringify([decisionKey(), game.log.length]);
   if (dangerCache.key === key) return dangerCache.value;
-  const list = AI.threats(game, 0),
+  const d = currentDecision(),
+    list = d ? d.safety : Safety.evaluate(game, 0),
     map = {};
-  for (const t of new Set(game.hands[0])) {
-    const d = AI.danger(game, 0, t, list),
-      lv = AI.dangerLevel(d);
-    map[t] = {
+  for (const r of list) {
+    const lv = r.dealIn < 0.01 ? 'safe' : r.dealIn < 0.04 ? 'mid' : 'high';
+    map[r.tile] = {
       level: lv,
-      text:
-        (lv === 'safe' ? '低' : lv === 'mid' ? '中' : '高') +
-        '（' +
-        d.per
-          .map(
-            (x) =>
-              WINDS[E.seatWind(game, x.player)] +
-              '家 ' +
-              x.ways +
-              ' 種' +
-              (x.level ? '・威脅' + x.level : ''),
-          )
-          .join('、') +
-        '）',
+      text: (lv === 'safe' ? '低' : lv === 'mid' ? '中' : '高') + '：' + Safety.explain(r),
     };
   }
   dangerCache = { key, value: map };

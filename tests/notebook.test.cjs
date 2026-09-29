@@ -84,4 +84,38 @@ ui.button('#notebookPanel', '回到錯題本').onclick();
 assert.match(ui.text(ui.get('#notebookPanel')), /沒有到期的題目/, '答錯的題目十分鐘後才再出現');
 assert.equal(ui.get('.mode-tab[data-mode="review"]').dataset.badge, '');
 
+// 6. 防守題：放槍的那一手存成「打哪張最安全」，用當時存下的放槍機率評分
+{
+  const safety = [
+    { tile: 27, dealIn: 0, text: '東：三家都不會胡' },
+    { tile: 0, dealIn: 0.004, text: '1萬：放槍約 0.4%' },
+    { tile: 13, dealIn: 0.12, text: '5筒：放槍約 12%' },
+  ];
+  const item = N.fromDealIn({ hand, played: 13, safety, winner: '下家', time: T0 });
+  assert.equal(item.kind, 'defense');
+  assert.deepEqual(item.answers, [27, 0], '0.5% 以內並列都算對');
+  assert.notEqual(item.id, N.fromMistake({ hand, played: 13, time: T0 }).id, '和效率題分開');
+  const right = N.check(item, 27);
+  assert.equal(right.correct, true);
+  const wrong = N.check(item, 13);
+  assert.equal(wrong.correct, false);
+  assert.match(wrong.lines.join('\n'), /放槍給下家.*12%/);
+  assert.match(wrong.lines.join('\n'), /最安全：東/);
+  // 畫面：你放槍的那一手自動存進錯題本，題目改問「打哪張最安全」
+  const dui = createUiContext();
+  dui.button('#openingActions', '開始').onclick();
+  dui.run(
+    'rememberDealIn({ tile: 13, snapshot: { hand: ' +
+      JSON.stringify(hand) +
+      ', melds: [[], [], [], []] }, safety: ' +
+      JSON.stringify(safety) +
+      ', pub: [] }, "下家")',
+  );
+  const book = JSON.parse(dui.store.get('mahjong-coach-notebook'));
+  assert.equal(book[0].kind, 'defense');
+  dui.run('renderNotebook()');
+  dui.button('#notebookPanel', '開始複習').onclick();
+  assert.match(dui.text(dui.get('#notebookPanel')), /打哪張最安全/);
+}
+
 console.log('notebook tests passed');
