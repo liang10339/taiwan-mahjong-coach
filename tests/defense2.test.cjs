@@ -23,11 +23,20 @@ function position(hand, edit = (g) => g) {
 const hand = [0, 4, 8, 9, 13, 17, 18, 22, 26, 27, 28, 29, 30, 31, 1, 10, 19];
 const entry = (g, t) => Safety.evaluate(g, 0).find((r) => r.tile === t);
 const pons = (tiles) => tiles.map((t) => ({ type: 'pon', tiles: [t, t, t] }));
+/** 打過 7 張手切的牌河：攤三組又打了好幾張，才是「很可能聽牌」 */
+const RIVER = [5, 7, 12, 16, 21, 23, 25];
+const discarded = (g, q, tiles = RIVER) => {
+  g.rivers[q] = tiles.slice();
+  g.cuts[q] = tiles.map(() => 'hand');
+};
 
 // 1. 聽牌機率：攤牌越多、打出越多越高；連續摸切也會提高
 {
   const quiet = position(hand);
-  const open = position(hand, (g) => (g.melds[1] = pons([2, 11, 20])));
+  const open = position(hand, (g) => {
+    g.melds[1] = pons([2, 11, 20]);
+    discarded(g, 1);
+  });
   assert.ok(O.tenpaiProb(open, 1) > O.tenpaiProb(quiet, 1) + 0.2, '攤三組的聽牌機率要明顯較高');
   const late = position(hand, (g) => {
     g.rivers[2] = [27, 28, 29, 0, 8, 9, 17, 18, 26, 33, 32, 5];
@@ -44,7 +53,9 @@ const pons = (tiles) => tiles.map((t) => ({ type: 'pon', tiles: [t, t, t] }));
 {
   const g = position(hand, (g) => {
     g.melds[1] = pons([2, 11, 20]);
-    g.rivers[1] = [27];
+    discarded(g, 1);
+    g.rivers[1].push(27);
+    g.cuts[1].push('tsumo');
     g.log = [
       { player: 1, action: 'discard', tile: 27, cut: 'tsumo' },
       { action: 'resolution', player: 1, choice: 'pass', tile: 27 },
@@ -86,19 +97,29 @@ const pons = (tiles) => tiles.map((t) => ({ type: 'pon', tiles: [t, t, t] }));
   assert.match(Safety.explain(entry(seen, 28)), /只可能單吊/);
 }
 
-// 5. 他最近手切的牌附近比較危險；他攤牌做一色的那門危險
+// 5. 手切附近、做一色、不做的那門：特徵要抓得到；理由與加權只照自戰統計（倍數偏離 1 才講）
 {
-  const base = (g) => (g.melds[1] = pons([27, 11]));
-  const plain = position(hand, base);
-  const cut = position(hand, (g) => {
-    base(g);
-    g.rivers[1] = [6];
-    g.cuts[1] = ['hand'];
+  const factor = (CAL && CAL.wait.factor) || Safety.DEFAULT_FACTOR;
+  const base = (g) => {
+    g.melds[1] = pons([27, 11]);
+    discarded(g, 1, [0, 1, 2, 3, 5, 7, 8]); // 一直打萬子，最後手切 7萬
+  };
+  const g = position(hand, base);
+  const o = O.read(g, 0)[0];
+  const seen = Safety.visibleCounts(g, 0);
+  const f = Safety.tileFeatures(4, seen, o);
+  assert.equal(f.nearCut, true, '手切 7萬 附近的 5萬 要標記');
+  assert.equal(f.avoid, true, '他一直打萬子');
+  const text = Safety.explain(entry(g, 4));
+  assert.equal(/手切/.test(text), factor.nearCut >= 1.1, '手切附近的理由只在統計支持時出現');
+  assert.equal(/不做這門/.test(text), factor.avoid <= 0.9);
+  // 不做的那門比同類的其他門安全（倍數 < 1 時）
+  if (factor.avoid < 1) assert.ok(entry(g, 4).per[0].wait < entry(g, 13).per[0].wait);
+  const flush = position(hand, (g) => {
+    g.melds[1] = pons([9, 12, 15]);
+    discarded(g, 1);
   });
-  assert.ok(entry(cut, 4).dealIn > entry(plain, 4).dealIn, '手切 7萬 之後 5萬 較危險');
-  assert.match(Safety.explain(entry(cut, 4)), /手切/);
-  const flush = position(hand, (g) => (g.melds[1] = pons([9, 12, 15])));
-  assert.match(Safety.explain(entry(flush, 13)), /一色/);
+  assert.equal(Safety.tileFeatures(13, Safety.visibleCounts(flush, 0), O.read(flush, 0)[0]).suitHit, true);
 }
 
 // 6. 攻守期望值：沒人聽牌時照效率；有人很可能聽牌而你還很遠時改打安全牌；你已聽牌時敢推

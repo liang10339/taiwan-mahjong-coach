@@ -109,28 +109,32 @@
     const f = tileFeatures(t, seen, o),
       wait = waitProb(f),
       reasons = [];
+    // 見張數包含你手上要打的這張
     if (f.kind === 'h') {
-      if (f.bucket >= 3) reasons.push(label(t) + '已見 3 張，只可能單吊');
-      else if (f.bucket === 2) reasons.push(label(t) + '已見 2 張，不能對碰，只剩單吊');
-      else if (f.bucket === 0) reasons.push(label(t) + '是生張字牌，單吊、對碰都有可能');
+      if (f.bucket >= 3) reasons.push('連你這張共見 3 張' + label(t) + '，他最多只有一張，只可能單吊');
+      else if (f.bucket === 2) reasons.push('連你這張共見 2 張' + label(t) + '，單吊、對碰都還有可能');
+      else reasons.push(label(t) + '是生張字牌，單吊、對碰都有可能');
     } else {
       if (f.walls) reasons.push('壁：' + f.walls + ' 種順子搭子因為旁邊的牌都看得到而不成立');
       if (f.bucket === 0) reasons.push('順子等不到' + label(t) + '，只剩單吊或對碰');
       else if (f.bucket === 3) reasons.push(label(t) + '是中張，兩面、嵌張都能等到');
-      if (f.nearCut)
-        reasons.push(
-          who +
-            '最近手切了' +
-            o.handCuts
-              .filter((c) => Math.abs(c - t) <= 2)
-              .map(label)
-              .join('、') +
-            '，附近的牌最危險',
-        );
-      if (f.avoid) reasons.push(who + '一直在打' + SUITS[Math.floor(t / 9)] + '，多半不做這門');
     }
-    if (f.suitHit)
-      reasons.push(who + '攤牌在做一色，' + (t >= 27 ? '字牌' : SUITS[Math.floor(t / 9)]) + '最危險');
+    // 下面三種線索只有在自戰統計確實有差時才講（倍數明顯偏離 1），避免把沒根據的說法當理由
+    const factor = (CAL && CAL.wait && CAL.wait.factor) || DEFAULT_FACTOR;
+    if (f.nearCut && factor.nearCut >= 1.1)
+      reasons.push(
+        who +
+          '最近手切了' +
+          o.handCuts
+            .filter((c) => Math.abs(c - t) <= 2)
+            .map(label)
+            .join('、') +
+          '，附近的牌較危險',
+      );
+    if (f.avoid && factor.avoid <= 0.9)
+      reasons.push(who + '一直在打' + SUITS[Math.floor(t / 9)] + '，多半不做這門');
+    if (f.suitHit && factor.suitHit >= 1.1)
+      reasons.push(who + '攤牌在做一色，' + (t >= 27 ? '字牌' : SUITS[Math.floor(t / 9)]) + '較危險');
     return { q: o.q, rel: o.rel, p: o.tenpai * wait, wait, safe: false, reasons };
   }
 
@@ -193,7 +197,9 @@
           percent(worst.tenpai) +
           (worst.reasons.length ? '；' + worst.reasons.join('；') : '') +
           '）'
-        : '')
+        : worst.reasons.length
+          ? '（' + worst.reasons.join('；') + '）'
+          : '')
     );
   }
 
