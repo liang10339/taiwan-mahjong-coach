@@ -194,15 +194,8 @@
 /* v2.1：摸切／手切／空切、讀牌筆記、歷史牌局 */
 /* 摸切：牌面偏灰並在右下角標「摸」；手切維持白底；自己的空切標「空」 */
 .show-cuts .cut-tsumo{filter:grayscale(.55) brightness(.86)}
-.show-cuts .cut-tsumo::after,.show-cuts .cut-empty::after{position:absolute;right:-3px;bottom:-3px;font:700 9px/1 'Noto Sans TC',sans-serif;padding:2px 3px;border-radius:4px;z-index:2;pointer-events:none}
-.show-cuts .cut-tsumo::after{content:'摸';background:#5b6b60;color:#fff}
-.show-cuts .cut-empty::after{content:'空';background:#b8732a;color:#fff}
-.cut-legend{position:absolute;left:14px;bottom:auto;top:62px;z-index:3;display:flex;white-space:nowrap;height:auto!important;width:auto!important;align-items:center;gap:5px;padding:3px 8px;border-radius:99px;background:rgba(12,45,29,.45);color:#eef4dc;font-size:11px}
-.cut-legend .swatch{display:inline-block;flex:none;width:10px!important;height:13px!important;min-height:0!important;border-radius:2px;margin-left:4px}
-.cut-legend .swatch.tsumo{background:#9aa39c}.cut-legend .swatch.hand{background:#fffdf2}
 /* 自己剛摸進的牌：右邊隔開並標「摸」 */
-.hand .mj.drawn{margin-left:10px}
-.hand .mj.drawn::before{content:'摸';position:absolute;top:-16px;left:50%;transform:translateX(-50%);font:700 10px/1 'Noto Sans TC',sans-serif;color:#eaf05e}
+.hand .mj.drawn{margin-left:14px;animation:draw-in .28s ease-out}
 /* 讀牌筆記 */
 .reading-card{margin-top:14px;padding:12px 14px;border-radius:10px;background:#f1f4ec;border:1px solid #d3dcc8}
 .reading-card summary{cursor:pointer;font-weight:700;color:#315140}
@@ -221,5 +214,10 @@
 .history-sum{margin:8px 0!important;color:#526552!important}
 .history-row{display:grid;grid-template-columns:auto auto 1fr auto auto;gap:10px;align-items:center;padding:6px 4px;border-top:1px solid var(--line);font-size:12px}
 .history-row.up b{color:#1f7a4c}.history-row.down b{color:#b8232f}.history-row small{color:var(--muted)}
-@media(max-width:580px){.history-row{grid-template-columns:1fr auto;}.history-row span:nth-child(1),.history-row span:nth-child(2){display:none}.cut-legend{top:auto;bottom:196px;left:8px}}
-@media(orientation:landscape) and (max-height:520px){.cut-legend{top:40px;left:6px;font-size:9px}}
+@media(max-width:580px){.history-row{grid-template-columns:1fr auto;}.history-row span:nth-child(1),.history-row span:nth-child(2){display:none}}
+
+
+/* v2.2：剛摸進的牌與別家牌架的「摸牌位」：稍微隔開、從上方落下，出牌動畫就看得出是不是打這一張 */
+.rack .drawn-slot{margin-left:6px;animation:draw-in .28s ease-out}
+@keyframes draw-in{from{transform:translateY(-14px);opacity:0}to{transform:none;opacity:1}}
+@media(prefers-reduced-motion:reduce){.hand .mj.drawn,.rack .drawn-slot{animation:none}}

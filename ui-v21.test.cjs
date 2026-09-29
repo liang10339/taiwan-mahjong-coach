@@ -27,7 +27,7 @@ run("neatRiver=true;render();");
 assert.equal(run("cutShown(0,'empty')"),'empty');assert.equal(run("cutShown(2,'empty')"),'hand');
 // 讀牌：下家連續摸切顯示在座位資訊與讀牌筆記
 run("game.rivers[1]=[27,5,6,7];game.cuts[1]=['hand','tsumo','tsumo','tsumo'];game.wall=game.wall.slice(0,70);game.turn=2;game.phase='draw';game.pending=null;render();");
-assert.match(get('#seatInfo1').textContent,/連續摸切 3/);
+assert.doesNotMatch(get('#seatInfo1').textContent,/摸切/,'座位不用文字標示摸切');
 assert.match(text(get('#coachBody')),/讀牌筆記/);assert.match(text(get('#coachBody')),/連續摸切 3 次/);
 // 過水：放過胡牌後，打出一張前不能胡
 run("game.hands[0]=[0,1,2,3,4,5,9,10,11,18,19,20,27,27,27,31];game.melds=[[],[],[],[]];game.rivers[3]=[31];game.cuts[3]=['hand'];game.turn=0;game.phase='claim';game.pending={from:3,tile:31,decisions:{1:{type:'pass'},2:{type:'pass'},3:{type:'pass'}}};render();");
@@ -39,4 +39,8 @@ assert.match(text(get('#coachBody')),/過水中/);
 // 教練：效率相同先打客風
 run("game.water=[false,false,false,false];game.phase='discard';game.turn=0;game.pending=null;game.hands[0]=[0,1,2,3,4,5,9,10,11,18,19,20,13,13,28,31,6];game.rivers=[[],[],[],[]];game.cuts=[[],[],[],[]];game.melds=[[],[],[],[]];lastDrawn=6;analyze();render();");
 assert.equal(run('currentExplain().best.tile'),28);assert.match(run('currentExplain().lines.join()'),/客風/);
-console.log('PASS: 預設過水與保留八墩、摸切／空切、整理手牌保留摸牌位置、別家空切顯示為手切、連續摸切讀牌、過水封鎖胡牌、客風優先。');
+// 整理手牌：別人的回合也能按，剛摸的牌仍在最右邊
+run("game.turn=2;game.phase='draw';game.pending=null;game.hands[0]=[9,3,27,1,5,20,11,0,2,4,18,19,10,27,27,31];render();");
+assert.equal(get('#sortButton').disabled,false);get('#sortButton').onclick();assert.equal(run('JSON.stringify(game.hands[0])'),JSON.stringify([0,1,2,3,4,5,9,10,11,18,19,20,27,27,27,31]));
+run("game.turn=0;game.phase='discard';lastDrawn=8;game.hands[0]=[9,3,27,1,5,20,11,0,2,4,18,19,10,27,27,31,8];render();");get('#sortButton').onclick();assert.equal(run('game.hands[0].at(-1)'),8);
+console.log('PASS: 隨時整理手牌、座位不以文字標摸切、預設過水與保留八墩、摸切／空切、整理手牌保留摸牌位置、別家空切顯示為手切、連續摸切讀牌、過水封鎖胡牌、客風優先。');
