@@ -71,6 +71,7 @@ function coach() {
     const ws = winScore();
     if (ws) body.append(scoreCard(ws));
     if (session.last) body.append(settleCard());
+    body.append(fairnessCard());
     const good = turnLog.filter((x) => x.judge.verdict === 'best').length;
     body.append(copy);
     copy.textContent = turnLog.length
@@ -185,6 +186,7 @@ function coach() {
   const list = el('ul', 'coach-lines');
   ex.lines.forEach((line) => list.append(el('li', null, line)));
   body.append(list);
+  valueSection(body); // 胡牌率與台數（模擬，算好後自動更新）
   body.append(el('h5', null, best.shanten === 0 ? '聽的牌（未見張數）' : '打掉後的有效牌（未見張數）'));
   const outs = el('div', 'out-grid');
   best.outs.forEach((o) => {

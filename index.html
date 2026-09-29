@@ -15,10 +15,13 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@900&display=swap"
     />
-    <link rel="stylesheet" href="styles/state.css?v=23" />
-    <link rel="stylesheet" href="styles/tiles.css?v=23" />
-    <link rel="stylesheet" href="styles/table.css?v=23" />
-    <link rel="stylesheet" href="styles/opening.css?v=23" />
+    <link rel="stylesheet" href="styles/state.css?v=24" />
+    <link rel="stylesheet" href="styles/tiles.css?v=24" />
+    <link rel="stylesheet" href="styles/table.css?v=24" />
+    <link rel="stylesheet" href="styles/opening.css?v=24" />
+    <link rel="stylesheet" href="styles/notebook.css?v=24" />
+    <link rel="stylesheet" href="styles/growth.css?v=24" />
+    <link rel="stylesheet" href="styles/fairness.css?v=24" />
     <title>牌桌教練｜台灣麻將練習</title>
   </head>
   <body>
@@ -31,7 +34,7 @@
           <button class="mode-tab" data-mode="review">牌局覆盤</button>
         </nav>
         <div class="topbar-actions"
-          ><span class="status-dot"></span><span class="version">教練練習 v2.3</span
+          ><span class="status-dot"></span><span class="version">教練練習 v2.4</span
           ><details class="voice-settings game-settings"
             ><summary class="icon-button" title="牌局設定" aria-label="牌局設定">⚙</summary
             ><div class="voice-panel settings-panel"
@@ -51,6 +54,7 @@
                 ></label
               ><label class="check"><input type="checkbox" id="coachToggle" /> 教練即時提示</label
               ><label class="check"><input type="checkbox" id="dangerToggle" /> 顯示手牌危險度（進階）</label
+              ><label class="check"><input type="checkbox" id="valueToggle" /> 教練模擬胡牌率與台數</label
               ><label class="check"
                 ><input type="checkbox" id="seatDrawToggle" /> 新的一將先抓位（隨機座位）</label
               ><label class="check"
@@ -120,9 +124,11 @@
                 <div class="table-info"
                   ><div class="wind" id="roundWind">東</div
                   ><div class="round"
-                    ><span id="roundName">東風東局</span><br />可摸 <b id="wallCount">0</b> 張</div
-                  ></div
-                >
+                    ><span id="roundName">東風東局</span><br />可摸 <b id="wallCount">0</b> 張<br /><small
+                      class="deal-print"
+                      id="dealPrint"
+                    ></small></div
+                ></div>
                 <div class="turn-status" id="turnStatus" role="status">輪到你摸牌</div>
                 <div class="discard-river pile" id="discardRiver" aria-label="牌河"></div>
                 <div class="player-seat"
@@ -230,6 +236,8 @@
             ><div
               ><p class="eyebrow">REVIEW CENTER</p><h2>最近的牌局</h2
               ><p>完成一局後，這裡會整理值得回看的決策。</p></div
+            ><section class="notebook" id="notebookPanel" aria-label="錯題本"></section
+            ><section class="growth" id="growthPanel" aria-label="成長報告"></section
             ><div class="empty-review"
               ><span>◌</span><strong>還沒有可覆盤的牌局</strong
               ><small>完成目前這一局後，就能看到你的選擇與教練建議。</small></div
@@ -298,24 +306,32 @@
       </div>
     </div>
     <div class="toast" id="toast" role="status"></div>
-    <script src="src/core/engine.js?v=23"></script>
-    <script src="src/core/coach.js?v=23"></script>
-    <script src="src/core/defense.js?v=23"></script>
-    <script src="src/core/scoring.js?v=23"></script>
-    <script src="src/core/ai.js?v=23"></script>
-    <script src="src/core/quiz.js?v=23"></script>
-    <script src="src/ui/tiles.js?v=23"></script>
-    <script src="src/ui/sound.js?v=23"></script>
-    <script src="src/ui/lessons.js?v=23"></script>
-    <script src="src/ui/stages.js?v=23"></script>
-    <script src="src/ui/app/dom.js?v=23"></script>
-    <script src="src/ui/app/state.js?v=23"></script>
-    <script src="src/ui/app/table.js?v=23"></script>
-    <script src="src/ui/app/coach-panel.js?v=23"></script>
-    <script src="src/ui/app/review.js?v=23"></script>
-    <script src="src/ui/app/flow.js?v=23"></script>
-    <script src="src/ui/app/opening.js?v=23"></script>
-    <script src="src/ui/app/settings-panel.js?v=23"></script>
-    <script src="src/ui/app/main.js?v=23"></script>
+    <script src="src/core/engine.js?v=24"></script>
+    <script src="src/core/coach.js?v=24"></script>
+    <script src="src/core/defense.js?v=24"></script>
+    <script src="src/core/scoring.js?v=24"></script>
+    <script src="src/core/ai.js?v=24"></script>
+    <script src="src/core/quiz.js?v=24"></script>
+    <script src="src/core/value.js?v=24"></script>
+    <script src="src/core/notebook.js?v=24"></script>
+    <script src="src/core/growth.js?v=24"></script>
+    <script src="src/core/fairness.js?v=24"></script>
+    <script src="src/ui/tiles.js?v=24"></script>
+    <script src="src/ui/sound.js?v=24"></script>
+    <script src="src/ui/lessons.js?v=24"></script>
+    <script src="src/ui/stages.js?v=24"></script>
+    <script src="src/ui/app/dom.js?v=24"></script>
+    <script src="src/ui/app/state.js?v=24"></script>
+    <script src="src/ui/app/table.js?v=24"></script>
+    <script src="src/ui/app/coach-panel.js?v=24"></script>
+    <script src="src/ui/app/value-panel.js?v=24"></script>
+    <script src="src/ui/app/review.js?v=24"></script>
+    <script src="src/ui/app/notebook-panel.js?v=24"></script>
+    <script src="src/ui/app/growth-panel.js?v=24"></script>
+    <script src="src/ui/app/fairness-panel.js?v=24"></script>
+    <script src="src/ui/app/flow.js?v=24"></script>
+    <script src="src/ui/app/opening.js?v=24"></script>
+    <script src="src/ui/app/settings-panel.js?v=24"></script>
+    <script src="src/ui/app/main.js?v=24"></script>
   </body>
 </html>

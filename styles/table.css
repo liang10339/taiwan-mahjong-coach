@@ -1286,3 +1286,77 @@
     margin-left: auto;
   }
 }
+/* 胡牌率與台數（期望值模擬） */
+.value-card {
+  margin: 14px 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: #f3f1e8;
+}
+.value-card.differs {
+  background: #fbf3dc;
+  outline: 2px solid #d8a93c;
+}
+.value-card h5 {
+  margin: 0 0 6px !important;
+}
+.value-advice {
+  margin: 0 0 8px !important;
+  font-size: 14px !important;
+  line-height: 1.7;
+}
+.value-wait {
+  margin: 0 !important;
+  color: #6f756b;
+  font-size: 13px !important;
+}
+.value-table {
+  display: grid;
+  gap: 4px;
+}
+.value-row {
+  display: grid;
+  grid-template-columns: 30px 52px 64px 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.value-row.head {
+  color: #6f756b;
+  font-size: 11px;
+}
+.value-row.rich {
+  background: #fff;
+}
+.value-row.fast span:nth-child(2) {
+  font-weight: 700;
+}
+.value-bar {
+  position: relative;
+  height: 18px;
+  border-radius: 4px;
+  background: #e7e4d8;
+  overflow: hidden;
+}
+.value-bar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: #d8a93c;
+  opacity: 0.55;
+}
+.value-bar b {
+  position: relative;
+  padding-left: 6px;
+  font:
+    500 11px/18px 'DM Mono',
+    monospace;
+}
+.value-note {
+  display: block;
+  margin-top: 8px;
+  color: #6f756b;
+  font-size: 11px;
+  line-height: 1.6;
+}

@@ -98,6 +98,7 @@ $('#discardButton').onclick = () => {
         .slice(0, 4)
         .map((o) => ({ tile: o.tile, shanten: o.shanten, remaining: o.remaining })),
     };
+    if (record.mistake) rememberMistake(t); // 存進錯題本（牌還在手上時存，才是當時的局面）
   }
   const snap = snapshot(0);
   snap.index = selected;
@@ -195,7 +196,9 @@ function startMatch(w) {
 function newHand(msg = '') {
   generation++;
   clearTimeout(timer);
-  game = E.create(Date.now(), ruleOpts());
+  const dealt = dealGame(); // 一般是隨機洗牌；從分享連結來的就用同一副牌
+  game = dealt.game;
+  if (dealt.shared && !msg) msg = '這是分享的牌局：配牌與牌牆都和分享者相同。';
   saveSession();
   session.settled = false;
   session.last = null;
@@ -262,12 +265,12 @@ function finishHand() {
       result: game.result,
       tai: ws ? ws.result.total : 0,
       delta: deltas[0],
-      turns: turnLog.length,
-      good: turnLog.filter((x) => x.judge.verdict === 'best').length,
-      mistakes: turnLog.filter((x) => x.mistake).length,
+      ...Growth.summarize(turnLog), // turns、good、mistakes 與各階段一致率
+      won: !!ws && ws.winner === 0,
+      dealIn: !!ws && !ws.result.tsumo && ws.result.ctx.from === 0,
       tsumoCuts: ((game.cuts && game.cuts[0]) || []).filter((c) => c === 'tsumo').length,
     });
-    localStorage.setItem('mahjong-coach-history', JSON.stringify(list.slice(0, 30)));
+    localStorage.setItem('mahjong-coach-history', JSON.stringify(list.slice(0, HISTORY_LIMIT)));
   } catch (e) {}
   if (typeof Quiz !== 'undefined') {
     const p = Quiz.load();

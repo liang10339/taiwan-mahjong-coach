@@ -98,6 +98,9 @@ function createUiContext({ storage = {} } = {}) {
     Scoring: require('../src/core/scoring.js'),
     AI: require('../src/core/ai.js'),
     Quiz: require('../src/core/quiz.js'),
+    Notebook: require('../src/core/notebook.js'),
+    Growth: require('../src/core/growth.js'),
+    Fairness: require('../src/core/fairness.js'),
     Sound: {
       play() {},
       say() {},
@@ -113,6 +116,8 @@ function createUiContext({ storage = {} } = {}) {
       setItem: (k, v) => store.set(k, String(v)),
     },
     navigator: {},
+    location: { hash: '', origin: 'https://example.test', pathname: '/' },
+    history: { replaceState() {} },
     setTimeout: (f) => {
       timers.set(++id, f);
       return id;

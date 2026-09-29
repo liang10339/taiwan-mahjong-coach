@@ -1,0 +1,56 @@
+/* 公平性：牌桌中央的牌牆指紋，以及一局結束後的驗證卡片 */
+.deal-print {
+  color: inherit;
+  font:
+    500 10px 'DM Mono',
+    monospace;
+  opacity: 0.7;
+}
+.fairness-card {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f3f1e8;
+}
+.fairness-card summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.fairness-verdict {
+  margin: 8px 0;
+  font-size: 13px;
+  color: #2f6b45;
+}
+.fairness-verdict.bad {
+  color: #a4502a;
+}
+.fairness-hand {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 6px 0;
+}
+.fairness-hand > small:first-child {
+  flex: 0 0 100%;
+  color: #6f756b;
+  font-size: 12px;
+}
+.fairness-seed {
+  margin: 8px 0;
+  color: #6f756b;
+  font:
+    12px 'DM Mono',
+    monospace;
+  overflow-wrap: anywhere;
+}
+.fairness-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+/* 16 張暗牌一排放不下手機寬度：讓牌自動換行，不把整個版面撐寬 */
+.fairness-hand .meld-group {
+  flex-wrap: wrap;
+  min-width: 0;
+}

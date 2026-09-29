@@ -1,0 +1,84 @@
+/* 錯題本（牌局覆盤分頁最上方） */
+.notebook {
+  margin: 20px 0;
+  padding: 16px;
+  border-radius: 12px;
+  background: #f3f1e8;
+}
+.notebook h3 {
+  margin: 0 0 6px;
+  font-size: 17px;
+}
+.notebook h4 {
+  margin: 10px 0;
+}
+.notebook-meta {
+  display: block;
+  color: #6f756b;
+  font-size: 12px;
+}
+.notebook-hand {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 10px 0 6px;
+}
+.notebook-hand .tile {
+  border: 0;
+  cursor: pointer;
+}
+.notebook-hand .tile:disabled {
+  cursor: default;
+}
+.notebook-hand .tile.best {
+  outline: 3px solid #426b56;
+  outline-offset: 1px;
+}
+.notebook-hand .tile.picked {
+  outline: 3px solid #d87943;
+  outline-offset: 1px;
+}
+.notebook-melds {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.notebook-feedback {
+  margin: 12px 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: #fff;
+  border-left: 4px solid #426b56;
+}
+.notebook-feedback.wrong {
+  border-left-color: #d87943;
+}
+.notebook-feedback p {
+  margin: 6px 0;
+  font-size: 14px;
+}
+.notebook-done {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* 「牌局覆盤」分頁上的待複習題數 */
+.mode-tab {
+  position: relative;
+}
+.mode-tab[data-badge]:not([data-badge=''])::before {
+  content: attr(data-badge);
+  position: absolute;
+  top: -4px;
+  right: -14px;
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 99px;
+  background: #d87943;
+  color: #fff;
+  font:
+    600 10px/16px 'DM Mono',
+    monospace;
+  text-align: center;
+}

@@ -17,6 +17,8 @@ const settings = {
   showCuts: false,
   /** 開局方式：quick 直接開始、full 完整開局（抓位、擲骰、開門、配牌、補花） */
   opening: 'quick',
+  /** 教練欄顯示「胡牌率與台數」模擬 */
+  value: true,
 };
 try {
   Object.assign(settings, JSON.parse(localStorage.getItem('mahjong-coach-settings') || '{}'));
@@ -68,7 +70,7 @@ function ruleOpts() {
     passWater: settings.passWater,
   };
 }
-let game = E.create(Date.now(), ruleOpts()),
+let game = E.create(Date.now() >>> 0, ruleOpts()), // 種子存成 32 位元（洗牌只用低 32 位元），公開驗證時數字才一致
   selected = null,
   timer = null,
   generation = 0,
