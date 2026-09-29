@@ -1,4 +1,4 @@
-const assert=require('node:assert/strict'),E=require('./engine'),C=require('./coach');
+const assert=require('node:assert/strict'),E=require('../src/core/engine.js'),C=require('../src/core/coach.js');
 for(const seed of [2,5]){const g=E.create(seed);g.phase='claim';g.pending={from:3,tile:g.hands[0][0],decisions:{}};g.rivers[3]=[g.pending.tile];assert.equal(C.chooseClaim(g,0).type,seed===2?'pon':'chi');}
 const actions=new Set();
 const kg=E.create(1);kg.hands[0]=[27,27,27,27,0,1,2,9,10,11,18,19,20,31,31,32,33];kg.melds=[[],[],[],[]];kg.rivers=[[],[],[],[]];kg.phase='discard';assert.equal(C.chooseKan(kg,0).type,'concealed');

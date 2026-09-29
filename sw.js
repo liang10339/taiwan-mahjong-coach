@@ -1,8 +1,83 @@
-const CACHE='mahjong-coach-v22';
-const FILES=['./','./index.html','./styles.css','./enhancements.css','./state.css?v=22','./engine.js?v=22','./tiles.js?v=22','./tiles.css?v=22','./table.css?v=22','./sound.js?v=22','./defense.js?v=22','./scoring.js?v=22','./ai.js?v=22','./quiz.js?v=22','./stages.js?v=22','./app.js?v=22','./coach.js?v=22','./lessons.js?v=22','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
-self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting())));
-self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('mahjong-coach-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
-self.addEventListener('fetch',e=>{
- if(e.request.method!=='GET'||new URL(e.request.url).origin!==self.location.origin)return;
- e.respondWith(fetch(e.request).then(r=>{if(r.ok){const copy=r.clone();e.waitUntil(caches.open(CACHE).then(c=>c.put(e.request,copy)));}return r;}).catch(async()=>{const c=await caches.open(CACHE);return await c.match(e.request)||new Response('離線時尚未快取此檔案',{status:503});}));
+// Service worker：離線快取。先向網路要最新檔案，失敗時才用快取。
+// 改版時執行 `npm run bump`，會同時更新這裡的 VERSION 與 index.html 的 ?v= 參數。
+const VERSION = 23;
+const CACHE = 'mahjong-coach-v' + VERSION;
+const v = '?v=' + VERSION;
+
+// index.html 載入的每個本機檔案都要列在這裡（tests/assets.test.cjs 會檢查）
+const FILES = [
+  './',
+  './index.html',
+  './manifest.webmanifest',
+  './icon.svg',
+  './icon-192.png',
+  './icon-512.png',
+  './styles/styles.css' + v,
+  './styles/enhancements.css' + v,
+  './styles/state.css' + v,
+  './styles/tiles.css' + v,
+  './styles/table.css' + v,
+  './styles/opening.css' + v,
+  './src/core/engine.js' + v,
+  './src/core/coach.js' + v,
+  './src/core/defense.js' + v,
+  './src/core/scoring.js' + v,
+  './src/core/ai.js' + v,
+  './src/core/quiz.js' + v,
+  './src/ui/tiles.js' + v,
+  './src/ui/sound.js' + v,
+  './src/ui/lessons.js' + v,
+  './src/ui/stages.js' + v,
+  './src/ui/app/dom.js' + v,
+  './src/ui/app/state.js' + v,
+  './src/ui/app/table.js' + v,
+  './src/ui/app/coach-panel.js' + v,
+  './src/ui/app/review.js' + v,
+  './src/ui/app/flow.js' + v,
+  './src/ui/app/opening.js' + v,
+  './src/ui/app/settings-panel.js' + v,
+  './src/ui/app/main.js' + v,
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches
+      .open(CACHE)
+      .then((cache) => cache.addAll(FILES))
+      .then(() => self.skipWaiting()),
+  );
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => key.startsWith('mahjong-coach-') && key !== CACHE)
+            .map((key) => caches.delete(key)),
+        ),
+      )
+      .then(() => self.clients.claim()),
+  );
+});
+
+self.addEventListener('fetch', (event) => {
+  const request = event.request;
+  if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
+  event.respondWith(
+    fetch(request)
+      .then((response) => {
+        if (response.ok) {
+          const copy = response.clone();
+          event.waitUntil(caches.open(CACHE).then((cache) => cache.put(request, copy)));
+        }
+        return response;
+      })
+      .catch(async () => {
+        const cache = await caches.open(CACHE);
+        return (await cache.match(request)) || new Response('離線時尚未快取此檔案', { status: 503 });
+      }),
+  );
 });

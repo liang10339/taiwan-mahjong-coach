@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const E=require('./engine.js');
+const E=require('../src/core/engine.js');
 function conserved(g){const all=[...g.wall,...g.hands.flat(),...g.flowers.flat(),...g.rivers.flat()];assert.equal(all.length,144);for(let t=0;t<42;t++)assert.equal(all.filter(x=>x===t).length,t<34?4:1);}
 for(let seed=0;seed<40;seed++){
  const g=E.create(seed);conserved(g);assert.deepEqual(g,E.create(seed));g.hands.forEach(h=>assert.equal(h.length,16));

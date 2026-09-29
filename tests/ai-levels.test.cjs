@@ -1,4 +1,4 @@
-const assert=require('node:assert/strict'),E=require('./engine'),A=require('./ai');
+const assert=require('node:assert/strict'),E=require('../src/core/engine.js'),A=require('../src/core/ai.js');
 function conserve(g){const all=[...g.wall,...g.hands.flat(),...g.rivers.flat(),...g.flowers.flat(),...g.melds.flatMap(ms=>ms.flatMap(m=>m.tiles))];assert.equal(all.length,144);for(let t=0;t<42;t++)assert.equal(all.filter(x=>x===t).length,t<34?4:1);}
 const results={easy:0,normal:0,hard:0};
 for(const level of Object.keys(A.LEVELS))for(let seed=1;seed<=3;seed++){

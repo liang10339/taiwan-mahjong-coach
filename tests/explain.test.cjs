@@ -1,4 +1,4 @@
-const assert=require('node:assert/strict'),E=require('./engine.js'),C=require('./coach.js');
+const assert=require('node:assert/strict'),E=require('../src/core/engine.js'),C=require('../src/core/coach.js');
 // 拆解結果必須與引擎的進聽數一致，且每張牌都被分配到一組
 let seed=7;const rand=()=>(seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296;
 for(let k=0;k<1500;k++){

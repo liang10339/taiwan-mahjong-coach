@@ -3,11 +3,10 @@ const nodes=new Map();
 class Element{constructor(){this.children=[];const cls=new Set();this.cls=cls;this.classList={add:(...x)=>x.forEach(c=>cls.add(c)),remove:(...x)=>x.forEach(c=>cls.delete(c)),toggle:(c,on)=>{if(on===undefined?!cls.has(c):on)cls.add(c);else cls.delete(c);return cls.has(c);},contains:c=>cls.has(c)};this.style={setProperty(){}};}replaceChildren(...x){this.children=[...x];}append(...x){this.children.push(...x);}setAttribute(){}}
 const get=s=>{if(!nodes.has(s))nodes.set(s,new Element());return nodes.get(s);};
 const timers=new Map();let id=0;
-const c=vm.createContext({Mahjong:require('./engine.js'),document:{querySelector:get,querySelectorAll:()=>[],createElement:()=>new Element()},navigator:{},setTimeout:f=>{timers.set(++id,f);return id;},clearTimeout:i=>timers.delete(i),console,Math});
-c.Defense=require('./defense.js');c.Coach=require('./coach.js');c.Scoring=require('./scoring.js');c.AI=require('./ai.js');c.Quiz=require('./quiz.js');
+const c=vm.createContext({Mahjong:require('../src/core/engine.js'),document:{querySelector:get,querySelectorAll:()=>[],createElement:()=>new Element()},navigator:{},setTimeout:f=>{timers.set(++id,f);return id;},clearTimeout:i=>timers.delete(i),console,Math});
+c.Defense=require('../src/core/defense.js');c.Coach=require('../src/core/coach.js');c.Scoring=require('../src/core/scoring.js');c.AI=require('../src/core/ai.js');c.Quiz=require('../src/core/quiz.js');
 c.Sound={play(){},say(){},tileName:()=>'',stop(){},setEnabled(){},isEnabled:()=>true};
-vm.runInContext(fs.readFileSync('tiles.js','utf8'),c);
-vm.runInContext(fs.readFileSync('app.js','utf8'),c);
+require('./helpers.cjs').loadApp(c);
 const run=code=>vm.runInContext(code,c),text=n=>[n.textContent||'',...(n.children||[]).map(text)].join(' ');
 // 預設桌規：過水、保留八墩
 assert.equal(run('game.passWater'),true);assert.equal(run('game.reserve'),16);assert.equal(+get('#wallCount').textContent,run('game.wall.length-16'));

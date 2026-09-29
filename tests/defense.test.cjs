@@ -1,4 +1,4 @@
-const assert=require('node:assert/strict'),E=require('./engine'),D=require('./defense'),T=require('./tiles');
+const assert=require('node:assert/strict'),E=require('../src/core/engine.js'),D=require('../src/core/defense.js'),T=require('../src/ui/tiles.js');
 const g=E.create(1);g.hands[0]=[33];g.rivers=[[33],[33],[] ,[]];g.melds=[[],[],[],[]];
 let r=D.inspect(g,0,33);assert.equal(r.excluded,false);assert.deepEqual(r.opponents[0].ways.map(w=>w.kind),['單吊']);
 g.rivers[3]=[33];assert.equal(D.inspect(g,0,33).excluded,true);

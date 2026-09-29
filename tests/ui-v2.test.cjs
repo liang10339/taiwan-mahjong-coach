@@ -2,11 +2,10 @@ const vm=require('node:vm'),fs=require('node:fs'),assert=require('node:assert/st
 const nodes=new Map();class Element{constructor(){this.children=[];this.classList={add(){},remove(){},toggle(){}};this.style={};}replaceChildren(...x){this.children=[...x];}append(...x){this.children.push(...x);}setAttribute(){}}
 const get=s=>{if(!nodes.has(s))nodes.set(s,new Element());return nodes.get(s);};
 const timers=new Map();let id=0;
-const c=vm.createContext({Mahjong:require('./engine.js'),document:{querySelector:get,querySelectorAll:()=>[],createElement:()=>new Element()},navigator:{},setTimeout:f=>{timers.set(++id,f);return id;},clearTimeout:i=>timers.delete(i),console,Math});
-c.Defense=require('./defense.js');c.Coach=require('./coach.js');c.Scoring=require('./scoring.js');c.AI=require('./ai.js');c.Quiz=require('./quiz.js');
+const c=vm.createContext({Mahjong:require('../src/core/engine.js'),document:{querySelector:get,querySelectorAll:()=>[],createElement:()=>new Element()},navigator:{},setTimeout:f=>{timers.set(++id,f);return id;},clearTimeout:i=>timers.delete(i),console,Math});
+c.Defense=require('../src/core/defense.js');c.Coach=require('../src/core/coach.js');c.Scoring=require('../src/core/scoring.js');c.AI=require('../src/core/ai.js');c.Quiz=require('../src/core/quiz.js');
 c.Sound={play(){},say(){},tileName:()=>'',stop(){},setEnabled(){},isEnabled:()=>true};
-vm.runInContext(fs.readFileSync('tiles.js','utf8'),c);
-vm.runInContext(fs.readFileSync('app.js','utf8'),c);
+require('./helpers.cjs').loadApp(c);
 const run=code=>vm.runInContext(code,c);
 const text=n=>[n.textContent||'',...(n.children||[]).map(text)].join(' ');
 run('settings.seatDraw=false');

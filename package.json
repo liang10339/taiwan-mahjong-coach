@@ -1,0 +1,23 @@
+{
+  "name": "taiwan-mahjong-coach",
+  "version": "2.3.0",
+  "private": true,
+  "description": "台灣 16 張麻將教練練習 PWA",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "node scripts/serve.cjs",
+    "test": "node scripts/run-tests.cjs",
+    "typecheck": "tsc -p jsconfig.json",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "bump": "node scripts/bump-version.cjs",
+    "check": "npm run format:check && npm run typecheck && npm test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.9",
+    "typescript": "^5.9.3"
+  }
+}

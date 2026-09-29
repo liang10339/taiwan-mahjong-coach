@@ -1,4 +1,4 @@
-const assert=require('node:assert/strict'),E=require('./engine'),C=require('./coach');
+const assert=require('node:assert/strict'),E=require('../src/core/engine.js'),C=require('../src/core/coach.js');
 const hand=[2,3,6,8,8,9,12,15,17,18,19,21,23,27,27,27,33],visible=[30,31,12,15,1,5,12,9];
 const options=E.analyze(hand,visible),white=options.find(o=>o.tile===33);
 assert.equal(white.shanten,3);assert.equal(white.remaining,19);assert.ok(C.same(white,options[0]));

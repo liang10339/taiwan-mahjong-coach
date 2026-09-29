@@ -1,4 +1,4 @@
-const assert=require('node:assert/strict'),E=require('./engine'),C=require('./coach');
+const assert=require('node:assert/strict'),E=require('../src/core/engine.js'),C=require('../src/core/coach.js');
 function fixture(){
  const g=E.create(1),wall=[];for(let t=0;t<42;t++)for(let i=0;i<(t<34?4:1);i++)wall.push(t);
  const take=h=>{for(const t of h){const i=wall.indexOf(t);assert.ok(i>=0);wall.splice(i,1);}return h;};

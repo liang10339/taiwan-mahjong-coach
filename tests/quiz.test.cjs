@@ -1,4 +1,4 @@
-const assert=require('node:assert/strict'),E=require('./engine'),Q=require('./quiz');
+const assert=require('node:assert/strict'),E=require('../src/core/engine.js'),Q=require('../src/core/quiz.js');
 // 聽牌題：每種牌型都是 16 張、答案與引擎一致
 for(let i=0;i<10;i++){const q=Q.waitQuestion(i);assert.equal(q.hand.length,16,q.explain);assert.ok(q.answer.length>=1);for(const t of q.answer)assert.ok(E.winning([...q.hand,t]));assert.ok(q.answer.every(t=>q.choices.includes(t)),'choices include answers');assert.ok(Q.check(q,q.answer).correct);}
 assert.deepEqual(Q.waitQuestion(0).answer,[0,3]);assert.deepEqual(Q.waitQuestion(1).answer,[2]);assert.deepEqual(Q.waitQuestion(6).answer,[0,3,6]);

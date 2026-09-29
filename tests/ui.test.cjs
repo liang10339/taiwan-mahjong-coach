@@ -2,10 +2,9 @@ const vm=require('node:vm'),fs=require('node:fs'),assert=require('node:assert/st
 const nodes=new Map();class Element{constructor(){this.children=[];this.classList={add(){},remove(){},toggle(){}};this.style={};}replaceChildren(){this.children=[];}append(...x){this.children.push(...x);}setAttribute(){}}
 const get=s=>{if(!nodes.has(s))nodes.set(s,new Element());return nodes.get(s);};
 const timers=new Map();let id=0;
-const c=vm.createContext({Mahjong:require('./engine.js'),document:{querySelector:get,querySelectorAll:()=>[],createElement:()=>new Element()},navigator:{},setTimeout:f=>{timers.set(++id,f);return id;},clearTimeout:i=>timers.delete(i),console});
-const spoken=[];c.Defense=require('./defense.js');c.Coach=require('./coach.js');c.Scoring=require('./scoring.js');c.AI=require('./ai.js');c.Quiz=require('./quiz.js');c.Sound={play(){},say(t){spoken.push(t);},tileName:t=>require('./sound.js').tileName(t),stop(){spoken.length=0;},setEnabled(){},isEnabled:()=>true};
-vm.runInContext(fs.readFileSync('tiles.js','utf8'),c);
-vm.runInContext(fs.readFileSync('app.js','utf8'),c);
+const c=vm.createContext({Mahjong:require('../src/core/engine.js'),document:{querySelector:get,querySelectorAll:()=>[],createElement:()=>new Element()},navigator:{},setTimeout:f=>{timers.set(++id,f);return id;},clearTimeout:i=>timers.delete(i),console});
+const spoken=[];c.Defense=require('../src/core/defense.js');c.Coach=require('../src/core/coach.js');c.Scoring=require('../src/core/scoring.js');c.AI=require('../src/core/ai.js');c.Quiz=require('../src/core/quiz.js');c.Sound={play(){},say(t){spoken.push(t);},tileName:t=>require('../src/ui/sound.js').tileName(t),stop(){spoken.length=0;},setEnabled(){},isEnabled:()=>true};
+require('./helpers.cjs').loadApp(c);
 vm.runInContext('settings.seatDraw=false',c); // 測試中重開不抽位，維持你當莊
 get('#drawButton').onclick();assert.equal(get('#hand').children.length,17);assert.equal(get('#drawButton').disabled,true);
 get('#askInput').value='這張安全嗎';get('#askForm').onsubmit({preventDefault(){}});assert.match(get('#askAnswer').textContent,/防守參考/);assert.match(get('#askAnswer').textContent,/不是放槍機率/);

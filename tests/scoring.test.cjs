@@ -1,4 +1,4 @@
-const assert=require('node:assert/strict'),E=require('./engine.js'),S=require('./scoring.js');
+const assert=require('node:assert/strict'),E=require('../src/core/engine.js'),S=require('../src/core/scoring.js');
 // 建立一個「已胡牌」的牌局狀態；w=萬 0-8、p=筒 9-17、s=索 18-26、東南西北 27-30、中發白 31-33
 const W=n=>n-1,P=n=>8+n,S_=n=>17+n,EAST=27,SOUTH=28,WEST=29,NORTH=30,RED=31,GREEN=32,WHITE=33;
 function game({hand,player=0,melds=[],flowers=[],tsumo=true,tile,from,log=[],wall=50,robKan=false,afterKan=false}){

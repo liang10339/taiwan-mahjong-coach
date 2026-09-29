@@ -1,4 +1,4 @@
-const assert=require('node:assert/strict'),E=require('./engine'),C=require('./coach');
+const assert=require('node:assert/strict'),E=require('../src/core/engine.js'),C=require('../src/core/coach.js');
 function fixture(hand,t,seed=1){const g=E.create(seed);g.hands[0]=hand.slice();g.rivers=[[],[],[],[t]];g.melds=[[],[],[],[]];g.phase='claim';g.pending={from:3,tile:t,decisions:{3:{type:'pass'}}};return g;}
 const ready=[0,1,2,3,4,5,9,10,11,18,19,20,27,27,31,31];
 let g=fixture(ready,2),r=C.claimDecision(g);

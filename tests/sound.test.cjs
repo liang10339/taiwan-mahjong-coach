@@ -2,7 +2,7 @@ const vm=require('node:vm'),fs=require('node:fs'),assert=require('node:assert/st
 const spoken=[],storage=new Map();let cancelled=0;
 const voices=[{voiceURI:'en',lang:'en-US',name:'English'},{voiceURI:'tw',lang:'zh-TW',name:'Chinese TW'},{voiceURI:'cn',lang:'zh-CN',name:'Chinese CN'}];
 const c=vm.createContext({localStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)},speechSynthesis:{getVoices:()=>voices,speak:u=>spoken.push(u),cancel:()=>cancelled++},SpeechSynthesisUtterance:function(text){this.text=text;}});
-const source=fs.readFileSync('sound.js','utf8');vm.runInContext(source,c);const S=c.Sound;
+const source=fs.readFileSync(__dirname+'/../src/ui/sound.js','utf8');vm.runInContext(source,c);const S=c.Sound;
 assert.equal(S.tileName(7),'八萬');assert.equal(S.tileName(16),'八筒');assert.equal(S.tileName(25),'八條');assert.equal(S.tileName(33),'白板');assert.equal(S.tileName(-1),'');
 assert.equal(S.voices().length,2);S.say(S.tileName(7));assert.equal(spoken[0].text,'八萬');assert.equal(spoken[0].voice.voiceURI,'tw');
 S.say('碰');assert.equal(cancelled,0,'Consecutive calls must queue, not interrupt');

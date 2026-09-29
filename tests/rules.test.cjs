@@ -1,4 +1,4 @@
-const assert=require('node:assert/strict'),E=require('./engine'),A=require('./ai'),S=require('./scoring');
+const assert=require('node:assert/strict'),E=require('../src/core/engine.js'),A=require('../src/core/ai.js'),S=require('../src/core/scoring.js');
 // 摸切、手切、空切
 let g=E.create(11);g.hands[0]=[0,1,2,3,4,5,9,10,11,18,19,20,27,27,31,5];g.wall.push(5);
 E.draw(g,0);assert.equal(g.hands[0].at(-1),5);

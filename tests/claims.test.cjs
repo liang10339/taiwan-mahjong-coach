@@ -1,4 +1,4 @@
-const E=require('./engine.js'),assert=require('node:assert/strict');
+const E=require('../src/core/engine.js'),assert=require('node:assert/strict');
 const base=[0,1,2,9,10,11,18,19,20,27,27,27,31,31,32,33];
 function fixture(from,t,overrides={}){const g=E.create(123);g.hands=Array.from({length:4},()=>base.slice());for(const [p,h]of Object.entries(overrides))g.hands[p]=h.slice();g.hands[from].push(t);g.phase='discard';g.turn=from;assert.ok(E.discard(g,from,g.hands[from].length-1));return g;}
 function settle(g,choices={}){for(let p=0;p<4&&g.phase==='claim';p++)if(!g.pending.decisions[p])E.respond(g,p,choices[p]||{type:'pass'});}

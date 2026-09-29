@@ -8,13 +8,13 @@
     <link rel="apple-touch-icon" href="icon-192.png" />
     <meta name="description" content="台灣 16 張麻將教練練習系統" />
     <link rel="manifest" href="manifest.webmanifest" />
-    <link rel="stylesheet" href="styles.css" />
-    <link rel="stylesheet" href="enhancements.css" />
+    <link rel="stylesheet" href="styles/styles.css" />
+    <link rel="stylesheet" href="styles/enhancements.css" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@900&display=swap" />
-    <link rel="stylesheet" href="state.css?v=22" />
-    <link rel="stylesheet" href="tiles.css?v=22" />
-    <link rel="stylesheet" href="table.css?v=22" />
+    <link rel="stylesheet" href="styles/state.css?v=23" />
+    <link rel="stylesheet" href="styles/tiles.css?v=23" />
+    <link rel="stylesheet" href="styles/table.css?v=23" />
     <title>牌桌教練｜台灣麻將練習</title>
   </head>
   <body>
@@ -92,16 +92,23 @@
       </main>
     </div>
     <div class="toast" id="toast" role="status"></div>
-    <script src="engine.js?v=22"></script>
-    <script src="tiles.js?v=22"></script>
-    <script src="sound.js?v=22"></script>
-    <script src="coach.js?v=22"></script>
-    <script src="lessons.js?v=22"></script>
-    <script src="defense.js?v=22"></script>
-    <script src="scoring.js?v=22"></script>
-    <script src="ai.js?v=22"></script>
-    <script src="quiz.js?v=22"></script>
-    <script src="stages.js?v=22"></script>
-    <script src="app.js?v=22"></script>
+    <script src="src/core/engine.js?v=23"></script>
+    <script src="src/core/coach.js?v=23"></script>
+    <script src="src/core/defense.js?v=23"></script>
+    <script src="src/core/scoring.js?v=23"></script>
+    <script src="src/core/ai.js?v=23"></script>
+    <script src="src/core/quiz.js?v=23"></script>
+    <script src="src/ui/tiles.js?v=23"></script>
+    <script src="src/ui/sound.js?v=23"></script>
+    <script src="src/ui/lessons.js?v=23"></script>
+    <script src="src/ui/stages.js?v=23"></script>
+    <script src="src/ui/app/dom.js?v=23"></script>
+    <script src="src/ui/app/state.js?v=23"></script>
+    <script src="src/ui/app/table.js?v=23"></script>
+    <script src="src/ui/app/coach-panel.js?v=23"></script>
+    <script src="src/ui/app/review.js?v=23"></script>
+    <script src="src/ui/app/flow.js?v=23"></script>
+    <script src="src/ui/app/settings-panel.js?v=23"></script>
+    <script src="src/ui/app/main.js?v=23"></script>
   </body>
 </html>
