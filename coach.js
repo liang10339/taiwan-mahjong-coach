@@ -121,19 +121,23 @@ function tileRole(hand,t,publicTiles=[],open=0){
 }
 
 // 並列時，依教學習慣先建議：單張字牌 → 孤張么九 → 其他孤張 → 剛摸到的牌
-function leadOrder(hand,tied,drawn){
+// 同效率時的出牌順序（依常見台灣麻將口訣）：
+// 單張字牌先打，其中「客風」（不是門風、圈風、三元，碰了也沒台）比有台的字牌先打；再來是孤張么九、孤張中張。
+// 同一級再比：下家打過的牌（盯下家，不餵下家吃）→ 場上已見張數多的熟張 → 剛摸進的牌。
+function leadOrder(hand,tied,drawn,ctx={}){
+ const value=new Set(ctx.value||[]),next=new Set(ctx.nextRiver||[]),seen=t=>(ctx.publicTiles||[]).filter(x=>x===t).length;
  const rank=o=>{const t=o.tile,count=hand.filter(x=>x===t).length;
-  if(t>=27)return count===1?0:4;
+  if(t>=27)return count===1?(value.has(t)?0.5:0):4;
   const near=hand.some(x=>x!==t&&x<27&&Math.floor(x/9)===Math.floor(t/9)&&Math.abs(x-t)<=2);
   if(!near)return t%9===0||t%9===8?1:2;
   return o.tile===drawn?3:4;};
- return tied.slice().sort((a,b)=>rank(a)-rank(b)||(b.tile===drawn)-(a.tile===drawn)||a.tile-b.tile);
+ return tied.slice().sort((a,b)=>rank(a)-rank(b)||next.has(b.tile)-next.has(a.tile)||seen(b.tile)-seen(a.tile)||(b.tile===drawn)-(a.tile===drawn)||a.tile-b.tile);
 }
 // 每一手的完整解說
 function explainTurn(hand,options,ctx={}){
  const open=ctx.open||0,pub=ctx.publicTiles||[];
  if(!options[0])return null;
- const tied=leadOrder(hand,options.filter(o=>same(o,options[0])),ctx.drawn),best=tied[0],runner=options.find(o=>!same(o,best));
+ const tied=leadOrder(hand,options.filter(o=>same(o,options[0])),ctx.drawn,ctx),best=tied[0],runner=options.find(o=>!same(o,best));
  const rest=hand.slice();rest.splice(rest.indexOf(best.tile),1);
  const structure=decompose(rest,open);
  const lines=[];
@@ -150,7 +154,12 @@ function explainTurn(hand,options,ctx={}){
  const blocks=structure.groups.filter(g=>['ryanmen','penchan','kanchan','pair'].includes(g.kind)).length,hasHead=structure.groups.some(g=>g.kind==='head');
  lines.push('目前已完成 '+structure.melds+' 組面子、'+blocks+' 個搭子'+(hasHead?'、一對眼':'，還沒有眼')+'；胡牌需要五組加一對，還差 '+(5-Math.min(5,structure.melds))+' 組。'+
   (structure.groups.some(g=>g.kind==='ryanmen')?'兩面搭子能等兩種牌，是最好的搭子。':blocks?'搭子多是邊張或嵌張，進張較窄，之後摸到能改成兩面的牌要優先留。':''));
- if(tied.length>1)lines.push('打 '+tied.filter(o=>o.tile!==best.tile).map(o=>label(o.tile)).join('、')+' 的效果完全相同，可以依防守或台數再選。');
+ if(tied.length>1){
+  lines.push('打 '+tied.filter(o=>o.tile!==best.tile).map(o=>label(o.tile)).join('、')+' 的效果完全相同，可以依防守或台數再選。');
+  const value=new Set(ctx.value||[]),others=tied.filter(o=>o.tile!==best.tile);
+  if(best.tile>=27&&!value.has(best.tile)&&others.some(o=>value.has(o.tile)))lines.push('先打客風'+label(best.tile)+'：它碰了也沒有台；'+others.filter(o=>value.has(o.tile)).map(o=>label(o.tile)).join('、')+'是門風、圈風或三元，碰出來有台，可以晚一點再打（場上已見兩張以上就不必留）。');
+  else if((ctx.nextRiver||[]).includes(best.tile)&&others.some(o=>!(ctx.nextRiver||[]).includes(o.tile)))lines.push('盯下家：下家打過'+label(best.tile)+'，打它比較不會讓下家吃到。');
+ }
  let compareText='';
  if(runner){
   compareText=runner.shanten>best.shanten?'如果改打'+label(runner.tile)+'，會退到'+progress(runner.shanten)+'，距離聽牌多 '+(runner.shanten-best.shanten)+' 步。':

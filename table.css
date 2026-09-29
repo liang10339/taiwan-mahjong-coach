@@ -180,6 +180,8 @@
  .real-table .hand .mj{--w:min(34px,calc((100vw - 130px)/17))!important}
  .pile-caption{bottom:-18px;font-size:10px}
  .seat-left .seat-name,.seat-right .seat-name{display:none}
+ .real-table .exposed .mj,.real-table .exposed .mj-back{--w:14px!important}
+ .real-table .discard-river.pile{overflow:hidden}
  .real-table .table-info{top:6px;left:6px;padding:4px 8px}.real-table .table-info .wind{font-size:18px}
  .real-table .turn-status{top:6px;right:6px;font-size:11px!important;padding:3px 8px}
  .real-table .discard-river.pile,.real-table .discard-river.neat{left:70px;right:70px;top:54px;bottom:112px}
@@ -188,3 +190,36 @@
  .action-row{margin-top:6px}.action-row button{min-height:34px;padding:6px 10px}
  .phase-help{display:none}
 }
+
+/* v2.1：摸切／手切／空切、讀牌筆記、歷史牌局 */
+/* 摸切：牌面偏灰並在右下角標「摸」；手切維持白底；自己的空切標「空」 */
+.show-cuts .cut-tsumo{filter:grayscale(.55) brightness(.86)}
+.show-cuts .cut-tsumo::after,.show-cuts .cut-empty::after{position:absolute;right:-3px;bottom:-3px;font:700 9px/1 'Noto Sans TC',sans-serif;padding:2px 3px;border-radius:4px;z-index:2;pointer-events:none}
+.show-cuts .cut-tsumo::after{content:'摸';background:#5b6b60;color:#fff}
+.show-cuts .cut-empty::after{content:'空';background:#b8732a;color:#fff}
+.cut-legend{position:absolute;left:14px;bottom:auto;top:62px;z-index:3;display:flex;white-space:nowrap;height:auto!important;width:auto!important;align-items:center;gap:5px;padding:3px 8px;border-radius:99px;background:rgba(12,45,29,.45);color:#eef4dc;font-size:11px}
+.cut-legend .swatch{display:inline-block;flex:none;width:10px!important;height:13px!important;min-height:0!important;border-radius:2px;margin-left:4px}
+.cut-legend .swatch.tsumo{background:#9aa39c}.cut-legend .swatch.hand{background:#fffdf2}
+/* 自己剛摸進的牌：右邊隔開並標「摸」 */
+.hand .mj.drawn{margin-left:10px}
+.hand .mj.drawn::before{content:'摸';position:absolute;top:-16px;left:50%;transform:translateX(-50%);font:700 10px/1 'Noto Sans TC',sans-serif;color:#eaf05e}
+/* 讀牌筆記 */
+.reading-card{margin-top:14px;padding:12px 14px;border-radius:10px;background:#f1f4ec;border:1px solid #d3dcc8}
+.reading-card summary{cursor:pointer;font-weight:700;color:#315140}
+.reading-line{display:grid;gap:2px;margin:8px 0 0!important;padding:6px 8px;border-radius:6px;background:#fffdf6;font-size:13px!important;line-height:1.6!important}
+.reading-line b{color:#263d2e}.reading-line.warm{border-left:3px solid #e0a526}.reading-line.hot{border-left:3px solid #d23b3b}
+.reading-card small{display:block;margin-top:8px;color:#6f756b;font-size:11px;line-height:1.5}
+.water-note{background:#fbefe6!important;color:#8a4a1f!important}
+.guide-note{background:#fbf6e6!important}
+/* 打法比較：生張／熟張 */
+.seen-tag{font-size:11px;padding:1px 6px;border-radius:99px;background:#e8eee0;color:#526552;white-space:nowrap}
+.seen-tag.fresh{background:#fbe3e3;color:#8a1f1f}
+.compare-row{grid-template-columns:auto 64px 1fr 44px auto!important}
+/* 歷史牌局 */
+.history-card{margin:0 0 16px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fffefa;text-align:left}
+.history-card summary{cursor:pointer;font-weight:700}
+.history-sum{margin:8px 0!important;color:#526552!important}
+.history-row{display:grid;grid-template-columns:auto auto 1fr auto auto;gap:10px;align-items:center;padding:6px 4px;border-top:1px solid var(--line);font-size:12px}
+.history-row.up b{color:#1f7a4c}.history-row.down b{color:#b8232f}.history-row small{color:var(--muted)}
+@media(max-width:580px){.history-row{grid-template-columns:1fr auto;}.history-row span:nth-child(1),.history-row span:nth-child(2){display:none}.cut-legend{top:auto;bottom:196px;left:8px}}
+@media(orientation:landscape) and (max-height:520px){.cut-legend{top:40px;left:6px;font-size:9px}}

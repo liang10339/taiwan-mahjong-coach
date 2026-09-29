@@ -6,20 +6,41 @@ const E=node?require('./engine'):root.Mahjong,C=node?require('./coach'):root.Coa
 const LEVELS={easy:'初級',normal:'中級',hard:'高級'};
 
 // 依公開資訊估計對手離聽牌多近：0 看不出、1 可能接近、2 很可能已聽牌
+const SUITS=['萬','筒','條'];
+// 讀牌：只用公開資訊整理一家的訊號
+// streak：最近連續摸切幾次（手牌結構沒變，常見於已聽牌）；recentHand：最近手切的牌；
+// oneSuit：攤牌全是同一花色（可加字牌）→ 可能做清一色／混一色；avoid：打最多的花色（通常不做那門）
+function reading(g,q){
+ const cuts=(g.cuts&&g.cuts[q])||[],river=g.rivers[q];let streak=0;
+ for(let i=cuts.length-1;i>=0&&cuts[i]==='tsumo';i--)streak++;
+ const recentHand=river.filter((t,i)=>cuts[i]&&cuts[i]!=='tsumo').slice(-3);
+ const melds=g.melds[q],meldSuits=new Set(melds.flatMap(m=>m.tiles).filter(t=>t<27).map(t=>Math.floor(t/9)));
+ const oneSuit=melds.length>=2&&meldSuits.size===1?[...meldSuits][0]:null;
+ const counts=[0,0,0];river.forEach(t=>{if(t<27)counts[Math.floor(t/9)]++;});
+ const most=counts.indexOf(Math.max(...counts)),avoid=river.length>=6&&counts[most]>=river.length/2?most:null;
+ const honors=river.filter(t=>t>=27).length,late=river.slice(-3);
+ const middleRun=late.length===3&&late.every(t=>t<27&&t%9>=2&&t%9<=6);
+ return {player:q,streak,recentHand,oneSuit,avoid,honors,middleRun,melds:melds.length,discards:river.length};
+}
+// 依公開資訊估計對手離聽牌多近：0 看不出、1 可能接近、2 很可能已聽牌
 function threat(g,q){
- const open=g.melds[q].filter(m=>m.type!=='concealed').length+g.melds[q].filter(m=>m.type==='concealed').length,wall=g.wall.length;
+ const open=g.melds[q].length,left=g.wall.length-(g.reserve||0),r=reading(g,q);
  if(open>=3)return 2;
- if(open>=2&&wall<70)return 2;
- if(open>=2||wall<30)return 1;
- const late=g.rivers[q].slice(-3);
- if(wall<55&&late.length===3&&late.every(t=>t<27&&t%9>=2&&t%9<=6))return 1; // 後期連打中張，常是聽牌後的訊號
+ if(open>=2&&left<70)return 2;
+ if(r.streak>=4&&left<70)return 2;                  // 連續摸切四巡以上：多半已聽牌、不再換牌
+ if(open>=2||left<30)return 1;
+ if(r.streak>=3&&left<80)return 1;
+ if(left<55&&r.middleRun)return 1;                   // 後期連打中張，常是聽牌後的訊號
  return 0;
 }
 function threats(g,viewer){return [0,1,2,3].filter(q=>q!==viewer).map(q=>({player:q,level:threat(g,q)}));}
 // 一張牌對各家的危險分數：可成立的胡牌組合數 × 對手威脅程度
 function danger(g,viewer,t,list=threats(g,viewer)){
  const r=D.inspect(g,viewer,t);let score=0;const per=[];
- for(const o of r.opponents){const lv=(list.find(x=>x.player===o.player)||{level:0}).level,s=o.ways.length*(1+lv*2);score+=lv?s:o.ways.length*.2;per.push({player:o.player,ways:o.ways.length,level:lv});}
+ for(const o of r.opponents){const lv=(list.find(x=>x.player===o.player)||{level:0}).level,rd=reading(g,o.player);
+  // 攤牌全同一花色：該花色與字牌加倍小心（清一色／混一色）
+  const suitHit=rd.oneSuit!==null&&(t>=27||Math.floor(t/9)===rd.oneSuit),w=o.ways.length*(suitHit?2:1),s=w*(1+lv*2);
+  score+=lv?s:w*.2;per.push({player:o.player,ways:o.ways.length,level:lv,suitHit});}
  return {tile:t,score,per,excluded:r.excluded};
 }
 // 給 UI 的三段危險度
@@ -77,8 +98,10 @@ function act(g,p,level='normal'){
  if(g.phase!=='discard'||g.turn!==p)return;
  if(E.winning(g.hands[p],g.melds[p].length)){E.win(g,p);return;}
  const kan=chooseKan(g,p,level);if(kan&&E.selfKan(g,p,kan))return;
- const t=chooseDiscard(g,p,level);E.discard(g,p,g.hands[p].indexOf(t));
+ const t=chooseDiscard(g,p,level),f=g.fresh;
+ // 要打的正是剛摸進的牌就直接摸切（放在最右邊那張）
+ E.discard(g,p,f&&f.player===p&&f.tile===t?g.hands[p].length-1:g.hands[p].indexOf(t));
 }
-const api={LEVELS,threat,threats,danger,dangerLevel,chooseDiscard,chooseClaim,chooseKan,act};
+const api={SUITS,reading,LEVELS,threat,threats,danger,dangerLevel,chooseDiscard,chooseClaim,chooseKan,act};
 if(node)module.exports=api;else root.AI=api;
 })(globalThis);
