@@ -14,6 +14,7 @@ declare var Policy: typeof import('../core/policy.js');
 declare var Situation: typeof import('../core/situation.js');
 declare var Advisor: typeof import('../core/advisor.js');
 declare var Quiz: typeof import('../core/quiz.js');
+declare var Skills: typeof import('../core/skills.js');
 declare var Notebook: typeof import('../core/notebook.js');
 declare var Growth: typeof import('../core/growth.js');
 declare var Record: typeof import('../core/record.js');

@@ -73,6 +73,8 @@ $('#discardButton').onclick = () => {
         judge: assessment,
         reason: '', // 完整理由已包含於核心評語
         decision: Advisor.snapshot(decision),
+        // 這手考的技能（孤張順序、搭子取捨、聽牌選擇、台數、防守），累積成技能熟練度
+        skills: typeof Skills !== 'undefined' ? Skills.ofDecision(decision, game.hands[0]) : [],
       }
     : null;
   if (record) {
@@ -273,6 +275,14 @@ function finishHand() {
       tai: ws ? ws.result.total : 0,
       delta: deltas[0],
       ...Growth.summarize(turnLog), // turns、good、mistakes 與各階段一致率
+      // 每種技能 [和教練相同, 次數]：出牌看評分，吃碰看是否和教練建議相同
+      skills:
+        typeof Skills !== 'undefined'
+          ? Skills.tally(
+              turnLog,
+              reviewTimeline.filter((x) => x.kind === 'claim'),
+            )
+          : {},
       won: !!ws && ws.winner === 0,
       dealIn: !!ws && !ws.result.tsumo && ws.result.ctx.from === 0,
       tsumoCuts: ((game.cuts && game.cuts[0]) || []).filter((c) => c === 'tsumo').length,

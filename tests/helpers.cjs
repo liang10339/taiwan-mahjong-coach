@@ -104,6 +104,7 @@ function createUiContext({ storage = {} } = {}) {
     Situation: require('../src/core/situation.js'),
     Advisor: require('../src/core/advisor.js'),
     Quiz: require('../src/core/quiz.js'),
+    Skills: require('../src/core/skills.js'),
     Notebook: require('../src/core/notebook.js'),
     Growth: require('../src/core/growth.js'),
     Fairness: require('../src/core/fairness.js'),

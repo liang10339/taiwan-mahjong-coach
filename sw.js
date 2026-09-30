@@ -37,6 +37,7 @@ const FILES = [
   './src/core/situation.js' + v,
   './src/core/advisor.js' + v,
   './src/core/quiz.js' + v,
+  './src/core/skills.js' + v,
   './src/core/notebook.js' + v,
   './src/core/growth.js' + v,
   './src/core/fairness.js' + v,

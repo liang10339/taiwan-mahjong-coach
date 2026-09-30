@@ -1,5 +1,5 @@
 // 校準：讓電腦自己對打，用「知道每家真正手牌」的資料，統計教練的機率該是多少。
-// 用法：npm run calibrate            （預設 1600 局，依 CPU 數平行；約十幾分鐘）
+// 用法：npm run calibrate            （預設 8000 局，依 CPU 數平行；四核心約 4 分鐘）
 //       npm run calibrate -- 400      （指定局數，快速試跑）
 // 產出：src/core/data/calibration.js（教練讀的統計表）與 docs/CALIBRATION.md（準確度報告）。
 // 每 5 局保留 1 局不拿來統計，只拿來驗證（避免「用考題練習再考同一題」）。
@@ -495,6 +495,9 @@ function report(stats, data) {
       ' 台；自摸占 ' +
       pct(data.tsumoShare) +
       '。',
+    '- 手牌價值（handvalue.js）還沒聽牌時看不到的零碎台數（暗刻、獨聽、平胡等），平均 ' +
+      data.taiExtra +
+      ' 台。',
     '- 自己「進聽數 × 有效牌 × 牌牆剩餘」對應的最後胡牌比例共 ' +
       Object.keys(data.win).length +
       ' 組，供攻守期望值使用。',
@@ -507,7 +510,7 @@ if (process.argv[2] === '--child') {
   const [from, to] = process.argv.slice(3).map(Number);
   process.send(run(from, to));
 } else if (require.main === module) {
-  const total = Number(process.argv[2]) || 1600,
+  const total = Number(process.argv[2]) || 8000,
     workers = Math.max(1, Math.min(os.cpus().length, 8)),
     size = Math.ceil(total / workers),
     parts = [],

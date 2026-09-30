@@ -1349,3 +1349,24 @@
   font-size: 11px;
   line-height: 1.6;
 }
+
+/* 技能熟練度（成長報告）與針對練習（錯題本） */
+.growth-skills {
+  margin: 12px 0;
+}
+.growth-skills .skill-few b {
+  color: #9a9d93;
+}
+.growth-skills .skill-mastered b {
+  color: #1f5d4a;
+}
+.growth-focus {
+  margin: 8px 0;
+  font-size: 13px;
+}
+.notebook-skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}

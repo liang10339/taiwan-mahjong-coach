@@ -166,7 +166,51 @@ function renderGrowth() {
     stages.append(row);
   });
   box.append(stages);
+  if (typeof Skills !== 'undefined') box.append(skillSection(loadHistory()));
   const tips = el('ul', 'growth-tips');
   r.tips.forEach((t) => tips.append(el('li', null, t)));
   box.append(tips);
+}
+
+/**
+ * 技能熟練度：最近 20 局每種判斷和教練相同的比例，最弱的排最前面；
+ * 樣本足夠又還沒熟練的，可以直接到錯題本只練這一種。
+ */
+function skillSection(history) {
+  const box = el('div', 'growth-skills');
+  const list = Skills.mastery(history);
+  box.append(
+    el(
+      'small',
+      null,
+      '技能熟練度（最近 20 局，熟練＝至少 ' +
+        Skills.MIN_SAMPLES +
+        ' 次且 ' +
+        Math.round(Skills.MASTERED * 100) +
+        '% 以上和教練相同）',
+    ),
+  );
+  for (const m of list) {
+    const row = el('div', 'growth-stage skill-' + m.status),
+      bar = el('span', 'bar');
+    bar.style.setProperty('--w', m.rate === null ? '0%' : Math.round(m.rate * 100) + '%');
+    const state = m.status === 'mastered' ? '熟練' : m.status === 'practice' ? '練習中' : '樣本不足';
+    row.append(el('span', null, m.name), bar, el('b', null, pct(m.rate) + '　' + m.n + ' 次・' + state));
+    box.append(row);
+  }
+  const weak = list.find((m) => m.status === 'practice');
+  if (weak) {
+    box.append(el('p', 'growth-focus', '建議先練「' + weak.name + '」：' + weak.tip + '。'));
+    const n =
+      typeof loadNotebook === 'function'
+        ? loadNotebook().filter((x) => (x.skills || []).includes(weak.tag)).length
+        : 0;
+    if (n) {
+      const go = el('button', 'secondary-button', '到錯題本練「' + weak.name + '」（' + n + ' 題）');
+      go.type = 'button';
+      go.onclick = () => startSkillPractice(weak.tag);
+      box.append(go);
+    }
+  }
+  return box;
 }
