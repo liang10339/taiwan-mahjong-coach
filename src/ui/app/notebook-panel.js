@@ -34,6 +34,30 @@ function rememberMistake(played) {
   updateNotebookBadge();
 }
 
+/** 你放槍時呼叫：把放槍那一手存成「這手打哪張最安全？」的防守題 */
+function rememberDealIn(record, winner) {
+  if (
+    typeof Notebook === 'undefined' ||
+    !record ||
+    !record.snapshot ||
+    !record.safety ||
+    !record.safety.length
+  )
+    return;
+  const item = Notebook.fromDealIn({
+    hand: record.snapshot.hand,
+    open: record.snapshot.melds[0].length,
+    melds: record.snapshot.melds[0].map((m) => m.tiles),
+    pub: record.pub || [],
+    played: record.tile,
+    safety: record.safety,
+    winner,
+    label: roundName(),
+  });
+  saveNotebook(Notebook.add(loadNotebook(), item));
+  updateNotebookBadge();
+}
+
 /** 「牌局覆盤」分頁上的數字：今天要複習幾題 */
 function updateNotebookBadge() {
   if (typeof Notebook === 'undefined') return;
@@ -58,7 +82,7 @@ function renderNotebook() {
         null,
         st.total
           ? '共 ' + st.total + ' 題，今天要複習 ' + st.due + ' 題，已熟練 ' + st.mastered + ' 題。'
-          : '實戰中的關鍵失誤（退一步，或少 4 張以上進張）會自動存到這裡，隔幾天再考一次，直到熟練。',
+          : '實戰中的關鍵失誤（退一步，或少 4 張以上進張）和放槍的那一手會自動存到這裡，隔幾天再考一次，直到熟練。',
       ),
     );
     if (st.due) {
@@ -93,7 +117,7 @@ function renderNotebook() {
       'notebook-meta',
       '第 ' + (run.index + 1) + ' / ' + run.queue.length + ' 題　' + (item.label || ''),
     ),
-    el('h4', null, '這手要打哪張？'),
+    el('h4', null, item.kind === 'defense' ? '你在這手放槍了：打哪張最安全？' : '這手要打哪張？'),
   );
   if (item.melds.length) {
     const melds = el('div', 'notebook-melds');

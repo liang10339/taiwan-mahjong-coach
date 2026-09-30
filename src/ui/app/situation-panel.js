@@ -12,10 +12,11 @@ const REPEAT_GAP = 3;
 
 function currentSituation() {
   if (typeof Situation === 'undefined' || game.phase === 'ended') return null;
-  const mine = game.turn === 0 && game.phase === 'discard';
+  // 輪到你出牌時直接用決策核心讀好的場況，標題與場況判斷才會一致
+  const d = currentDecision();
+  if (d) return d.situation;
   const key = JSON.stringify([decisionKey(), game.turn, game.log.length]);
-  if (situationCache.key !== key)
-    situationCache = { key, value: Situation.read(game, 0, mine && suggestions.length ? suggestions : null) };
+  if (situationCache.key !== key) situationCache = { key, value: Situation.read(game, 0, null) };
   return situationCache.value;
 }
 

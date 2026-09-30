@@ -53,3 +53,40 @@
   color: #6f756b;
   font-size: 13px;
 }
+
+/* 放槍風險與攻守比較（教練欄） */
+.defense-opps {
+  margin: 6px 0;
+  font-size: 13px;
+}
+.risk-table {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0;
+}
+.risk-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+.risk-row.top {
+  background: #e6efe9;
+}
+.risk-row.picked {
+  background: #f7e6dc;
+}
+.risk-row .risk-ev {
+  font:
+    600 12px 'DM Mono',
+    monospace;
+  text-align: right;
+}
+.defense-limit {
+  display: block;
+  color: #6f756b;
+  font-size: 11px;
+}

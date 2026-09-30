@@ -53,14 +53,15 @@ const fold = position(messy, (g) => {
     { type: 'pon', tiles: [11, 11, 11] },
     { type: 'pon', tiles: [20, 20, 20] },
   ];
-  g.rivers[1] = [27];
+  g.rivers[1] = [5, 7, 12, 16, 21, 23, 25, 27]; // 打過好幾張才是「很可能聽牌」
+  g.cuts[1] = ['hand', 'hand', 'hand', 'hand', 'hand', 'hand', 'hand', 'tsumo'];
   g.log = discard(1, 27, 'tsumo');
 });
 const r = read(fold);
 assert.equal(r.stance, 'fold');
 assert.equal(r.guard.tile, 27, '他放過的東風最安全');
 assert.match(r.headline, /下家很可能聽牌.*打東/);
-assert.match(r.points[0].text, /下家很可能聽牌（攤了 3 組）.*東.*最安全/);
+assert.match(r.points[0].text, /下家很可能聽牌（約 \d+%：攤了 3 組）.*東.*最安全/);
 
 // 3. 已聽牌、沒人有威脅：進攻，說明聽哪些牌、剩幾張
 const tenpai = [0, 1, 2, 3, 4, 5, 9, 10, 11, 18, 19, 20, 27, 27, 12, 13, 31];

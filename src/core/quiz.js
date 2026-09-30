@@ -5,7 +5,8 @@
   const E = node ? require('./engine') : root.Mahjong,
     C = node ? require('./coach') : root.Coach,
     S = node ? require('./scoring') : root.Scoring,
-    A = node ? require('./ai') : root.AI;
+    A = node ? require('./ai') : root.AI,
+    Safety = node ? require('./safety') : root.Safety;
   const label = (t) => (t === 33 ? '白板' : E.names[t]);
   const cn = (n) => ['零', '一', '兩', '三', '四', '五', '六', '七', '八', '九', '十'][n] || String(n);
   const progressWord = (n) => (n < 0 ? '胡牌' : n === 0 ? '聽牌' : cn(n) + '進聽');
@@ -144,8 +145,24 @@
           '一家攤出兩組以上都是同一花色（可加字牌），而且一直打其他花色，多半在做清一色或混一色：那門數牌和字牌都要小心，本程式的危險度也會加重。',
         ],
         [
+          '放過的牌：台灣版的「現物」',
+          '台灣麻將沒有「打過的牌不能胡」的規定，所以對手很早打過的牌不保證安全。但有一段時間是確定的：從他最近一次手切或吃碰之後，他的手牌沒變、聽的牌也沒變；這段期間他自己摸進又打掉的牌（沒自摸），以及別家打出他沒胡的牌，都不是他要的牌，現在打也不會放槍。例外是他故意放過（等自摸或更大的牌），而有「過水」桌規時，他放過之後、打出下一張牌前本來就不能胡別人的牌。教練會把這些牌標成「三家都不會胡」或「他放過」。',
+        ],
+        [
+          '過水就是安全期',
+          '過水：有人放過胡牌（例如想等自摸），在他自己打出下一張牌之前，不能胡別人打的牌。所以看到有人明明能胡卻沒胡，這一巡打什麼都不會放槍給他。',
+        ],
+        [
+          '手切的牌附近與不做的那門',
+          '教學書常說：對手聽牌前的最後幾張手切，是他整理手牌時丟掉的牌，他留下的搭子常在附近（例如後期手切 7萬，5萬～9萬 要小心）。這條對會刻意留搭子的真人較有用；本程式的電腦只看牌效率，自戰統計看不出差別，所以教練的放槍機率不加權。確定有用的是反過來那條：他一直在打的那門，放槍機率約只有一般的一半多。',
+        ],
+        [
+          '放槍機率怎麼估',
+          '放槍機率 ≈ 對手聽牌的機率 × 這張正好是他要的牌的機率。聽牌機率看攤牌數、打了幾張、連續摸切；是不是他要的牌看牌的種類：生張字牌、3～7 中張較危險，見過 3 張的字牌、被「壁」擋住的數牌較安全。本程式的數字來自電腦自戰幾千局的統計（docs/CALIBRATION.md），不是憑感覺。',
+        ],
+        [
           '跟打與棄胡',
-          '台灣麻將沒有「現物」保證：對手打過的牌，他現在仍然可以胡（除非你的桌規有過水）。所以「跟打」只是降低風險。自己離聽牌還遠、對手明顯聽牌時，改打最安全的牌，放棄這局，叫做棄胡。',
+          '「跟打」（打別家剛打過的牌）只是降低風險，不是保證。自己離聽牌還遠、對手很可能聽牌時，改打最安全的牌，放棄這局，叫做棄胡：先打三家都放過的牌，再打放槍機率最低的；對子、刻子拆開打也可以，一次拆兩張安全牌可以撐兩巡。平常就留一兩張安全牌，要守時才有牌可打。',
         ],
       ],
     },
@@ -158,6 +175,14 @@
         [
           '衝還是守',
           '自己已聽牌或一進聽、有效牌多：通常繼續攻。自己還三進聽以上、對手明顯聽牌：通常守。中間地帶看危險牌是否必須打出。',
+        ],
+        [
+          '用期望值決定攻守',
+          '每張牌都可以算：期望值 ＝ 之後胡牌的機率 × 胡牌收入 − 放槍機率 × 對方胡牌的台數（含底）。自摸三家都付，所以胡牌收入大約是一次放槍的兩倍左右。教練在「放槍風險與攻守比較」列出每張牌的數字：效率首選的期望值還是最高就照打；安全牌明顯划算時才改打，這時標題會寫「建議先守」或「攻守兼顧」。',
+        ],
+        [
+          '吃碰前先踩煞車',
+          '吃碰能讓牌更快，但攤出去的牌不能再拿來防守，也少了門清。有人很可能聽牌、而吃碰後你仍差兩步以上時，教練不建議吃碰：就算吃了也聽不了，反而少了能打的安全牌。',
         ],
         [
           '速度還是大台',
@@ -376,14 +401,12 @@
       g.turn = 0;
       g.phase = 'discard';
       if (E.shanten(g.hands[0], 0) < 2) continue;
-      const list = A.threats(g, 0),
-        rated = [...new Set(g.hands[0])]
-          .map((t) => ({ t, d: A.danger(g, 0, t, list) }))
-          .sort((a, b) => a.d.score - b.d.score);
-      const min = rated[0].d.score,
-        safe = rated.filter((x) => x.d.score === min).map((x) => x.t);
+      // 用教練同一套放槍機率（safety.js）出題：最安全的牌（容許 0.3% 以內的並列）是答案
+      const rated = Safety.evaluate(g, 0);
+      const min = rated[0].dealIn,
+        safe = rated.filter((x) => x.dealIn <= min + 0.003).map((x) => x.tile);
       const eff = E.analyze(g.hands[0], E.publicTiles(g, 0), 0)[0].tile;
-      if (safe.includes(eff) || safe.length > 3 || rated[rated.length - 1].d.score - min < 4) continue;
+      if (safe.includes(eff) || safe.length > 3 || rated[rated.length - 1].dealIn - min < 0.03) continue;
       return {
         id: 'def-' + seed,
         type: 'discard',
@@ -397,15 +420,14 @@
     return null;
   }
   function judgeDefense(g, t, safe, rated, eff) {
-    const D = node ? require('./defense') : root.Defense;
     const ok = safe.includes(t),
-      mine = rated.find((x) => x.t === t),
+      mine = rated.find((x) => x.tile === t),
       best = rated[0];
     const text =
       (ok ? '正確！' : '較安全的是 ' + safe.map(label).join('、') + '。') +
       '\n' +
-      D.describe(D.inspect(g, 0, best.t)) +
-      (ok ? '' : '\n你選的：' + D.describe(D.inspect(g, 0, t))) +
+      Safety.explain(best) +
+      (ok || !mine ? '' : '\n你選的：' + Safety.explain(mine)) +
       '\n牌效率首選是' +
       label(eff) +
       '，但這時自己還遠、對手很近，先守比較划算。';

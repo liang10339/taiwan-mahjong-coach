@@ -58,7 +58,8 @@
       ? option.outs.map((o) => label(o.tile) + '（未見 ' + o.remaining + ' 張）').join('、') || '無'
       : option.improving.map(label).join('、') || '無';
   }
-  function contextualAnswer(question, g, selected = null) {
+  /** claimReport：畫面已經算好的吃碰建議（決策核心），給了就直接用，確保和吃碰卡片一致 */
+  function contextualAnswer(question, g, selected = null, claimReport = null) {
     const q = question.trim();
     if (g.phase === 'ended') return '本局已結束，請重新開局再詢問目前牌況。';
     if (g.phase === 'claim') {
@@ -83,7 +84,7 @@
           names[requested] +
           '。吃只限上家、且手牌須能組順子；碰要有兩張同牌，明槓要有三張同牌且有牌可補，胡須完成牌型。'
         );
-      const report = claimDecision(g, 0);
+      const report = claimReport || claimDecision(g, 0);
       return (
         report.summary +
         '\n' +
@@ -652,7 +653,13 @@
    * 一個吃／碰／槓／胡選項的比較結果。胡牌沒有 after；槓牌另有補牌情境（outcomes 等）。
    * @typedef {{action: any, recommend: boolean, compact: string, text: string, after?: any, baseline?: any}} ClaimOption
    */
-  function claimDecision(g, p = 0) {
+  /**
+   * @param {Game} g @param {number} [p]
+   * @param {(action: any) => ({option: any, fold: boolean} | null)} [choose]
+   *   吃碰後要打哪張：由決策核心（advisor.js）用吃碰後的局面決定，確保和吃完後的建議一致。
+   *   沒給就只看牌效率（電腦對手用）。
+   */
+  function claimDecision(g, p = 0, choose) {
     const hand = g.hands[p],
       pub = E.publicTiles(g, p),
       open = g.melds[p].length,
@@ -670,9 +677,11 @@
       if (action.type === 'kan') return kanDecision(g, p, action, baseline, known);
       const rest = removeTiles(hand, action.tiles);
       // 河中的被吃牌已算在 pub；只把從手牌移到攤牌的牌加入 pub，避免重複扣張。
-      const after = E.analyze(rest, [...pub, ...action.tiles], open + 1)[0],
-        name = claimNames[action.type];
-      const recommend = better(after, baseline),
+      const picked = choose ? choose(action) : null;
+      const after = picked ? picked.option : E.analyze(rest, [...pub, ...action.tiles], open + 1)[0],
+        name = claimNames[action.type],
+        folding = !!picked && picked.fold;
+      const recommend = !folding && better(after, baseline),
         combo = [...action.tiles, g.pending.tile].sort((a, b) => a - b);
       const difference =
         after.shanten < baseline.shanten
@@ -713,7 +722,11 @@
         '的優勢：保留上述牌的重組彈性' +
         (g.melds[p].every((m) => m.type === 'concealed') ? '與門清' : '') +
         '；代價是放過這張現成可組牌，之後仍需等進牌。' +
-        (recommend ? '這次優先取進攻效率，建議接受。' : '這次沒有足夠效率收益，建議略過。');
+        (recommend
+          ? '這次優先取進攻效率，建議接受。'
+          : folding
+            ? '但場上有人很可能聽牌、你離聽牌還遠：吃碰後也得先守，攤牌只會少掉安全牌、暴露手牌，建議略過。'
+            : '這次沒有足夠效率收益，建議略過。');
       const affected = decompose(hand, open).groups.filter((group) =>
         group.tiles.some((t) => action.tiles.includes(t)),
       );
@@ -736,7 +749,7 @@
         ' 張\n' +
         difference +
         '；' +
-        (recommend ? '換取效率，但固定牌組。' : '保留拆組彈性。');
+        (recommend ? '換取效率，但固定牌組。' : folding ? '有人很可能聽牌，先守不吃碰。' : '保留拆組彈性。');
       return {
         action,
         after,

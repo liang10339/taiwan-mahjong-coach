@@ -3,52 +3,72 @@
 function decisionCard(o) {
   const card = el('div', 'coach-option claim-detail');
   card.append(el('p', null, o.compact));
-  if (o.after)
-    card.append(
-      el(
-        'p',
-        'defense-note',
-        '吃碰後的出牌風險：' + Defense.describe(Defense.inspect(game, 0, o.after.tile)),
-      ),
-    );
+  if (o.after) {
+    const r = Safety.evaluate(game, 0).find((x) => x.tile === o.after.tile);
+    if (r) card.append(el('p', 'defense-note', '吃碰後打出的風險：' + Safety.explain(r)));
+  }
   const more = el('details');
   more.append(el('summary', null, '看詳細計算與取捨'), el('p', null, o.text));
   card.append(more);
   return card;
 }
+/** 放槍風險卡：三家聽牌機率、每張牌的放槍機率與理由、攻守期望值比較 */
 function defenseCard(body) {
-  const lead = currentExplain()?.best,
-    options = lead ? [lead, ...suggestions.filter((o) => o !== lead)] : suggestions;
-  const report = Defense.compare(game, options);
-  if (!report) return;
-  // 平常收起來；場況判斷認為要守或攻守兼顧時才展開
-  const card = el('details', 'defense-card'),
-    sit = currentSituation();
-  card.open = !!sit && (sit.stance === 'fold' || sit.stance === 'balance');
-  card.append(el('summary', null, '攻守取捨（組合排除）'), el('p', null, Defense.summary(game, options)));
-  const t = selected === null ? report.guard.option.tile : game.hands[0][selected],
-    risk = Defense.inspect(game, 0, t),
-    details = el('details');
-  details.append(el('summary', null, '看' + Coach.label(t) + '對三家的判斷'));
-  for (const opponent of risk.opponents)
-    details.append(
-      el(
-        'p',
-        null,
-        seats[opponent.player] +
-          '：已固定 ' +
-          opponent.groups +
-          ' 組；' +
-          (opponent.ways.length
-            ? '尚可能以' +
-              opponent.ways
-                .map((w) => w.kind + '（持有' + w.needs.map(Coach.label).join('、') + '）')
-                .join('、') +
-              '胡這張。'
-            : '已排除一般胡牌組合。'),
-      ),
+  const d = currentDecision();
+  if (!d) return;
+  // 平常收起來；要守或攻守兼顧時才展開
+  const card = el('details', 'defense-card');
+  card.open = d.stance === 'fold' || d.stance === 'balance';
+  card.append(el('summary', null, '放槍風險與攻守比較'));
+  card.append(
+    el(
+      'p',
+      'defense-opps',
+      d.opps
+        .map(
+          (o) =>
+            seats[o.q] +
+            ' 聽牌約 ' +
+            Math.round(o.tenpai * 100) +
+            '%' +
+            (o.tenpai >= 0.25 ? '（胡了約 ' + o.tai + ' 台）' : ''),
+        )
+        .join('　'),
+    ),
+  );
+  const t = selected === null ? d.tile : game.hands[0][selected];
+  // 列出最安全的幾張，再加上建議、效率首選與你選的牌；其餘收起來
+  const sorted = d.plan.rows.slice().sort((a, b) => a.dealIn - b.dealIn);
+  const must = new Set([d.tile, d.efficiency.tile, t]);
+  const rows = sorted.filter((r, i) => i < 4 || must.has(r.tile) || i === sorted.length - 1);
+  const table = el('div', 'risk-table');
+  for (const r of rows) {
+    const row = el(
+      'div',
+      'risk-row' + (r.tile === d.tile ? ' top' : '') + (r.tile === t && r.tile !== d.tile ? ' picked' : ''),
     );
-  card.append(details);
+    row.append(
+      Tiles.node(r.tile, 'xs'),
+      el('span', 'risk-deal', '放槍 ' + Safety.percent(r.dealIn)),
+      el('span', 'risk-win', '胡 ' + Math.round(r.win * 100) + '%'),
+      el('b', 'risk-ev', (r.ev >= 0 ? '+' : '') + (Math.round(r.ev * 10) / 10).toFixed(1) + ' 台'),
+    );
+    table.append(row);
+  }
+  card.append(table);
+  if (rows.length < sorted.length)
+    card.append(
+      el('small', 'defense-limit', '另有 ' + (sorted.length - rows.length) + ' 張放槍機率介於上面之間。'),
+    );
+  const why = d.safety.find((x) => x.tile === t);
+  if (why) card.append(el('p', 'defense-note', Safety.explain(why)));
+  card.append(
+    el(
+      'small',
+      'defense-limit',
+      '期望值＝之後胡牌的機率 × 胡牌收入 − 放槍機率 × 對方胡牌台數（含底）。機率來自電腦自戰統計，真人打法不同時僅供參考。',
+    ),
+  );
   body.append(card);
 }
 function reviewCard(body) {
@@ -141,7 +161,7 @@ function coach() {
   }
   if (game.turn !== 0) {
     title.textContent = '等待' + seats[game.turn];
-    body.replaceChildren(title); // 不需要說明段落
+    copy.hidden = true; // 這裡不需要說明段落
     situationSection(body, 1);
     reviewCard(body);
     readingCard(body);
@@ -149,7 +169,7 @@ function coach() {
   }
   if (game.phase === 'draw') {
     title.textContent = '輪到你摸牌';
-    body.replaceChildren(title); // 不需要說明段落
+    copy.hidden = true; // 這裡不需要說明段落
     situationSection(body, 1);
     reviewCard(body);
     readingCard(body);
@@ -164,15 +184,20 @@ function coach() {
   const ex = currentExplain();
   if (!ex) {
     title.textContent = '請選牌出牌';
-    body.replaceChildren(title); // 不需要說明段落
+    copy.hidden = true; // 這裡不需要說明段落
     return;
   }
+  // 標題就是決策核心的最後建議；要守而和牌效率首選不同時，旁邊標出效率首選
   const best = ex.best,
-    sit = currentSituation();
-  const folding = sit && sit.stance === 'fold' && sit.guard && sit.guard.tile !== best.tile;
+    decision = currentDecision(),
+    folding = !!decision && decision.folding;
   title.replaceChildren(
-    el('span', null, folding ? '建議先守：打 ' : '建議打出 '),
-    Tiles.node(folding ? sit.guard.tile : best.tile, 'md'),
+    el(
+      'span',
+      null,
+      folding ? (decision.stance === 'fold' ? '建議先守：打 ' : '攻守兼顧：打 ') : '建議打出 ',
+    ),
+    Tiles.node(decision ? decision.tile : best.tile, 'md'),
   );
   copy.className = 'coach-chips';
   copy.replaceChildren(
@@ -282,7 +307,7 @@ function coach() {
   });
   body.append(groups);
   if (pick) {
-    const j = Coach.judge(suggestions, pick.tile, best);
+    const j = folding ? foldJudge(pick.tile, decision) : Coach.judge(suggestions, pick.tile, best);
     const card = el('div', 'coach-last ' + j.verdict),
       head = el('div', 'coach-last-head');
     head.append(el('span', 'coach-tag', '你選的牌'), Tiles.node(pick.tile, 'xs'));
