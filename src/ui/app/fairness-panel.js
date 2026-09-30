@@ -101,7 +101,10 @@ function fairnessCard() {
     pendingDeal = Fairness.decodeDeal(code);
     newHand('同一副牌再打一次：配牌與牌牆都和剛才相同。');
   };
-  actions.append(share, again);
+  const save = el('button', 'secondary-button', '下載這局牌譜');
+  save.type = 'button';
+  save.onclick = () => downloadRecord(Record.fromGame(game), 'mahjong-' + (game.seed >>> 0));
+  actions.append(share, again, save);
   box.append(actions);
   return box;
 }

@@ -7,6 +7,7 @@ function mode(name) {
   if (name === 'review') {
     renderNotebook();
     renderGrowth();
+    renderRecords();
     renderReview();
   }
 }

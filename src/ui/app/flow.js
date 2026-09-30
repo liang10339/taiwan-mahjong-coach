@@ -240,6 +240,7 @@ function newHand(msg = '') {
 // 一局結束：計台、算點數、決定連莊或下莊，並記錄學習進度
 function finishHand() {
   session.settled = true;
+  archiveGame(); // 完整牌譜放進歷史
   const ws = winScore(),
     [base, perTai] = settings.stake.split('/').map(Number);
   let deltas = [0, 0, 0, 0],

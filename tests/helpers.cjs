@@ -106,6 +106,7 @@ function createUiContext({ storage = {} } = {}) {
     Notebook: require('../src/core/notebook.js'),
     Growth: require('../src/core/growth.js'),
     Fairness: require('../src/core/fairness.js'),
+    Record: require('../src/core/record.js'),
     Sound: {
       play() {},
       say() {},
@@ -119,6 +120,7 @@ function createUiContext({ storage = {} } = {}) {
     localStorage: {
       getItem: (k) => (store.has(k) ? store.get(k) : null),
       setItem: (k, v) => store.set(k, String(v)),
+      removeItem: (k) => store.delete(k),
     },
     navigator: {},
     location: { hash: '', origin: 'https://example.test', pathname: '/' },

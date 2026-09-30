@@ -307,6 +307,7 @@ function render() {
   coach();
   if (currentMode === 'review') renderReview(); // 覆盤頁看不到時不重畫，切過去時才畫
   soundEvents();
+  persistGame(); // 自動保存，重新整理或更新後可以接著打
 }
 function updateSeats() {
   for (let p = 0; p < 4; p++) {
