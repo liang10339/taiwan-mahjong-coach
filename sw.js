@@ -29,6 +29,7 @@ const FILES = [
   './src/core/scoring.js' + v,
   './src/core/ai.js' + v,
   './src/core/data/calibration.js' + v,
+  './src/core/logistic.js' + v,
   './src/core/opponents.js' + v,
   './src/core/safety.js' + v,
   './src/core/policy.js' + v,

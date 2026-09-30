@@ -46,7 +46,7 @@
   /**
    * 輪到 p 出牌時的完整建議。
    * efficiency：只看牌效率（並列時依口訣）的首選；tile／option：攻守期望值選出的最後建議。
-   * @param {Game} g @param {number} [p] @param {{base?: number}} [opts] base：底換算成幾台
+   * @param {Game} g @param {number} [p] @param {{base?: number, margin?: number}} [opts] base：底換算成幾台；margin：改打非效率首選需要多出的期望值（台）
    */
   function decide(g, p = 0, opts = {}) {
     g = Observation.forPlayer(g, p);
@@ -72,6 +72,7 @@
       base: opts.base,
       dealerExtra: g.dealer === p ? 1 + 2 * (g.streak || 0) : 0,
       maxTenpai: Math.max(...opps.map((o) => o.tenpai)),
+      margin: opts.margin,
     });
     const situation = S.read(g, p, { options, lead: efficiency, opps, safety, plan });
     const option = plan.option;
@@ -124,7 +125,7 @@
   /**
    * 吃碰槓胡的建議：吃碰後要打的牌，由吃碰後的局面呼叫 decide() 決定。
    * 吃碰後的局勢是「先守」時不建議吃碰：攤牌會暴露手牌、少了安全牌，也破壞門清。
-   * @param {Game} g @param {number} [p] @param {{base?: number}} [opts]
+   * @param {Game} g @param {number} [p] @param {{base?: number, margin?: number}} [opts]
    */
   function claims(g, p = 0, opts = {}) {
     g = Observation.forPlayer(g, p);

@@ -11,7 +11,8 @@
   const node = typeof module !== 'undefined';
   const E = node ? require('./engine.js') : root.Mahjong,
     O = node ? require('./opponents.js') : root.Opponents,
-    Observation = node ? require('./observation.js') : root.Observation;
+    Observation = node ? require('./observation.js') : root.Observation,
+    L = node ? require('./logistic.js') : root.Logistic;
   const CAL = node ? require('./data/calibration.js') : root.Calibration;
   const label = (t) => (t === 33 ? '白板' : E.names[t]);
   const SUITS = ['萬子', '筒子', '條子'];
@@ -70,8 +71,66 @@
     };
   }
 
-  /** 這張是某一家要的牌的機率（假設他已聽牌） */
-  function waitProb(f) {
+  /**
+   * 「這張是他要的牌」模型（邏輯迴歸）的特徵。除了牌的種類、壁、見張數，
+   * 還加入台灣麻將防守研究的「非需求度」：他自己打過這張或旁邊的牌、他打這一門的比例、
+   * 他攤牌的花色——這些線索代表他比較不需要（或需要）這一帶的牌。名稱與順序必須和權重一致。
+   */
+  const WAIT_FEATURES = [
+    'bias',
+    'honor', // 字牌
+    'honorSeen2', // 字牌，連你這張共見 2 張
+    'honorSeen3', // 字牌，連你這張共見 3 張
+    'alive0', // 數字牌，沒有順子能等（壁或邊界）
+    'alive1', // 數字牌，只剩 1 種順子能等
+    'alive2', // 數字牌，2 種順子能等（3 種是基準）
+    'terminal', // 1 或 9
+    'discSame', // 他自己打過這張
+    'discNear1', // 他打過隔壁一張（同門 ±1）
+    'discNear2', // 他打過隔兩張（同門 ±2）
+    'lateNear', // 他最近 4 張裡打過這張附近（±2 內）
+    'suitShare', // 他打出的牌裡，這一門（字牌則是字牌）占的比例
+    'meldSuit', // 他攤牌裡有這一門（字牌則是字牌刻子）的組數 ÷ 2
+    'oneSuitHit', // 他攤牌全同一門，而這張是那門或字牌
+    'left', // 牌牆剩餘 ÷ 60
+  ];
+
+  /**
+   * @param {number} t @param {number[]} seen viewer 看得到的張數
+   * @param {{river: number[], handCuts: number[], meldSuits: number[], reading: any, left: number}} o
+   */
+  function waitVector(t, seen, o) {
+    const river = o.river || [],
+      honor = t >= 27,
+      suit = honor ? 3 : Math.floor(t / 9),
+      same = (x) => (x >= 27 ? 3 : Math.floor(x / 9)) === suit;
+    const f = tileFeatures(t, seen, o),
+      near = (x, k) => !honor && same(x) && Math.abs(x - t) === k;
+    const inSuit = river.filter(same).length;
+    return [
+      1,
+      honor ? 1 : 0,
+      honor && f.bucket === 2 ? 1 : 0,
+      honor && f.bucket >= 3 ? 1 : 0,
+      !honor && f.bucket === 0 ? 1 : 0,
+      !honor && f.bucket === 1 ? 1 : 0,
+      !honor && f.bucket === 2 ? 1 : 0,
+      !honor && (t % 9 === 0 || t % 9 === 8) ? 1 : 0,
+      river.includes(t) ? 1 : 0,
+      river.some((x) => near(x, 1)) ? 1 : 0,
+      river.some((x) => near(x, 2)) ? 1 : 0,
+      river.slice(-4).some((x) => !honor && same(x) && Math.abs(x - t) <= 2 && x !== t) ? 1 : 0,
+      river.length ? inSuit / river.length : 0,
+      (o.meldSuits || []).filter((m) => m === suit).length / 2,
+      (honor && o.reading.oneSuit !== null) || o.reading.oneSuit === suit ? 1 : 0,
+      (o.left ?? 30) / 60,
+    ];
+  }
+
+  /** 這張是某一家要的牌的機率（假設他已聽牌）；有訓練好的模型就用模型 */
+  function waitProb(f, t, seen, o) {
+    const model = CAL && CAL.waitModel;
+    if (model && o) return Math.min(0.9, L.predict(model, waitVector(t, seen, o)));
     const base = (CAL && CAL.wait && CAL.wait.base) || DEFAULT_BASE,
       factor = (CAL && CAL.wait && CAL.wait.factor) || DEFAULT_FACTOR;
     let p = base[f.kind][f.bucket];
@@ -79,6 +138,34 @@
     if (f.suitHit) p *= factor.suitHit;
     if (f.avoid) p *= factor.avoid;
     return Math.min(0.9, p);
+  }
+
+  /**
+   * 「非需求度」的理由：只有模型權重顯示這條線索確實有影響（|權重| ≥ 0.25）才講，方向也照權重。
+   * @returns {string[]}
+   */
+  function modelReasons(t, seen, o, who) {
+    const model = CAL && CAL.waitModel;
+    if (!model || t >= 27) return [];
+    const x = waitVector(t, seen, o),
+      on = (name) => x[WAIT_FEATURES.indexOf(name)] > 0,
+      w = (name) => L.weight(model, name),
+      out = [];
+    const nearTiles = (k) =>
+      o.river.filter((y) => y < 27 && Math.floor(y / 9) === Math.floor(t / 9) && Math.abs(y - t) === k);
+    if (on('discSame') && w('discSame') <= -0.25)
+      out.push(who + '自己打過' + label(t) + '，現在等這張的機會較低');
+    else if (on('discNear1') && w('discNear1') <= -0.25)
+      out.push(
+        who +
+          '打過旁邊的' +
+          [...new Set(nearTiles(1))].map(label).join('、') +
+          '，用兩面等' +
+          label(t) +
+          '的機會較低',
+      );
+    if (on('lateNear') && w('lateNear') >= 0.25) out.push(who + '最近才打附近的牌，這一帶較危險');
+    return out;
   }
 
   /** 一張牌對某一家的判斷與理由 */
@@ -107,7 +194,7 @@
         reasons: ['四張' + label(t) + '都看得到，沒有人能用它胡'],
       };
     const f = tileFeatures(t, seen, o),
-      wait = waitProb(f),
+      wait = waitProb(f, t, seen, o),
       reasons = [];
     // 見張數包含你手上要打的這張
     if (f.kind === 'h') {
@@ -135,6 +222,7 @@
       reasons.push(who + '一直在打' + SUITS[Math.floor(t / 9)] + '，多半不做這門');
     if (f.suitHit && factor.suitHit >= 1.1)
       reasons.push(who + '攤牌在做一色，' + (t >= 27 ? '字牌' : SUITS[Math.floor(t / 9)]) + '較危險');
+    reasons.push(...modelReasons(t, seen, o, who));
     return { q: o.q, rel: o.rel, p: o.tenpai * wait, wait, safe: false, reasons };
   }
 
@@ -212,6 +300,8 @@
     percent,
     versus,
     tileFeatures,
+    waitVector,
+    WAIT_FEATURES,
     waitProb,
     visibleCounts,
     sequenceWaits,

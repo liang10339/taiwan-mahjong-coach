@@ -23,6 +23,8 @@ function blank() {
     water: [0, 0],
     win: {}, // 自己的進聽數|有效牌|剩餘牌 → [最後胡牌, 樣本數]
     tai: { plain: [0, 0], all: [0, 0], tsumo: [0, 0] },
+    // 邏輯迴歸的訓練資料（訓練局）與驗證資料（驗證局，抽樣 30%）
+    rows: { tx: [], ty: [], wx: [], wy: [], tenpaiTest: [], pairTest: [] },
   };
 }
 const add = (obj, key, hit) => {
@@ -39,7 +41,13 @@ function run(from, to) {
   const S = require('../src/core/safety.js');
   const Scoring = require('../src/core/scoring.js');
   const P = require('../src/core/policy.js');
+  const Observation = require('../src/core/observation.js');
   const stats = blank();
+  let sampler = 12345;
+  const sample = () => {
+    sampler = (Math.imul(sampler, 1664525) + 1013904223) >>> 0;
+    return sampler / 4294967296 < 0.3;
+  };
   const cellKey = (f) => [f.kind, f.bucket, +f.nearCut, +f.suitHit, +f.avoid].join('|');
   for (let seed = from; seed <= to; seed++) {
     const g = E.create(seed * 7919, { reserve: 16, passWater: true, dealer: seed % 4 });
@@ -52,13 +60,19 @@ function run(from, to) {
       if (g.phase === 'discard' && !E.winning(g.hands[p], g.melds[p].length)) {
         const opps = O.read(g, p),
           seen = S.visibleCounts(g, p),
+          view = Observation.forPlayer(g, p),
           tiles = [...new Set(g.hands[p])];
         for (const o of opps) {
           const hand = g.hands[o.q],
             open = g.melds[o.q].length,
             tenpai = E.shanten(hand, open) === 0;
           const tKey = O.tenpaiKey(O.features(g, o.q));
-          if (!testGame) add(stats.tenpai, tKey, tenpai);
+          const tv = O.tenpaiVector(view, o.q);
+          if (!testGame) {
+            add(stats.tenpai, tKey, tenpai);
+            stats.rows.tx.push(tv);
+            stats.rows.ty.push(tenpai ? 1 : 0);
+          } else stats.rows.tenpaiTest.push({ tv, k: tKey, y: tenpai ? 1 : 0 });
           const waits = new Set();
           if (tenpai) for (let t = 0; t < 34; t++) if (E.winning([...hand, t], open)) waits.add(t);
           for (const t of tiles) {
@@ -79,8 +93,15 @@ function run(from, to) {
             }
             if (t >= 27 && seen[t] >= 4) continue; // 四張都看得到的字牌一定安全，不列入統計
             const cell = cellKey(S.tileFeatures(t, seen, o));
-            if (testGame) add(stats.test, tKey + '#' + cell, hit);
-            else if (tenpai) add(stats.cells, cell, hit);
+            const wv = S.waitVector(t, seen, o);
+            if (testGame) {
+              add(stats.test, tKey + '#' + cell, hit);
+              if (sample()) stats.rows.pairTest.push({ tv, wv, k: tKey, c: cell, y: hit ? 1 : 0 });
+            } else if (tenpai) {
+              add(stats.cells, cell, hit);
+              stats.rows.wx.push(wv);
+              stats.rows.wy.push(hit ? 1 : 0);
+            }
           }
         }
         // 自己這手：打出效率首選後的進聽數與有效牌，之後看有沒有胡
@@ -125,6 +146,7 @@ function merge(parts) {
     for (const k of ['passed', 'water']) ((out[k][0] += s[k][0]), (out[k][1] += s[k][1]));
     for (const k of ['plain', 'all', 'tsumo'])
       ((out.tai[k][0] += s.tai[k][0]), (out.tai[k][1] += s.tai[k][1]));
+    for (const k of Object.keys(out.rows)) for (const r of s.rows[k]) out.rows[k].push(r);
   }
   return out;
 }
@@ -186,9 +208,17 @@ function write(stats) {
     wait.base[kind] = wait.base[kind].map((v, i) => (v === null ? S.DEFAULT_BASE[kind][i] : v));
   for (const k of Object.keys(wait.factor)) if (wait.factor[k] === null) wait.factor[k] = S.DEFAULT_FACTOR[k];
   const round = (x) => Math.round(x * 100) / 100;
+  // 邏輯迴歸：聽牌機率、「這張是他要的牌」機率
+  const { fit } = require('./logistic-fit.cjs');
+  const O = require('../src/core/opponents.js');
+  console.log('訓練聽牌模型：' + stats.rows.tx.length + ' 筆；等牌模型：' + stats.rows.wx.length + ' 筆');
+  const tenpaiModel = { names: O.TENPAI_FEATURES, w: fit(stats.rows.tx, stats.rows.ty) };
+  const waitModel = { names: S.WAIT_FEATURES, w: fit(stats.rows.wx, stats.rows.wy) };
   const data = {
     games: stats.games,
     tenpai: stats.tenpai,
+    tenpaiModel,
+    waitModel,
     wait,
     win: stats.win,
     avgTai: stats.tai.plain[1] ? round(stats.tai.plain[0] / stats.tai.plain[1]) : 3,
@@ -209,6 +239,91 @@ function write(stats) {
     keep = old.includes('## 實戰驗證') ? '\n' + old.slice(old.indexOf('## 實戰驗證')) : '';
   fs.writeFileSync(doc, report(stats, data) + keep);
   console.log('已寫入 src/core/data/calibration.js 與 docs/CALIBRATION.md（' + stats.games + ' 局）');
+}
+
+/**
+ * 驗證局上比較「分組查表」（舊）與「邏輯迴歸」（新）：聽牌機率、放槍機率各一組分數。
+ * @returns {string[]} 報告的段落
+ */
+function modelComparison(stats, data, prior, waitOf) {
+  const L = require('../src/core/logistic.js');
+  const { score } = require('./logistic-fit.cjs');
+  const t = stats.rows.tenpaiTest,
+    pairs = stats.rows.pairTest;
+  if (!t.length || !pairs.length) return [];
+  const oldT = score(
+      t.map((r) => prior(r.k)),
+      t.map((r) => r.y),
+    ),
+    newT = score(
+      t.map((r) => L.predict(data.tenpaiModel, r.tv)),
+      t.map((r) => r.y),
+    );
+  const y = pairs.map((r) => r.y);
+  const oldP = score(
+      pairs.map((r) => prior(r.k) * waitOf(r.c)),
+      y,
+    ),
+    newP = score(
+      pairs.map((r) => L.predict(data.tenpaiModel, r.tv) * Math.min(0.9, L.predict(data.waitModel, r.wv))),
+      y,
+    );
+  const f = (x) => x.toFixed(5);
+  const better = (a, b) => ((1 - b / a) * 100).toFixed(1) + '%';
+  const weights = (m) =>
+    m.names.map((n, i) => '| ' + n + ' | ' + (m.w[i] >= 0 ? '+' : '') + m.w[i].toFixed(2) + ' |');
+  return [
+    '## 分組查表 vs 邏輯迴歸（驗證局）',
+    '',
+    '參考台灣麻將聽牌預測與防守研究的做法，把「聽牌機率」和「這張是他要的牌」改用邏輯迴歸，',
+    '特徵加入巡目、吃碰數、摸切節奏、最近打出的牌，以及「非需求度」（他自己打過這張或旁邊的牌、他打這一門的比例、攤牌花色）。',
+    '',
+    '| 預測 | 舊：分組查表 | 新：邏輯迴歸 | 改善 |',
+    '|---|---|---|---|',
+    '| 聽牌機率 log-loss | ' +
+      f(oldT.logLoss) +
+      ' | ' +
+      f(newT.logLoss) +
+      ' | ' +
+      better(oldT.logLoss, newT.logLoss) +
+      ' |',
+    '| 聽牌機率 Brier | ' +
+      f(oldT.brier) +
+      ' | ' +
+      f(newT.brier) +
+      ' | ' +
+      better(oldT.brier, newT.brier) +
+      ' |',
+    '| 放槍機率 log-loss | ' +
+      f(oldP.logLoss) +
+      ' | ' +
+      f(newP.logLoss) +
+      ' | ' +
+      better(oldP.logLoss, newP.logLoss) +
+      ' |',
+    '| 放槍機率 Brier | ' +
+      f(oldP.brier) +
+      ' | ' +
+      f(newP.brier) +
+      ' | ' +
+      better(oldP.brier, newP.brier) +
+      ' |',
+    '',
+    '驗證樣本：聽牌 ' + t.length + ' 筆、打牌給某一家 ' + pairs.length + ' 筆（抽樣 30%）。',
+    '',
+    '<details><summary>模型權重（正數＝提高機率，負數＝降低）</summary>',
+    '',
+    '| 聽牌模型特徵 | 權重 |',
+    '|---|---|',
+    ...weights(data.tenpaiModel),
+    '',
+    '| 等牌模型特徵 | 權重 |',
+    '|---|---|',
+    ...weights(data.waitModel),
+    '',
+    '</details>',
+    '',
+  ];
 }
 
 /** 準確度報告：在沒拿來統計的驗證局上，比較新模型與簡單基準 */
@@ -289,18 +404,17 @@ function report(stats, data) {
       stats.games +
       ' 局（每 5 局留 1 局只做驗證）。電腦知道每家真正的手牌，所以能直接數出「聽牌的比例」與「每種牌是對方要的牌的比例」。',
     '',
-    '> 對手是本程式的電腦（中級與高級各半），它們一定會胡、不會故意不胡，所以「放過的牌」完全安全；真人偶爾會為了自摸或台數放過胡牌，實戰要保留一點餘地。',
+    '> 對手是本程式的電腦（中級與高級各半），設定為有胡必胡，所以「放過的牌」在這些電腦身上實測 0 次放槍；這是模型前提，不是真人牌桌的安全保證——真人可能為了自摸或台數放過胡牌。教練不讀對手私密的過水狀態。',
     '',
     '## 規則類判斷的驗證',
     '',
     '| 判斷 | 樣本 | 其實是對方要的牌 |',
     '|---|---|---|',
-    '| 對方手牌沒換過期間放過的牌 | ' + stats.passed[1] + ' | ' + stats.passed[0] + ' 次 |',
-    '| 對方正在過水 | ' +
-      stats.water[1] +
+    '| 對方手牌沒換過期間放過的牌（電腦有胡必胡的前提） | ' +
+      stats.passed[1] +
       ' | ' +
-      stats.water[0] +
-      ' 次（過水時不能胡別人的牌，實際放槍 0）|',
+      stats.passed[0] +
+      ' 次 |',
     '',
     '## 對方已聽牌時，各類牌是他要的牌的比例',
     '',
@@ -330,6 +444,7 @@ function report(stats, data) {
     '|---|---|---|---|---|',
     ...tenpaiRows,
     '',
+    ...modelComparison(stats, data, prior, waitOf),
     '## 放槍機率準不準（驗證局）',
     '',
     '驗證局共 ' + n + ' 筆「打這張牌給某一家」，實際放槍 ' + hits + ' 筆（' + pct(avg) + '）。',

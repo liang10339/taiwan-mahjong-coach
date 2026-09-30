@@ -6,6 +6,7 @@ declare var Coach: typeof import('../core/coach.js');
 declare var Defense: typeof import('../core/defense.js');
 declare var Scoring: typeof import('../core/scoring.js');
 declare var AI: typeof import('../core/ai.js');
+declare var Logistic: typeof import('../core/logistic.js');
 declare var Calibration: typeof import('../core/data/calibration.js');
 declare var Opponents: typeof import('../core/opponents.js');
 declare var Safety: typeof import('../core/safety.js');
