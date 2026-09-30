@@ -1,114 +1,189 @@
-// 驗證教練的建議實際打起來如何：同一副牌，0 號位「照教練打」與「只看牌效率（中級電腦）」各打一次，
-// 其他三家都是同樣的電腦。比較胡牌率、放槍率與平均得失（台，含底）。
-// 用法：node scripts/evaluate-coach.cjs [局數，預設 300]
+// 驗證教練的建議實際打起來如何（公平對照）：
+// 同一副牌，「照教練打」輪流坐四個座位，每個座位再用「只看牌效率（中級電腦）」打一次；其他三家是固定的電腦。
+// 比較胡牌率、放槍率與平均得失（台，含底），並算出每副牌差值的標準誤。
+//
+// 用法：
+//   node scripts/evaluate-coach.cjs 200                         跑 200 副牌（每副 8 局），依 CPU 數平行
+//   node scripts/evaluate-coach.cjs 4000 --out eval-results/x.jsonl --budget 500
+//        結果逐副寫進檔案；500 秒到了就先停，再下同一個指令會從沒跑過的牌接著跑（適合有時間限制的環境）
+//   node scripts/evaluate-coach.cjs 0 --out eval-results/x.jsonl  只讀檔案、印出目前的彙總
+//   node scripts/evaluate-coach.cjs 0 --out eval-results/new.jsonl --compare eval-results/old.jsonl
+//        比較兩個版本的教練：同一副牌的基準局完全相同，所以直接逐副相減，誤差比各自和基準比還小
+// 其他選項：--start 起始種子（預設 0，跑 start+1 … start+局數）、--workers 平行數、
+//           --a / --b 比較的兩種打法（預設 coach 對 normal）、--margin 教練改打非效率首選要多幾台、
+//           --future 之後幾巡放槍代價的權重（實驗用，預設 1）
+// 實驗用環境變數：VARIANT=eff（教練只照牌效率＋口訣）、nohold（不踩吃碰煞車）
 'use strict';
-const E = require('../src/core/engine.js');
-const AI = require('../src/core/ai.js');
-const A = require('../src/core/advisor.js');
-const Scoring = require('../src/core/scoring.js');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { fork } = require('node:child_process');
 
-const BASE = 2.5; // 底換算成台（50 底 20 台）
-// 實驗用：VARIANT=eff（只照牌效率＋口訣）、nohold（不踩吃碰煞車）、full（完整教練）
-const P = require('../src/core/policy.js');
-const VARIANT = process.env.VARIANT || 'full';
-/** 實驗用：MARGIN=0.5 表示期望值要多 0.5 台才改打效率首選以外的牌 */
-const MARGIN = process.env.MARGIN ? Number(process.env.MARGIN) : undefined;
-if (VARIANT === 'eff') {
-  const choose = P.choose;
-  P.choose = (input) => {
-    const r = choose(input);
-    return { ...r, option: input.efficiency, chosen: r.efficiency, stance: 'build' };
+function args(argv) {
+  const out = { deals: 200, start: 0, workers: os.cpus().length, a: 'coach', b: 'normal', budget: Infinity };
+  const rest = [];
+  for (let i = 0; i < argv.length; i++) {
+    const m = /^--(\w+)$/.exec(argv[i]);
+    if (m) out[m[1]] = argv[++i];
+    else rest.push(argv[i]);
+  }
+  if (rest.length) out.deals = Number(rest[0]);
+  for (const k of ['start', 'workers', 'budget']) out[k] = Number(out[k]);
+  if (out.margin !== undefined) out.margin = Number(out.margin);
+  if (out.future !== undefined) out.future = Number(out.future);
+  return out;
+}
+
+/** 教練的實驗變體（只影響「照教練打」的座位，電腦不經過 Policy） */
+function applyVariant(variant) {
+  const P = require('../src/core/policy.js');
+  if (variant === 'eff') {
+    const choose = P.choose;
+    P.choose = (input) => {
+      const r = choose(input);
+      return { ...r, option: input.efficiency, chosen: r.efficiency, stance: 'build' };
+    };
+    P.holdBackClaim = () => false;
+  }
+  if (variant === 'nohold') P.holdBackClaim = () => false;
+}
+
+// ---- 子行程：收到一段種子就逐副打完，每副回報一次 ----
+if (process.argv[2] === '--worker') {
+  const Arena = require('./lib/arena.cjs');
+  const cfg = JSON.parse(process.argv[3]);
+  applyVariant(cfg.variant);
+  process.on('message', (seeds) => {
+    if (seeds === 'stop') process.exit(0);
+    for (const seed of seeds)
+      process.send(Arena.duel(seed, cfg.a, cfg.b, { margin: cfg.margin, future: cfg.future }));
+    process.send('ready');
+  });
+  process.send('ready');
+} else main();
+
+function main() {
+  const Arena = require('./lib/arena.cjs');
+  const opt = args(process.argv.slice(2));
+  const cfg = {
+    a: opt.a,
+    b: opt.b,
+    margin: opt.margin ?? null,
+    ...(opt.future !== undefined ? { future: opt.future } : {}),
+    variant: process.env.VARIANT || 'full',
   };
-  P.holdBackClaim = () => false;
-}
-if (VARIANT === 'nohold') P.holdBackClaim = () => false;
-
-function play(seed, useCoach) {
-  const g = E.create(seed * 104729, { reserve: 16, passWater: true, dealer: seed % 4 });
-  const levels = ['normal', 'normal', 'hard', 'normal'];
-  const stances = {};
-  let steps = 0;
-  while (g.phase !== 'ended' && steps++ < 500) {
-    const p = g.turn;
-    if (useCoach && p === 0 && g.phase === 'discard' && !E.winning(g.hands[0], g.melds[0].length)) {
-      const kan = AI.chooseKan(g, 0, 'normal');
-      if (kan && E.selfKan(g, 0, kan)) continue;
-      const d = A.decide(g, 0, { base: BASE, margin: MARGIN });
-      stances[d.stance] = (stances[d.stance] || 0) + 1;
-      const f = g.fresh;
-      E.discard(
-        g,
-        0,
-        f && f.player === 0 && f.tile === d.tile ? g.hands[0].length - 1 : g.hands[0].indexOf(d.tile),
-      );
-    } else AI.act(g, p, p === 0 ? 'normal' : levels[p]);
-    if (g.phase === 'claim')
-      for (let q = 0; q < 4 && g.phase === 'claim'; q++)
-        if (!g.pending.decisions[q]) {
-          if (q === 0 && useCoach) {
-            const c = A.claims(g, 0, { base: BASE, margin: MARGIN });
-            E.respond(g, 0, c.best ? c.best.action : { type: 'pass' });
-          } else E.respond(g, q, AI.chooseClaim(g, q, q === 0 ? 'normal' : levels[q]));
-        }
-  }
-  const w = [...g.log].reverse().find((e) => ['ron', 'tsumo'].includes(e.action));
-  let delta = 0,
-    dealIn = false,
-    won = false;
-  if (w) {
-    const tai = Scoring.score(g, w.player).total + BASE;
-    if (w.player === 0) {
-      won = true;
-      delta = w.action === 'tsumo' ? 3 * tai : tai;
-    } else if (w.action === 'tsumo') delta = -tai;
-    else if (w.from === 0) {
-      dealIn = true;
-      delta = -tai;
+  // 已經跑過的結果：同一個檔案只能接同一組設定，避免把不同實驗混在一起
+  const rows = new Map();
+  if (opt.out && fs.existsSync(opt.out)) {
+    const lines = fs.readFileSync(opt.out, 'utf8').split('\n').filter(Boolean);
+    const head = JSON.parse(lines[0] || '{}');
+    if (JSON.stringify(head.config) !== JSON.stringify(cfg))
+      throw Error('檔案裡的設定和這次不同：' + JSON.stringify(head.config) + '，請換一個 --out');
+    for (const line of lines.slice(1)) {
+      const r = JSON.parse(line);
+      rows.set(r.seed, r);
     }
+  } else if (opt.out) {
+    fs.mkdirSync(path.dirname(opt.out), { recursive: true });
+    fs.writeFileSync(opt.out, JSON.stringify({ config: cfg }) + '\n');
   }
-  return { won, dealIn, delta, stances };
+  const todo = [];
+  for (let seed = opt.start + 1; seed <= opt.start + opt.deals; seed++) if (!rows.has(seed)) todo.push(seed);
+  const began = Date.now();
+  const finish = () => {
+    report(Arena, [...rows.values()], cfg, todo.length === 0, (Date.now() - began) / 1000);
+    if (opt.compare) compare(rows, opt.compare);
+  };
+  if (!todo.length) return finish();
+
+  // 每次發 5 副牌給閒著的子行程；時間到了就不再發新的，已發出去的打完才結束
+  const CHUNK = 5;
+  let running = Math.min(opt.workers, Math.ceil(todo.length / CHUNK));
+  for (let w = 0, n = running; w < n; w++) {
+    const child = fork(__filename, ['--worker', JSON.stringify(cfg)]);
+    child.on('message', (msg) => {
+      if (msg !== 'ready') {
+        rows.set(msg.seed, msg);
+        if (opt.out) fs.appendFileSync(opt.out, JSON.stringify(msg) + '\n');
+        return;
+      }
+      const overtime = (Date.now() - began) / 1000 > opt.budget;
+      if (todo.length && !overtime) child.send(todo.splice(0, CHUNK));
+      else {
+        child.send('stop');
+        if (--running === 0) finish();
+      }
+    });
+  }
 }
 
-const n = Number(process.argv[2]) || 300;
-const sum = { coach: { won: 0, dealIn: 0, delta: 0, stances: {} }, plain: { won: 0, dealIn: 0, delta: 0 } };
-const start = Number(process.env.START) || 0;
-const diffs = []; // 每副牌「照教練打 − 只看效率」的得失差，用來算誤差範圍
-for (let seed = start + 1; seed <= start + n; seed++) {
-  for (const [key, use] of [
-    ['coach', true],
-    ['plain', false],
-  ]) {
-    const r = play(seed, use);
-    if (use) diffs.push(r.delta);
-    else diffs[diffs.length - 1] -= r.delta;
-    sum[key].won += r.won;
-    sum[key].dealIn += r.dealIn;
-    sum[key].delta += r.delta;
-    if (use)
-      for (const [k, v] of Object.entries(r.stances)) sum.coach.stances[k] = (sum.coach.stances[k] || 0) + v;
-  }
-}
-const pct = (x) => ((x / n) * 100).toFixed(1) + '%';
-console.log('變體', VARIANT, 'MARGIN', MARGIN ?? '預設', '局數', n);
-for (const k of ['coach', 'plain'])
+function report(Arena, rows, cfg, complete, seconds) {
+  rows.sort((x, y) => x.seed - y.seed);
+  const s = Arena.summarize(rows);
+  const pct = (x) => (x * 100).toFixed(1) + '%';
+  const name = (k) => (k === 'coach' ? '照教練打' : k === 'normal' ? '只看效率' : k);
   console.log(
-    k === 'coach' ? '照教練打' : '只看效率',
-    '胡牌',
-    pct(sum[k].won),
-    '放槍',
-    pct(sum[k].dealIn),
-    '平均每局',
-    (sum[k].delta / n).toFixed(2),
-    '台',
+    '設定',
+    JSON.stringify(cfg),
+    '｜',
+    s.deals,
+    '副牌 ×4 座位，共',
+    s.games,
+    '局對照',
+    complete ? '' : '（還沒跑完，再下同一個指令會接著跑）',
+    '｜',
+    seconds.toFixed(0),
+    '秒',
   );
-console.log('局勢分布', sum.coach.stances);
-// 同一副牌的差值平均與標準誤：差距小於約 2 個標準誤時，還不能說哪個比較好
-const mean = diffs.reduce((a, b) => a + b, 0) / diffs.length,
-  sd = Math.sqrt(diffs.reduce((a, b) => a + (b - mean) ** 2, 0) / (diffs.length - 1));
-console.log(
-  '每局差（教練 − 效率）',
-  mean.toFixed(3),
-  '台 ± 標準誤',
-  (sd / Math.sqrt(diffs.length)).toFixed(3),
-);
-console.log('DIFFS', JSON.stringify(diffs.map((x) => Math.round(x * 100) / 100)));
+  for (const [side, key] of [
+    ['a', cfg.a],
+    ['b', cfg.b],
+  ])
+    console.log(
+      name(key).padEnd(6),
+      '胡牌',
+      pct(s[side].won),
+      '放槍',
+      pct(s[side].dealIn),
+      '平均每局',
+      s[side].delta.toFixed(3),
+      '台',
+    );
+  // 差距小於約 2 個標準誤時，還不能說哪個比較好
+  console.log(
+    '每局差（' + name(cfg.a) + ' − ' + name(cfg.b) + '）',
+    s.mean.toFixed(3),
+    '台 ± 標準誤',
+    s.se.toFixed(3),
+    Math.abs(s.mean) > 2 * s.se ? '（差距超過兩個標準誤）' : '（在誤差範圍內）',
+  );
+}
+
+/** 兩個版本逐副比較：只取兩邊都跑過的牌，差值＝這版每局差 − 另一版每局差 */
+function compare(rows, file) {
+  const other = new Map(
+    fs
+      .readFileSync(file, 'utf8')
+      .split('\n')
+      .filter(Boolean)
+      .slice(1)
+      .map((line) => JSON.parse(line))
+      .map((r) => [r.seed, r]),
+  );
+  const avg = (r) => r.diffs.reduce((a, b) => a + b, 0) / r.diffs.length;
+  const d = [...rows.values()].filter((r) => other.has(r.seed)).map((r) => avg(r) - avg(other.get(r.seed)));
+  if (d.length < 2) return console.log('和', file, '共同的牌太少，無法比較');
+  const mean = d.reduce((a, b) => a + b, 0) / d.length,
+    se = Math.sqrt(d.reduce((a, b) => a + (b - mean) ** 2, 0) / (d.length - 1) / d.length);
+  console.log(
+    '和',
+    path.basename(file),
+    '比（',
+    d.length,
+    '副共同的牌）：每局多',
+    mean.toFixed(3),
+    '台 ± 標準誤',
+    se.toFixed(3),
+    Math.abs(mean) > 2 * se ? '（差距超過兩個標準誤）' : '（在誤差範圍內）',
+  );
+}
