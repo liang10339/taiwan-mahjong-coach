@@ -43,3 +43,18 @@ assert.equal(C.judge(options, 18, ex.best).verdict, 'worse');
 console.log(
   'PASS: decomposition matches shanten, partial waits, tied-lead teaching order, tenpai explanation and discard judgement.',
 );
+
+// 摸進的牌和建議的牌效率並列、但口訣建議先打別張時，解說不能說「最好的打法是摸切」
+{
+  const E2 = require('../src/core/engine.js');
+  const C2 = require('../src/core/coach.js');
+  const hand = [0, 1, 2, 9, 10, 11, 18, 19, 20, 3, 4, 13, 14, 23, 24, 27, 8];
+  const options = E2.analyze(hand, [], 0).map((o) =>
+    // 讓 9萬（剛摸進）和東風效率完全相同，測口訣取捨後的說法
+    o.tile === 8 || o.tile === 27 ? { ...o, shanten: 1, remaining: 30 } : { ...o, shanten: 2 },
+  );
+  const ex = C2.explainTurn(hand, options, { drawn: 8, publicTiles: [], open: 0, value: [31, 32, 33] });
+  assert.equal(ex.best.tile, 27, '口訣：單張字牌先打');
+  assert.ok(!/最好的打法就是把它直接打掉/.test(ex.lines[0]), '不能和建議矛盾');
+  assert.match(ex.lines[0], /摸切和打東的效率相同，依出牌順序口訣建議先打東/);
+}

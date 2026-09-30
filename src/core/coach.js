@@ -396,9 +396,22 @@
       before.splice(before.indexOf(ctx.drawn), 1);
       const b = E.shanten(before, open, ctx.rules),
         d = label(ctx.drawn);
-      if (tied.some((o) => o.tile === ctx.drawn))
+      if (best.tile === ctx.drawn)
         lines.push(
           '摸到' + d + '沒有幫上忙：最好的打法就是把它直接打掉（摸切），手牌維持' + progress(b) + '。',
+        );
+      else if (tied.some((o) => o.tile === ctx.drawn))
+        // 摸切和建議的牌效率並列：說清楚兩者效果相同，但建議的是另一張（避免和標題矛盾）
+        lines.push(
+          '摸到' +
+            d +
+            '沒有幫上忙：直接摸切和打' +
+            label(best.tile) +
+            '的效率相同，依出牌順序口訣建議先打' +
+            label(best.tile) +
+            '，手牌維持' +
+            progress(b) +
+            '。',
         );
       else if (best.shanten < b) {
         const g = structure.groups.find((x) => x.tiles.includes(ctx.drawn));

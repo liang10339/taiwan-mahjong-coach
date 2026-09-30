@@ -24,7 +24,9 @@ src/
     defense.js          舊的防守組合排除（高級電腦仍在用）
     ai.js               電腦對手（初級、中級、高級）與讀牌
     data/calibration.js 自戰統計表（npm run calibrate 產生，請勿手改）
-    opponents.js        對手模型：三家聽牌機率、胡牌台數、放過的牌、最近手切
+    logistic.js         邏輯迴歸的預測（權重由 npm run calibrate 訓練）
+    record.js           牌譜：種子＋桌規＋動作；有格式版本；重播、回到某一步、匯入驗證（docs/RECORD_FORMAT.md）
+    opponents.js        對手模型：三家聽牌機率（邏輯迴歸）、胡牌台數、放過的牌、最近手切
     safety.js           防守 2.0：每張牌的放槍機率與理由（放過的牌、過水、壁、字牌見張數、手切附近、一色）
     policy.js           攻守期望值：胡牌機率 × 收入 − 放槍機率 × 對方台數，決定打哪張與局勢
     situation.js        場況判斷的文字：局勢、對手訊號、牌牆、死搭子、台數方向（只負責說明）
@@ -52,6 +54,7 @@ src/
       notebook-panel.js 錯題本畫面與本機存取（覆盤分頁）
       growth-panel.js   成長報告畫面與趨勢圖（覆盤分頁）
       fairness-panel.js 開局公布指紋、局後攤牌驗證、同一副牌分享與重打
+      records-panel.js  自動保存與接續、歷史牌譜、逐步回放、匯出匯入
       flow.js           流程：電腦輪流、摸打按鈕、開新局、結算、音效事件、鍵盤
       opening.js        開始畫面與完整開局（抓位、擲骰、開門、配牌、補花）
       settings-panel.js 分頁切換、各種開關、⚙ 設定、報牌聲音設定
@@ -62,7 +65,7 @@ src/
 styles/                 樣式表
 tests/                  測試（*.test.cjs），helpers.cjs 提供假 DOM 與載入工具
 scripts/                npm 指令用的小工具（平行測試、改版、本機伺服器、校準）
-docs/                   文件（CALIBRATION.md 是校準報告）
+docs/                   文件（CALIBRATION.md 校準報告、RECORD_FORMAT.md 牌譜格式）
 ```
 
 ## 資料流
