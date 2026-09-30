@@ -270,6 +270,14 @@
    * @param {RuleOptions} [opts] 莊家、圈風、連莊、保留牌數、過水
    * @returns {Game}
    */
+  /**
+   * 配牌程序（牌譜裡的 dealing 欄位）。同一個種子用不同程序配出來的牌不同，所以牌譜要記下用哪一種。
+   *   engine-v1：每家輪流取一張、共十六輪，取到花立即從牌尾補（v2.8 以前的牌譜）。
+   *   engine-v2：實際牌桌的取牌——從莊家開始每人每次拿兩墩（4 張）、拿四輪；配完再從莊家起依序補花。
+   */
+  const DEALINGS = ['engine-v1', 'engine-v2'];
+  const DEFAULT_DEALING = 'engine-v2';
+
   function create(seed = Date.now(), opts = {}) {
     let n = seed >>> 0;
     const random = () => {
@@ -281,7 +289,9 @@
       streak = opts.streak || 0;
     // 桌規選項：reserve 保留牌尾張數（台灣常見留八墩 16 張即流局）、passWater 過水（放過胡牌後，自己打出一張牌前不能胡別人打的牌）
     const reserve = opts.reserve || 0,
-      passWater = !!opts.passWater;
+      passWater = !!opts.passWater,
+      dealing = opts.dealing || DEFAULT_DEALING;
+    if (!DEALINGS.includes(dealing)) throw Error('Unsupported dealing');
     const wall = [];
     for (let t = 0; t < 34; t++) for (let i = 0; i < 4; i++) wall.push(t);
     for (let t = 34; t < 42; t++) wall.push(t);
@@ -317,12 +327,48 @@
       water: [false, false, false, false],
       cuts: [[], [], [], []],
       fresh: null,
+      dealing,
+      opening: [],
     };
-    for (let r = 0; r < 16; r++) for (let k = 0; k < 4; k++) take(g, (dealer + k) % 4);
+    if (dealing === 'engine-v1')
+      for (let r = 0; r < 16; r++) for (let k = 0; k < 4; k++) take(g, (dealer + k) % 4);
+    else dealBlocks(g);
     g.hands.forEach((h) => h.sort((a, b) => a - b));
     g.lastTake = null;
     endFlowerWin(g);
     return g;
+  }
+  /**
+   * 實際取牌（engine-v2）：從莊家開始逆時針，每人每次拿兩墩（4 張），拿四輪各 16 張，配牌時不補花；
+   * 配完再從莊家起依序補花：花牌攤出、從牌尾補，補到花再補，直到手上沒有花。
+   * 每一步記在 g.opening，開局動畫照這些事件播放，和實際配牌一致。
+   * @param {Game} g
+   */
+  function dealBlocks(g) {
+    for (let round = 0; round < 4; round++)
+      for (let k = 0; k < 4; k++) {
+        const p = (g.dealer + k) % 4,
+          tiles = [];
+        for (let i = 0; i < 4 && g.wall.length; i++) tiles.push(g.wall.pop());
+        g.hands[p].push(...tiles);
+        g.opening.push({ type: 'deal', player: p, round, tiles });
+      }
+    for (let k = 0; k < 4; k++) {
+      const p = (g.dealer + k) % 4;
+      for (;;) {
+        const flowers = g.hands[p].filter((t) => t >= 34);
+        if (!flowers.length || !g.wall.length) break;
+        g.hands[p] = g.hands[p].filter((t) => t < 34);
+        const replacements = [];
+        for (const f of flowers) {
+          g.flowers[p].push(f);
+          flowerWin(g, p);
+          if (g.wall.length) replacements.push(g.wall.shift());
+        }
+        g.hands[p].push(...replacements);
+        g.opening.push({ type: 'flowers', player: p, flowers, replacements });
+      }
+    }
   }
   function take(g, p, tail = false) {
     const kan = tail;
@@ -654,6 +700,8 @@
     publicTiles,
     claimAdvice,
     names,
+    DEALINGS,
+    DEFAULT_DEALING,
     shanten,
     winning,
     analyze,

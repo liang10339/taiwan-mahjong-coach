@@ -12,11 +12,13 @@
     O = node ? require('./opponents.js') : root.Opponents,
     Safety = node ? require('./safety.js') : root.Safety,
     P = node ? require('./policy.js') : root.Policy,
-    S = node ? require('./situation.js') : root.Situation;
+    S = node ? require('./situation.js') : root.Situation,
+    HV = node ? require('./handvalue.js') : root.HandValue;
   const CAL = node ? require('./data/calibration.js') : root.Calibration;
   const Observation = node ? require('./observation.js') : root.Observation;
   const VERSION = 1;
 
+  const BASE = 2.5; // 預設 50 底 20 台
   /** 自己胡牌大約幾台：自戰的平均台數，莊家再加莊家與連莊 @param {Game} g @param {number} p */
   function myTai(g, p) {
     return ((CAL && CAL.avgTai) || 3) + (g.dealer === p ? 1 + 2 * (g.streak || 0) : 0);
@@ -44,9 +46,44 @@
   }
 
   /**
+   * 每張候選牌打出後，剩下的手牌胡了大約幾台、收入多少（含底，自摸與胡別人加權）。
+   * @returns {Map<number, {tai: {ron: number, tsumo: number, items: any[], exact: boolean}, income: number}>}
+   */
+  function incomeByTile(g, p, hand, options, publicTiles, base) {
+    const out = new Map(),
+      share = (CAL && CAL.tsumoShare) || 0.4;
+    for (const o of options) {
+      if (out.has(o.tile)) continue;
+      const rest = hand.slice();
+      rest.splice(rest.indexOf(o.tile), 1);
+      const tai = HV.estimate(g, p, rest, { shanten: o.shanten, publicTiles });
+      out.set(o.tile, { tai, income: HV.income(g, p, tai, base, share) });
+    }
+    return out;
+  }
+
+  /**
+   * 不吃碰、保留現在的手牌：之後胡牌的期望收入（台）。和吃碰後出牌的期望收入比，
+   * 吃碰會少掉門清（胡別人少 1 台、自摸少 2 台），進張要多到補得回來才值得。
+   */
+  function passValue(g, p, base) {
+    const hand = g.hands[p],
+      open = g.melds[p].length,
+      pub = E.publicTiles(g, p),
+      known = Array(34).fill(0);
+    for (const t of [...hand, ...pub]) if (t < 34) known[t]++;
+    const v = C.waitValue(hand, open, known, g.rules),
+      tai = HV.estimate(g, p, hand, { shanten: v.shanten, publicTiles: pub });
+    return (
+      P.winProb(v.shanten, v.remaining, O.drawable(g)) *
+      HV.income(g, p, tai, base, (CAL && CAL.tsumoShare) || 0.4)
+    );
+  }
+
+  /**
    * 輪到 p 出牌時的完整建議。
    * efficiency：只看牌效率（並列時依口訣）的首選；tile／option：攻守期望值選出的最後建議。
-   * @param {Game} g @param {number} [p] @param {{base?: number, margin?: number}} [opts] base：底換算成幾台；margin：改打非效率首選需要多出的期望值（台）
+   * @param {Game} g @param {number} [p] @param {{base?: number, margin?: number, future?: number}} [opts] base：底換算成幾台；margin：改打非效率首選需要多出的期望值（台）
    */
   function decide(g, p = 0, opts = {}) {
     g = Observation.forPlayer(g, p);
@@ -63,6 +100,7 @@
     const efficiency = tied[0];
     const opps = O.read(g, p),
       safety = Safety.evaluate(g, p, opps);
+    const worth = incomeByTile(g, p, hand, options, ctx.publicTiles, opts.base ?? BASE);
     const plan = P.choose({
       options,
       efficiency,
@@ -73,6 +111,10 @@
       dealerExtra: g.dealer === p ? 1 + 2 * (g.streak || 0) : 0,
       maxTenpai: Math.max(...opps.map((o) => o.tenpai)),
       margin: opts.margin,
+      incomeOf: (o) => worth.get(o.tile).income,
+      hand,
+      pressure: opps.reduce((n, o) => n + o.tenpai, 0),
+      future: opts.future,
     });
     const situation = S.read(g, p, { options, lead: efficiency, opps, safety, plan });
     const option = plan.option;
@@ -87,7 +129,9 @@
       tile: option.tile,
       situation,
       stance: plan.stance,
-      folding: option.tile !== efficiency.tile, // 為了防守改打效率首選以外的牌
+      folding: plan.reason === 'defense', // 為了防守改打效率首選以外的牌
+      forValue: plan.reason === 'value', // 為了台數改打效率首選以外的牌
+      worth, // 每張候選牌打出後「胡了大約幾台」
       plan,
       opps,
       safety,
@@ -125,23 +169,28 @@
   /**
    * 吃碰槓胡的建議：吃碰後要打的牌，由吃碰後的局面呼叫 decide() 決定。
    * 吃碰後的局勢是「先守」時不建議吃碰：攤牌會暴露手牌、少了安全牌，也破壞門清。
-   * @param {Game} g @param {number} [p] @param {{base?: number, margin?: number}} [opts]
+   * @param {Game} g @param {number} [p] @param {{base?: number, margin?: number, future?: number}} [opts]
    */
   function claims(g, p = 0, opts = {}) {
     g = Observation.forPlayer(g, p);
+    let stay = null;
     const report = C.claimDecision(g, p, (action) => {
       const h = afterClaim(g, p, action);
       const d = h && decide(h, p, opts);
-      return d
-        ? {
-            option: d.option,
-            fold: P.holdBackClaim({
-              stance: d.stance,
-              efficiency: d.efficiency,
-              maxTenpai: Math.max(...d.opps.map((o) => o.tenpai)),
-            }),
-          }
-        : null;
+      if (!d) return null;
+      // 吃碰後的期望收入（胡牌機率 × 胡了的台數）要不少於略過：吃碰會破壞門清，進張要補得回來
+      if (stay === null) stay = passValue(g, p, opts.base ?? BASE);
+      return {
+        option: d.option,
+        fold: P.holdBackClaim({
+          stance: d.stance,
+          efficiency: d.efficiency,
+          maxTenpai: Math.max(...d.opps.map((o) => o.tenpai)),
+        }),
+        worth: d.plan.chosen.gain >= stay,
+        gain: d.plan.chosen.gain,
+        stay,
+      };
     });
     report.limit =
       '吃碰後出牌與實戰共用攻守建議；取得吃碰以其他家未優先胡牌為前提。槓牌只枚舉補牌效率，尚未估計搶槓機率與完整台數收益。';
@@ -151,6 +200,22 @@
       if (h) o.risk = Safety.evaluate(h, p).find((r) => r.tile === o.after.tile);
     }
     return report;
+  }
+
+  /** 為了台數換牌時的說明：兩種打法胡了各約幾台 */
+  function valueReason(d) {
+    const mine = d.worth.get(d.tile).tai,
+      eff = d.worth.get(d.efficiency.tile).tai;
+    const avg = (t) => (t.ron * 0.7 + t.tsumo * 0.3).toFixed(1);
+    return (
+      '這樣打胡了約 ' +
+      avg(mine) +
+      ' 台，打' +
+      C.label(d.efficiency.tile) +
+      '約 ' +
+      avg(eff) +
+      ' 台，胡牌機會差不多時選台數高的'
+    );
   }
 
   /** 當時的綜合建議與理由；所有選牌評語共用這一份，不以實際輸贏倒推決策。 */
@@ -166,6 +231,7 @@
       o.remaining +
       ' 張。' +
       (d.folding ? '只看牌效率會打' + C.label(d.efficiency.tile) + '；這次為攻守取捨調整。' : '') +
+      (d.forValue ? '只看牌效率會打' + C.label(d.efficiency.tile) + '；' + valueReason(d) + '。' : '') +
       (risk ? Safety.explain(risk) + '。' : '')
     );
   }

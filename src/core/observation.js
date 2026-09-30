@@ -78,6 +78,22 @@
           ? { player: viewer, tile: g.lastTake.tile, afterKan: !!g.lastTake.afterKan }
           : null,
       log: (g.log || []).map((e) => eventFor(e, viewer)).filter(Boolean),
+      // 開局：別家配到、補進的牌看不到（只知道張數）；攤出的花是公開的
+      opening: (g.opening || []).map((e) =>
+        e.type === 'deal'
+          ? {
+              type: e.type,
+              player: e.player,
+              round: e.round,
+              tiles: e.tiles.map((t) => (e.player === viewer ? t : null)),
+            }
+          : {
+              type: e.type,
+              player: e.player,
+              flowers: e.flowers.slice(),
+              replacements: e.replacements.map((t) => (e.player === viewer ? t : null)),
+            },
+      ),
       // These are declared behavior models, not observations of secret win/pass flags.
       // The app's default seat 0 is human; seats 1–3 always accept legal wins.
       playerPolicies: seats.map((p) => ({ alwaysWin: g.playerPolicies?.[p]?.alwaysWin ?? p !== 0 })),
@@ -92,6 +108,7 @@
       'passWater',
       'wallOwner',
       'result',
+      'dealing',
     ])
       if (g[key] !== undefined) view[key] = g[key];
     if (g.dice) view.dice = g.dice.slice();

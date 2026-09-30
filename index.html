@@ -52,11 +52,11 @@
                 <select id="levelSelect"
                   ><option value="easy">初級：只管湊牌，漏洞多</option
                   ><option value="normal">中級：懂牌效率</option
-                  ><option value="hard">高級：會看海底、會棄胡</option></select
+                  ><option value="hard">高級：和教練同一套攻守判斷</option></select
                 ></label
               ><label class="check"><input type="checkbox" id="coachToggle" /> 教練即時提示</label
               ><label class="check"><input type="checkbox" id="dangerToggle" /> 顯示手牌危險度（進階）</label
-              ><label class="check"><input type="checkbox" id="valueToggle" /> 教練模擬胡牌率與台數</label
+              ><label class="check"><input type="checkbox" id="valueToggle" /> 教練顯示攻守期望值表</label
               ><label class="check"
                 ><input type="checkbox" id="seatDrawToggle" /> 新的一將先抓位（隨機座位）</label
               ><label class="check"
@@ -187,8 +187,8 @@
                   12 等 3）只能等一種。</p
                 >
                 <p
-                  ><b>範圍</b
-                  >：進攻建議比較牌效率；防守另列可見牌組合排除與效率代價，不是放槍機率。高級電腦與危險度顯示會依攤牌、牌牆剩餘等公開資訊估計對手是否接近聽牌；台數依北部台算法。</p
+                  ><b>範圍</b>：教練比較每張牌的攻守期望值——胡牌機率 ×
+                  胡了的台數，減去這一張與之後幾巡的放槍代價；對手聽牌與放槍機率由電腦自戰校準，只用公開資訊。高級電腦和教練用同一套判斷。台數依北部台算法。</p
                 >
               </div>
               <section class="coach-questions" aria-label="問教練">
@@ -241,6 +241,7 @@
             ><section class="notebook" id="notebookPanel" aria-label="錯題本"></section
             ><section class="growth" id="growthPanel" aria-label="成長報告"></section
             ><section class="records" id="recordPanel" aria-label="牌譜"></section
+            ><section class="records manual" id="manualPanel" aria-label="實戰記錄"></section
             ><div class="empty-review"
               ><span>◌</span><strong>還沒有可覆盤的牌局</strong
               ><small>完成目前這一局後，就能看到你的選擇與教練建議。</small></div
@@ -312,22 +313,22 @@
     <script src="src/core/engine.js?v=28"></script>
     <script src="src/core/observation.js?v=28"></script>
     <script src="src/core/coach.js?v=28"></script>
-    <script src="src/core/defense.js?v=28"></script>
     <script src="src/core/scoring.js?v=28"></script>
     <script src="src/core/ai.js?v=28"></script>
     <script src="src/core/data/calibration.js?v=28"></script>
     <script src="src/core/logistic.js?v=28"></script>
+    <script src="src/core/handvalue.js?v=28"></script>
     <script src="src/core/opponents.js?v=28"></script>
     <script src="src/core/safety.js?v=28"></script>
     <script src="src/core/policy.js?v=28"></script>
     <script src="src/core/situation.js?v=28"></script>
     <script src="src/core/advisor.js?v=28"></script>
     <script src="src/core/quiz.js?v=28"></script>
-    <script src="src/core/value.js?v=28"></script>
     <script src="src/core/notebook.js?v=28"></script>
     <script src="src/core/growth.js?v=28"></script>
     <script src="src/core/fairness.js?v=28"></script>
     <script src="src/core/record.js?v=28"></script>
+    <script src="src/core/seatrecord.js?v=28"></script>
     <script src="src/ui/tiles.js?v=28"></script>
     <script src="src/ui/sound.js?v=28"></script>
     <script src="src/ui/lessons.js?v=28"></script>
@@ -343,6 +344,7 @@
     <script src="src/ui/app/growth-panel.js?v=28"></script>
     <script src="src/ui/app/fairness-panel.js?v=28"></script>
     <script src="src/ui/app/records-panel.js?v=28"></script>
+    <script src="src/ui/app/manual-panel.js?v=28"></script>
     <script src="src/ui/app/flow.js?v=28"></script>
     <script src="src/ui/app/opening.js?v=28"></script>
     <script src="src/ui/app/settings-panel.js?v=28"></script>

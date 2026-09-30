@@ -62,6 +62,23 @@ if (process.argv[2] === '--worker') {
   process.send('ready');
 } else main();
 
+/** 決策相關程式碼的指紋：程式改過就不能接續舊檔案，避免把兩個版本的結果混在一起 */
+function codePrint() {
+  const crypto = require('node:crypto');
+  const hash = crypto.createHash('sha1');
+  const core = path.join(__dirname, '../src/core');
+  const files = [
+    ...fs
+      .readdirSync(core)
+      .filter((f) => f.endsWith('.js'))
+      .map((f) => path.join(core, f)),
+    path.join(core, 'data/calibration.js'),
+    path.join(__dirname, 'lib/arena.cjs'),
+  ].sort();
+  for (const f of files) hash.update(fs.readFileSync(f));
+  return hash.digest('hex').slice(0, 10);
+}
+
 function main() {
   const Arena = require('./lib/arena.cjs');
   const opt = args(process.argv.slice(2));
@@ -71,6 +88,7 @@ function main() {
     margin: opt.margin ?? null,
     ...(opt.future !== undefined ? { future: opt.future } : {}),
     variant: process.env.VARIANT || 'full',
+    code: codePrint(),
   };
   // 已經跑過的結果：同一個檔案只能接同一組設定，避免把不同實驗混在一起
   const rows = new Map();
@@ -78,7 +96,7 @@ function main() {
     const lines = fs.readFileSync(opt.out, 'utf8').split('\n').filter(Boolean);
     const head = JSON.parse(lines[0] || '{}');
     if (JSON.stringify(head.config) !== JSON.stringify(cfg))
-      throw Error('檔案裡的設定和這次不同：' + JSON.stringify(head.config) + '，請換一個 --out');
+      throw Error('檔案裡的設定或程式版本和這次不同：' + JSON.stringify(head.config) + '，請換一個 --out');
     for (const line of lines.slice(1)) {
       const r = JSON.parse(line);
       rows.set(r.seed, r);

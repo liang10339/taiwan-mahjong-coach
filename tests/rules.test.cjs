@@ -109,10 +109,6 @@ g.melds[1] = [
   { type: 'chi', tiles: [12, 13, 14] },
 ];
 assert.equal(A.reading(g, 1).oneSuit, 1);
-const pin = A.danger(g, 0, 15),
-  man = A.danger(g, 0, 6);
-assert.ok(pin.per.find((x) => x.player === 1).suitHit);
-assert.ok(!man.per.find((x) => x.player === 1).suitHit);
 console.log(
   'PASS: 摸切／手切／空切、被鳴牌時同步移除、過水與解除、保留八墩流局與海底、連續摸切與同花色讀牌。',
 );

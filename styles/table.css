@@ -1293,22 +1293,8 @@
   border-radius: 10px;
   background: #f3f1e8;
 }
-.value-card.differs {
-  background: #fbf3dc;
-  outline: 2px solid #d8a93c;
-}
 .value-card h5 {
   margin: 0 0 6px !important;
-}
-.value-advice {
-  margin: 0 0 8px !important;
-  font-size: 14px !important;
-  line-height: 1.7;
-}
-.value-wait {
-  margin: 0 !important;
-  color: #6f756b;
-  font-size: 13px !important;
 }
 .value-table {
   display: grid;
@@ -1316,7 +1302,7 @@
 }
 .value-row {
   display: grid;
-  grid-template-columns: 30px 52px 64px 1fr;
+  grid-template-columns: 30px 40px 48px 44px 1fr;
   align-items: center;
   gap: 8px;
   padding: 4px 6px;
@@ -1332,6 +1318,9 @@
 }
 .value-row.fast span:nth-child(2) {
   font-weight: 700;
+}
+.value-bar.negative i {
+  background: #c9674f;
 }
 .value-bar {
   position: relative;

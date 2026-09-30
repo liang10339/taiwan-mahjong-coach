@@ -8,6 +8,7 @@ function mode(name) {
     renderNotebook();
     renderGrowth();
     renderRecords();
+    renderManual();
     renderReview();
   }
 }

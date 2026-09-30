@@ -17,7 +17,7 @@ const settings = {
   showCuts: false,
   /** 開局方式：quick 直接開始、full 完整開局（抓位、擲骰、開門、配牌、補花） */
   opening: 'quick',
-  /** 教練欄顯示「胡牌率與台數」模擬 */
+  /** 教練欄顯示攻守期望值表 */
   value: true,
 };
 try {

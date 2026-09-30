@@ -22,7 +22,7 @@ function blank() {
     passed: [0, 0], // 放過的牌：[其實是他要的牌, 樣本數]
     water: [0, 0],
     win: {}, // 自己的進聽數|有效牌|剩餘牌 → [最後胡牌, 樣本數]
-    tai: { plain: [0, 0], all: [0, 0], tsumo: [0, 0] },
+    tai: { plain: [0, 0], all: [0, 0], tsumo: [0, 0], extra: [0, 0] },
     // 邏輯迴歸的訓練資料（訓練局）與驗證資料（驗證局，抽樣 30%）
     rows: { tx: [], ty: [], wx: [], wy: [], tenpaiTest: [], pairTest: [] },
   };
@@ -42,6 +42,7 @@ function run(from, to) {
   const Scoring = require('../src/core/scoring.js');
   const P = require('../src/core/policy.js');
   const Observation = require('../src/core/observation.js');
+  const HV = require('../src/core/handvalue.js');
   const stats = blank();
   let sampler = 12345;
   const sample = () => {
@@ -122,6 +123,18 @@ function run(from, to) {
       stats.tai.all[1]++;
       stats.tai.tsumo[0] += w.action === 'tsumo' ? 1 : 0;
       stats.tai.tsumo[1]++;
+      // 手牌價值（handvalue.js）看不到的零碎台數：實際台數 − 聽牌時看得出的台數（都不含莊家與連莊）
+      const scored = Scoring.score(g, winner);
+      if (!scored.ctx.special) {
+        const hand = g.hands[winner].slice();
+        hand.splice(hand.lastIndexOf(w.tile), 1);
+        const r = HV.rough(g, winner, hand, 0, Array(34).fill(0)),
+          dealerPart = g.dealer === winner ? 1 + 2 * (g.streak || 0) : 0,
+          seen = (w.action === 'tsumo' ? r.tsumo : r.ron) - dealerPart - HV.EXTRA,
+          actual = scored.items.filter((x) => !/^莊家|^連/.test(x.name)).reduce((a, x) => a + x.tai, 0);
+        stats.tai.extra[0] += actual - seen;
+        stats.tai.extra[1]++;
+      }
       if (winner !== g.dealer && AI.reading(g, winner).oneSuit === null) {
         stats.tai.plain[0] += tai;
         stats.tai.plain[1]++;
@@ -144,7 +157,7 @@ function merge(parts) {
         row[1] += n;
       }
     for (const k of ['passed', 'water']) ((out[k][0] += s[k][0]), (out[k][1] += s[k][1]));
-    for (const k of ['plain', 'all', 'tsumo'])
+    for (const k of ['plain', 'all', 'tsumo', 'extra'])
       ((out.tai[k][0] += s.tai[k][0]), (out.tai[k][1] += s.tai[k][1]));
     for (const k of Object.keys(out.rows)) for (const r of s.rows[k]) out.rows[k].push(r);
   }
@@ -224,6 +237,7 @@ function write(stats) {
     avgTai: stats.tai.plain[1] ? round(stats.tai.plain[0] / stats.tai.plain[1]) : 3,
     avgTaiAll: stats.tai.all[1] ? round(stats.tai.all[0] / stats.tai.all[1]) : 3,
     tsumoShare: stats.tai.tsumo[1] ? round(stats.tai.tsumo[0] / stats.tai.tsumo[1]) : 0.4,
+    taiExtra: stats.tai.extra[1] ? round(stats.tai.extra[0] / stats.tai.extra[1]) : 0.4,
   };
   const js =
     '// 由 scripts/calibrate.cjs 產生（' +

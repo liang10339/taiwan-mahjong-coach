@@ -93,10 +93,11 @@ function createUiContext({ storage = {} } = {}) {
   const store = new Map(Object.entries(storage));
   const context = vm.createContext({
     Mahjong: require('../src/core/engine.js'),
+    Observation: require('../src/core/observation.js'),
     Coach: require('../src/core/coach.js'),
-    Defense: require('../src/core/defense.js'),
     Scoring: require('../src/core/scoring.js'),
     AI: require('../src/core/ai.js'),
+    HandValue: require('../src/core/handvalue.js'),
     Opponents: require('../src/core/opponents.js'),
     Safety: require('../src/core/safety.js'),
     Policy: require('../src/core/policy.js'),
@@ -107,6 +108,7 @@ function createUiContext({ storage = {} } = {}) {
     Growth: require('../src/core/growth.js'),
     Fairness: require('../src/core/fairness.js'),
     Record: require('../src/core/record.js'),
+    SeatRecord: require('../src/core/seatrecord.js'),
     Sound: {
       play() {},
       say() {},

@@ -704,7 +704,7 @@
    */
   /**
    * @param {Game} g @param {number} [p]
-   * @param {(action: any) => ({option: any, fold: boolean} | null)} [choose]
+   * @param {(action: any) => ({option: any, fold: boolean, worth?: boolean} | null)} [choose]
    *   吃碰後要打哪張：由決策核心（advisor.js）用吃碰後的局面決定，確保和吃完後的建議一致。
    *   沒給就只看牌效率（電腦對手用）。
    */
@@ -733,7 +733,8 @@
           : E.analyze(rest, [...pub, ...action.tiles], open + 1, new Map(), g.rules)[0],
         name = claimNames[action.type],
         folding = !!picked && picked.fold;
-      const recommend = !folding && better(after, baseline),
+      // 有決策核心時另外要求「吃碰後的期望收入不少於略過」（計入門清等台數）；電腦對手只看牌效率
+      const recommend = !folding && better(after, baseline) && (!picked || picked.worth !== false),
         combo = [...action.tiles, g.pending.tile].sort((a, b) => a - b);
       const difference =
         after.shanten < baseline.shanten
@@ -778,7 +779,9 @@
           ? '這次優先取進攻效率，建議接受。'
           : folding
             ? '但場上有人很可能聽牌、你離聽牌還遠：吃碰後也得先守，攤牌只會少掉安全牌、暴露手牌，建議略過。'
-            : '這次沒有足夠效率收益，建議略過。');
+            : picked && picked.worth === false && better(after, baseline)
+              ? '進張雖然變好，但算上台數（門清、字牌、一色）後，胡了少掉的台比多出的胡牌機會更多，建議略過。'
+              : '這次沒有足夠效率收益，建議略過。');
       const affected = decompose(hand, open).groups.filter((group) =>
         group.tiles.some((t) => action.tiles.includes(t)),
       );
@@ -801,7 +804,13 @@
         ' 張\n' +
         difference +
         '；' +
-        (recommend ? '換取效率，但固定牌組。' : folding ? '有人很可能聽牌，先守不吃碰。' : '保留拆組彈性。');
+        (recommend
+          ? '換取效率，但固定牌組。'
+          : folding
+            ? '有人很可能聽牌，先守不吃碰。'
+            : picked && picked.worth === false && better(after, baseline)
+              ? '進張變好，但少掉的台數更多。'
+              : '保留拆組彈性。');
       return {
         action,
         after,
