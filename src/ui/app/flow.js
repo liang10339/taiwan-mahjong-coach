@@ -130,10 +130,15 @@ $('#winButton').onclick = () => {
     render();
   }
 };
-// 整理手牌：隨時可按；剛摸進、還沒打的那張留在最右邊，其餘排序（有動畫）
+// 整理手牌：隨時可按（有動畫）。
+// 第一次：剛摸進、還沒打的那張留在最右邊（方便摸切），其餘排序；
+// 其餘已經排好時再按一次：連剛摸的那張一起插進去（之後打出它，別家看起來是手切，和實際牌桌一樣）
 $('#sortButton').onclick = () => {
   const h = game.hands[0],
-    keep = game.phase === 'discard' && game.turn === 0 && lastDrawn !== null && h[h.length - 1] === lastDrawn;
+    drawnRight =
+      game.phase === 'discard' && game.turn === 0 && lastDrawn !== null && h[h.length - 1] === lastDrawn,
+    restSorted = h.slice(0, -1).every((t, i, a) => i === 0 || a[i - 1] <= t),
+    keep = drawnRight && !restSorted;
   const before = rectsOf($('#hand')),
     order = h.map((t, i) => ({ t, i }));
   const rest = keep ? order.slice(0, -1) : order.slice();
