@@ -1,9 +1,11 @@
 (function (root) {
   'use strict';
   const E = typeof module !== 'undefined' ? require('./engine') : root.Mahjong;
+  const Observation = typeof module !== 'undefined' ? require('./observation') : root.Observation;
   const label = (t) => (t === 33 ? '白板' : E.names[t]);
   const limit = '這是可見牌的組合排除，不是放槍機率；不能因對手打過或同屬147就認定安全。未判斷對手是否聽牌。';
   function inspect(g, viewer, t) {
+    g = Observation.forPlayer(g, viewer);
     const known = Array(34).fill(0);
     for (const x of [...g.hands[viewer], ...E.publicTiles(g, viewer)]) if (x < 34) known[x]++;
     const unseen = known.map((n) => Math.max(0, 4 - n)),

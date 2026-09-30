@@ -7,6 +7,13 @@
  */
 type Tile = number;
 
+/** 固定於開局、分析與計台共用的規則版本；桌規介面之後可擴充。 */
+interface MahjongRuleProfile {
+  id: string;
+  version: number;
+  liguLigu: boolean;
+}
+
 /** 座位：0 是你，1 下家、2 對家、3 上家（逆時針）。 */
 type Seat = 0 | 1 | 2 | 3 | number;
 
@@ -46,6 +53,11 @@ interface LogEvent {
 
 /** 一局麻將的完整狀態。 */
 interface Game {
+  rules?: MahjongRuleProfile;
+  /** 宣告的對手策略假設，不代表觀測到對手能否胡牌。 */
+  playerPolicies?: { alwaysWin: boolean }[];
+  observationFor?: number;
+  handCounts?: number[];
   /** 洗牌種子：同一個種子與同樣的動作可以重現同一局（牌譜分享、公平驗證的基礎） */
   seed: number;
   /** 牌牆：陣列尾端是下一張要摸的牌，開頭是牌尾（補花、槓後補牌從這裡拿） */
@@ -86,6 +98,7 @@ interface Game {
 
 /** 開新局時可調整的桌規（日後的規則設定頁會擴充這裡）。 */
 interface RuleOptions {
+  rules?: Partial<MahjongRuleProfile>;
   dealer?: Seat;
   roundWind?: number;
   streak?: number;

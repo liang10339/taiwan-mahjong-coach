@@ -55,44 +55,24 @@ $('#drawButton').onclick = () => {
   }
   render();
 };
-/** 教練建議先守時的評語 */
-function foldJudge(t, decision) {
-  const guard = decision.tile;
-  return t === guard
-    ? { verdict: 'best', text: '和教練一樣先守：' + decision.situation.guard.why + '。' }
-    : {
-        verdict: 'other',
-        text:
-          '教練建議先守打' +
-          Coach.label(guard) +
-          '（' +
-          decision.situation.guard.why +
-          '）；你打的' +
-          Coach.label(t) +
-          '是進攻的選擇，要承擔放槍風險。',
-      };
-}
 $('#discardButton').onclick = () => {
   if (selected === null || game.phase !== 'discard' || game.turn !== 0) return;
   const t = game.hands[0][selected],
-    ex = currentExplain(),
     decision = currentDecision(),
-    best = ex ? ex.best : suggestions[0], // 牌效率首選（算進張損失用）
-    folding = !!decision && decision.folding; // 教練這手建議先守
+    assessment = decision && Advisor.assess(decision, t);
   const kans = currentKans(),
     skipped = kans.length
       ? decisionRecord({ type: 'pass' }, kans, '未槓，選擇打' + tile(t), 'skip-kan')
       : null;
   // 覆盤的「教練建議」就是當時標題上的建議，和教練欄一致
-  const record = best
+  const record = assessment
     ? {
         tile: t,
         drawn: lastDrawn,
-        best: folding ? decision.tile : best.tile,
-        judge: folding ? foldJudge(t, decision) : Coach.judge(suggestions, t, best),
-        reason: folding
-          ? decision.situation.guard.why + '。'
-          : Coach.tileRole(game.hands[0], best.tile, E.publicTiles(game), game.melds[0].length),
+        best: decision.tile,
+        judge: assessment,
+        reason: '', // 完整理由已包含於核心評語
+        decision: Advisor.snapshot(decision),
       }
     : null;
   if (record) {
@@ -104,31 +84,18 @@ $('#discardButton').onclick = () => {
       ? decision.safety.map((r) => ({ tile: r.tile, dealIn: r.dealIn, text: Safety.explain(r) }))
       : [];
     record.pub = E.publicTiles(game);
-    const pick = suggestions.find((o) => o.tile === t),
-      lost = pick ? best.remaining - pick.remaining : 0;
-    // 要守的局面拆牌是對的，不算牌效率失誤
-    record.mistake = !folding && !!pick && (pick.shanten > best.shanten || lost >= 4);
-    record.warning = !record.mistake
-      ? ''
-      : pick.shanten > best.shanten
-        ? '這張打掉退了一步：' +
-          readiness(best.shanten) +
-          ' 變成 ' +
-          readiness(pick.shanten) +
-          '（建議打' +
-          tile(best.tile) +
-          '）'
-        : '這張打掉損失了 ' + lost + ' 張進張（建議打' + tile(best.tile) + '）';
+    record.mistake = assessment.mistake;
+    record.warning = assessment.warning;
     record.snapshot = {
       hand: game.hands[0].slice(),
-      melds: game.melds.map((ms) => ms.map((m) => ({ ...m, tiles: m.tiles.slice() }))),
+      melds: Advisor.observe(game, 0).melds,
       rivers: game.rivers.map((r) => r.slice()),
       wall: game.wall.length,
       options: suggestions
         .slice(0, 4)
         .map((o) => ({ tile: o.tile, shanten: o.shanten, remaining: o.remaining })),
     };
-    if (record.mistake) rememberMistake(t); // 存進錯題本（牌還在手上時存，才是當時的局面）
+    if (record.mistake) rememberMistake(t, decision); // 保存當時相同的攻守評分
   }
   const snap = snapshot(0);
   snap.index = selected;
@@ -324,26 +291,11 @@ $('#explainButton').onclick = () => {
   $('#explainButton').setAttribute('aria-expanded', String(open));
 };
 function askCoach(question) {
-  if (/防守|安全|危險|放槍/.test(question)) {
-    if (game.turn === 0 && game.phase === 'discard') {
-      analyze();
-      const d = currentDecision(),
-        pick = selected === null ? null : d.safety.find((r) => r.tile === game.hands[0][selected]);
-      $('#askAnswer').textContent =
-        d.situation.headline +
-        '\n最安全：' +
-        Safety.explain(d.safety[0]) +
-        '\n最危險：' +
-        Safety.explain(d.safety[d.safety.length - 1]) +
-        (pick ? '\n你選的牌：' + Safety.explain(pick) : '');
-    } else $('#askAnswer').textContent = '輪到你出牌時可比較防守；吃碰回應卡會提示後續出牌風險。';
-    return;
-  }
-  $('#askAnswer').textContent = Coach.contextualAnswer(
+  $('#askAnswer').textContent = Advisor.answer(
     question,
     game,
     selected === null ? null : game.hands[0][selected],
-    waiting() ? currentClaim() : null,
+    { decision: currentDecision(), claim: waiting() ? currentClaim() : null, kans: currentKans() },
   );
 }
 $('#askSelected').onclick = () => askCoach('這張可以嗎');

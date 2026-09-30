@@ -1,5 +1,6 @@
 (function (root) {
   'use strict';
+  const E = typeof module !== 'undefined' ? require('./engine.js') : root.Mahjong;
   // 台灣十六張麻將台數（北部台算法）。
   // 牌型編號：0–8 萬、9–17 筒、18–26 索、27–30 東南西北、31–33 中發白、34–41 春夏秋冬梅蘭竹菊。
   // 莊家、圈風與連莊次數取自牌局（g.dealer、g.roundWind、g.streak）；沒有這些欄位時視為座位 0 當莊、東風圈、未連莊。
@@ -34,8 +35,17 @@
 
   // 列出閉合手牌所有「N 組＋一對」的拆法（只用於計台，所以把每一種拆法都列出來取最高台）
   function decompositions(hand, groupsNeeded) {
+    if (
+      !Number.isInteger(groupsNeeded) ||
+      groupsNeeded < 0 ||
+      groupsNeeded > 5 ||
+      hand.length !== groupsNeeded * 3 + 2 ||
+      hand.some((t) => !Number.isInteger(t) || t < 0 || t >= 34)
+    )
+      return [];
     const c = counts(hand),
       out = [];
+    if (c.some((n) => n > 4)) return [];
     function groups(need, acc) {
       const i = c.findIndex((n) => n > 0);
       if (i < 0) {
@@ -73,26 +83,15 @@
     }
     return result;
   }
-  // 嚦咕嚦咕：門清，七對加一刻
-  function isLiguLigu(hand, open) {
-    if (open || hand.length !== 17) return false;
-    const c = counts(hand);
-    let pairs = 0,
-      triples = 0;
-    for (const n of c) {
-      if (n === 2) pairs++;
-      else if (n === 4) pairs += 2;
-      else if (n === 3) triples++;
-      else if (n) return false;
-    }
-    return pairs === 7 && triples === 1;
-  }
-  function winningTiles(hand, open) {
-    const out = [];
+  // 保留舊 API，但牌型認定只由引擎定義，避免計台、獨聽與教練分析各用不同規則。
+  const isLiguLigu = E.liguLigu;
+  function winningTiles(hand, open = 0, rules = E.DEFAULT_RULES) {
+    const out = [],
+      c = counts(hand);
     for (let t = 0; t < 34; t++) {
-      if (counts(hand)[t] >= 4) continue;
+      if (c[t] >= 4) continue;
       const h = [...hand, t];
-      if (decompositions(h, 5 - open).length || isLiguLigu(h, open)) out.push(t);
+      if (E.winning(h, open, rules)) out.push(t);
     }
     return out;
   }
@@ -148,6 +147,7 @@
       add('七搶一', 8, '手上七張花，搶走別家的第八張');
       return finish(items, g, p, ctx);
     }
+    if (!E.winning(hand, open, g.rules)) throw Error('Cannot score a non-winning hand under these rules');
 
     // 天地人胡：均不能有人吃、碰、槓
     if (!ctx.claimsBefore) {
@@ -160,14 +160,14 @@
     // 找出最高台的拆法
     const concealedHand = hand;
     const decs = decompositions(concealedHand, 5 - open);
-    const ligu = isLiguLigu(concealedHand, open);
+    const ligu = isLiguLigu(concealedHand, open, g.rules);
     const waitsBefore = (() => {
       if (ctx.tile == null) return [];
       const h = concealedHand.slice();
       const i = h.indexOf(ctx.tile);
       if (i < 0) return [];
       h.splice(i, 1);
-      return winningTiles(h, open);
+      return winningTiles(h, open, g.rules);
     })();
     const single = waitsBefore.length === 1;
 

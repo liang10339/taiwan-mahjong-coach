@@ -4,7 +4,8 @@
   const node = typeof module !== 'undefined';
   const E = node ? require('./engine') : root.Mahjong,
     C = node ? require('./coach') : root.Coach,
-    D = node ? require('./defense') : root.Defense;
+    D = node ? require('./defense') : root.Defense,
+    Observation = node ? require('./observation') : root.Observation;
   const LEVELS = { easy: '初級', normal: '中級', hard: '高級' };
 
   // 依公開資訊估計對手離聽牌多近：0 看不出、1 可能接近、2 很可能已聽牌
@@ -21,11 +22,15 @@
     const melds = g.melds[q],
       meldSuits = new Set(
         melds
+          .filter((m) => m.type !== 'concealed')
           .flatMap((m) => m.tiles)
           .filter((t) => t < 27)
           .map((t) => Math.floor(t / 9)),
       );
-    const oneSuit = melds.length >= 2 && meldSuits.size === 1 ? [...meldSuits][0] : null;
+    const oneSuit =
+      melds.filter((m) => m.type !== 'concealed').length >= 2 && meldSuits.size === 1
+        ? [...meldSuits][0]
+        : null;
     const counts = [0, 0, 0];
     river.forEach((t) => {
       if (t < 27) counts[Math.floor(t / 9)]++;
@@ -65,6 +70,7 @@
   }
   // 一張牌對各家的危險分數：可成立的胡牌組合數 × 對手威脅程度
   function danger(g, viewer, t, list = threats(g, viewer)) {
+    g = Observation.forPlayer(g, viewer);
     const r = D.inspect(g, viewer, t);
     let score = 0;
     const per = [];
@@ -95,19 +101,24 @@
   }
 
   function rng(g) {
-    g._ai = (Math.imul((g._ai ?? g.seed) >>> 0, 1664525) + 1013904223) >>> 0;
+    // Independent policy stream: the shuffle seed must never reach decision logic.
+    g._ai = (Math.imul((g._ai ?? 0x6d2b79f5) >>> 0, 1664525) + 1013904223) >>> 0;
     return g._ai / 4294967296;
   }
 
   function chooseDiscard(g, p, level = 'normal') {
+    const random = () => rng(g);
+    return discardFromView(Observation.forPlayer(g, p), p, level, random);
+  }
+  function discardFromView(g, p, level, random) {
     const open = g.melds[p].length,
-      options = E.analyze(g.hands[p], E.publicTiles(g, p), open);
+      options = E.analyze(g.hands[p], E.publicTiles(g, p), open, new Map(), g.rules);
     if (level === 'easy') {
       // 只看向聽數，不比較進張；三成機率隨手打掉一張非最佳的牌
       const min = Math.min(...options.map((o) => o.shanten)),
         ok = options.filter((o) => o.shanten === min);
-      const pool = rng(g) < 0.3 ? options : ok;
-      return pool[Math.floor(rng(g) * pool.length)].tile;
+      const pool = random() < 0.3 ? options : ok;
+      return pool[Math.floor(random() * pool.length)].tile;
     }
     if (level === 'hard') {
       const list = threats(g, p),
@@ -129,6 +140,10 @@
     return options[0].tile;
   }
   function chooseClaim(g, p, level = 'normal') {
+    const random = () => rng(g);
+    return claimFromView(Observation.forPlayer(g, p), p, level, random);
+  }
+  function claimFromView(g, p, level, random) {
     const options = [...E.claims(g, p)];
     const ron = options.find((a) => a.type === 'ron');
     if (ron) return ron;
@@ -136,18 +151,19 @@
       // 看到能碰、能吃就拿，常常破壞門清
       const take =
         options.find((a) => a.type === 'pon' || a.type === 'kan') || options.find((a) => a.type === 'chi');
-      return take && rng(g) < 0.8 ? take : { type: 'pass' };
+      return take && random() < 0.8 ? take : { type: 'pass' };
     }
     const a = C.chooseClaim(g, p);
     if (level === 'hard' && a.type !== 'pass') {
       // 已有人很可能聽牌、自己還差很遠時，不為了攤牌暴露更多
       const max = Math.max(...threats(g, p).map((x) => x.level)),
-        mine = E.shanten(g.hands[p], g.melds[p].length);
+        mine = E.shanten(g.hands[p], g.melds[p].length, g.rules);
       if (max >= 2 && mine >= 3) return { type: 'pass' };
     }
     return a;
   }
   function chooseKan(g, p, level = 'normal') {
+    g = Observation.forPlayer(g, p);
     if (level === 'easy') {
       const k = E.selfKans(g, p);
       return k[0] || null;
@@ -158,11 +174,11 @@
   function act(g, p, level = 'normal') {
     if (g.phase === 'draw' && g.turn === p) {
       E.draw(g, p);
-      if (g.phase === 'discard' && E.winning(g.hands[p], g.melds[p].length)) E.win(g, p);
+      if (g.phase === 'discard' && E.winning(g.hands[p], g.melds[p].length, g.rules)) E.win(g, p);
       return;
     }
     if (g.phase !== 'discard' || g.turn !== p) return;
-    if (E.winning(g.hands[p], g.melds[p].length)) {
+    if (E.winning(g.hands[p], g.melds[p].length, g.rules)) {
       E.win(g, p);
       return;
     }

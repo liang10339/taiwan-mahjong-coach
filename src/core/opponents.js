@@ -5,7 +5,8 @@
   // 依下面同一套特徵分組統計，結果存在 src/core/data/calibration.js。沒有統計資料時用保守的預設值。
   const node = typeof module !== 'undefined';
   const E = node ? require('./engine.js') : root.Mahjong,
-    AI = node ? require('./ai.js') : root.AI;
+    AI = node ? require('./ai.js') : root.AI,
+    Observation = node ? require('./observation.js') : root.Observation;
   const CAL = node ? require('./data/calibration.js') : root.Calibration;
   const HAND_CHANGES = ['chi', 'pon', 'kan', 'concealed', 'added'];
 
@@ -20,11 +21,14 @@
    * @param {Game} g @param {number} q
    */
   function passedSince(g, q) {
+    // A declined win is not proof of a missing wait. Only the declared always-win
+    // computer model permits this inference, and only after observable hand changes.
+    if (!(g.playerPolicies?.[q]?.alwaysWin ?? q !== 0)) return new Set();
     let start = 0;
     for (let i = g.log.length - 1; i >= 0; i--) {
       const e = g.log[i];
       if (e.player !== q) continue;
-      if ((e.action === 'discard' && e.cut === 'hand') || HAND_CHANGES.includes(e.action)) {
+      if ((e.action === 'discard' && e.cut !== 'tsumo') || HAND_CHANGES.includes(e.action)) {
         start = i + 1;
         break;
       }
@@ -34,7 +38,7 @@
       const e = g.log[i];
       if (e.action !== 'discard') continue;
       if (e.player === q)
-        passed.add(e.tile); // 摸切或空切：手牌沒變
+        passed.add(e.tile); // 可觀察的摸切；空切一律視為手切，不推測牌型沒變
       else {
         // 別家打的牌：要等大家回應完（緊接著的 resolution）才確定他沒胡
         const done = g.log.slice(i + 1).find((x) => x.action === 'resolution');
@@ -47,7 +51,7 @@
   /** q 最近手切的牌（最多三張）：聽牌前整理手牌時打的，附近的牌最可能是他要的 */
   function recentHandCuts(g, q) {
     const cuts = (g.cuts && g.cuts[q]) || [];
-    return g.rivers[q].filter((t, i) => cuts[i] === 'hand').slice(-3);
+    return g.rivers[q].filter((t, i) => cuts[i] === 'hand' || cuts[i] === 'empty').slice(-3);
   }
 
   /**
@@ -113,6 +117,7 @@
     let tai = (CAL && CAL.avgTai) || 3;
     if (r.oneSuit !== null) tai += 3; // 混一色 4 台（平均已含一部分）
     for (const m of g.melds[q]) {
+      if (m.type === 'concealed') continue;
       const t = m.tiles[0];
       if (m.type !== 'chi' && (t >= 31 || t === seat || t === round)) tai += 1;
     }
@@ -125,6 +130,7 @@
    * @param {Game} g @param {number} viewer
    */
   function read(g, viewer) {
+    g = Observation.forPlayer(g, viewer);
     return [1, 2, 3].map((d) => {
       const q = (viewer + d) % 4,
         p = tenpaiProb(g, q);
@@ -136,8 +142,9 @@
         tai: expectedTai(g, q),
         reading: AI.reading(g, q),
         passed: passedSince(g, q),
+        passedAssumption: g.playerPolicies[q].alwaysWin ? 'always-win-computer' : null,
         handCuts: recentHandCuts(g, q),
-        water: !!(g.passWater && g.water && g.water[q]),
+        water: false, // Opponent pass-water state is private, not a public safety signal.
       };
     });
   }

@@ -4,7 +4,7 @@ function decisionCard(o) {
   const card = el('div', 'coach-option claim-detail');
   card.append(el('p', null, o.compact));
   if (o.after) {
-    const r = Safety.evaluate(game, 0).find((x) => x.tile === o.after.tile);
+    const r = o.risk;
     if (r) card.append(el('p', 'defense-note', '吃碰後打出的風險：' + Safety.explain(r)));
   }
   const more = el('details');
@@ -136,7 +136,7 @@ function coach() {
       game.passWater &&
       game.water &&
       game.water[0] &&
-      E.winning([...game.hands[0], game.pending.tile], game.melds[0].length)
+      E.winning([...game.hands[0], game.pending.tile], game.melds[0].length, game.rules)
     )
       body.append(
         el(
@@ -175,9 +175,12 @@ function coach() {
     readingCard(body);
     return;
   }
-  if (E.winning(game.hands[0], game.melds[0].length)) {
+  if (E.winning(game.hands[0], game.melds[0].length, game.rules)) {
     title.textContent = '可以自摸！';
-    copy.textContent = '五組加一對已成立，按「胡牌」結束本局。';
+    copy.textContent =
+      (E.liguLigu(game.hands[0], game.melds[0].length, game.rules)
+        ? '嚦咕嚦咕（七對加一刻）'
+        : '五組加一對') + '已成立，按「胡牌」結束本局。';
     return;
   }
   for (const o of currentKans()) body.append(decisionCard(o));
@@ -190,6 +193,7 @@ function coach() {
   // 標題就是決策核心的最後建議；要守而和牌效率首選不同時，旁邊標出效率首選
   const best = ex.best,
     decision = currentDecision(),
+    recommended = decision.option,
     folding = !!decision && decision.folding;
   title.replaceChildren(
     el(
@@ -202,8 +206,8 @@ function coach() {
   copy.className = 'coach-chips';
   copy.replaceChildren(
     ...(folding ? [el('span', 'chip', '只看效率會打 ' + Coach.label(best.tile))] : []),
-    el('span', 'chip', best.shanten === 0 ? '打後聽牌' : '打後' + readiness(best.shanten)),
-    el('span', 'chip', (best.shanten === 0 ? '可胡 ' : '有效牌 ') + best.remaining + ' 張'),
+    el('span', 'chip', recommended.shanten === 0 ? '打後聽牌' : '打後' + readiness(recommended.shanten)),
+    el('span', 'chip', (recommended.shanten === 0 ? '可胡 ' : '有效牌 ') + recommended.remaining + ' 張'),
   );
   situationSection(body, 3);
   defenseCard(body);
@@ -217,7 +221,8 @@ function coach() {
     copy.textContent = '先看上方槓／不槓比較；以下是選擇不槓時的出牌方案。';
   }
   // 牌效率的解說：前兩句（摸進的牌、為什麼是這張）直接看，其餘收進「牌效率細節」
-  body.append(el('h5', null, recommendedKan ? '若不槓，這一手怎麼打' : '牌效率：為什麼是這張'));
+  body.append(el('p', 'coach-option', Advisor.rationale(decision)));
+  body.append(el('h5', null, '只看牌效率：打' + Coach.label(best.tile)));
   const list = el('ul', 'coach-lines');
   ex.lines.slice(0, 2).forEach((line) => list.append(el('li', null, line)));
   body.append(list);
@@ -229,20 +234,30 @@ function coach() {
     body.append(more);
   }
   valueSection(body); // 胡牌率與台數（模擬，算好後自動更新）
-  body.append(el('h5', null, best.shanten === 0 ? '聽的牌（未見張數）' : '打掉後的有效牌（未見張數）'));
+  body.append(
+    el(
+      'h5',
+      null,
+      '打' +
+        Coach.label(recommended.tile) +
+        '後的' +
+        (recommended.shanten === 0 ? '聽牌' : '有效牌') +
+        '（未見張數）',
+    ),
+  );
   const outs = el('div', 'out-grid');
-  best.outs.forEach((o) => {
+  recommended.outs.forEach((o) => {
     const cell = el('span', 'out');
     cell.append(Tiles.node(o.tile, 'xs'), el('b', null, String(o.remaining)));
     outs.append(cell);
   });
   body.append(outs);
-  if (best.shanten === 0) {
+  if (recommended.shanten === 0) {
     const rest = game.hands[0].slice();
-    rest.splice(rest.indexOf(best.tile), 1);
+    rest.splice(rest.indexOf(recommended.tile), 1);
     const est = tenpaiEstimate(
       rest,
-      best.outs.map((o) => o.tile),
+      recommended.outs.map((o) => o.tile),
     );
     if (est) {
       body.append(el('h5', null, '聽牌台數預估（胡別人／自摸）'));
@@ -253,6 +268,7 @@ function coach() {
   const table = el('div', 'compare-table'),
     max = Math.max(1, ...suggestions.map((o) => o.remaining));
   const rows = [...ex.tied.slice(0, 2), ...suggestions.filter((o) => !ex.tied.includes(o)).slice(0, 3)];
+  if (!rows.includes(recommended)) rows.unshift(recommended);
   const pick = selected === null ? null : suggestions.find((o) => o.tile === game.hands[0][selected]);
   if (pick && !rows.includes(pick)) rows.push(pick);
   rows.forEach((o) => {
@@ -290,7 +306,7 @@ function coach() {
       ),
     );
   body.append(table);
-  body.append(el('h5', null, '打掉後的手牌結構'));
+  body.append(el('h5', null, '牌效率方案打' + Coach.label(best.tile) + '後的手牌結構'));
   const groups = el('div', 'group-list');
   ex.structure.groups
     .slice()
@@ -307,21 +323,11 @@ function coach() {
   });
   body.append(groups);
   if (pick) {
-    const j = folding ? foldJudge(pick.tile, decision) : Coach.judge(suggestions, pick.tile, best);
+    const j = Advisor.assess(decision, pick.tile);
     const card = el('div', 'coach-last ' + j.verdict),
       head = el('div', 'coach-last-head');
     head.append(el('span', 'coach-tag', '你選的牌'), Tiles.node(pick.tile, 'xs'));
-    card.append(
-      head,
-      el(
-        'p',
-        null,
-        j.text +
-          (j.verdict === 'best'
-            ? ''
-            : ' ' + Coach.tileRole(game.hands[0], pick.tile, E.publicTiles(game), game.melds[0].length)),
-      ),
-    );
+    card.append(head, el('p', null, j.text));
     body.append(card);
   }
   for (const text of Coach.patternHints(game.hands[0])) body.append(el('p', 'coach-option', text));

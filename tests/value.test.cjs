@@ -70,15 +70,21 @@ assert.match(adv.text, /先求胡|又快又划算/);
 {
   // 手上有 5筒5筒、3萬4萬，其餘湊不成組
   const hand = [2, 3, 13, 13, 0, 8, 10, 16, 18, 22, 26, 27, 28, 29, 30, 31];
-  const sh = E.shanten(hand, 0);
-  const pon = V.tryClaim(hand, [], 13, false, sh);
+  const rules = { liguLigu: false }; // 這個測例專門檢查一般牌型的吃碰方向
+  const sh = E.shanten(hand, 0, rules);
+  const pon = V.tryClaim(hand, [], 13, false, sh, rules);
   assert.ok(pon, '別家打 5筒 可以碰');
   assert.equal(pon.melds[0].type, 'pon');
   assert.equal(pon.hand.length + pon.melds.length * 3, 16, '碰後打出一張，張數要對');
-  assert.equal(V.tryClaim(hand, [], 1, false, sh), null, '不是上家打的 2萬 不能吃');
-  const chi = V.tryClaim(hand, [], 1, true, sh);
+  assert.equal(V.tryClaim(hand, [], 1, false, sh, rules), null, '不是上家打的 2萬 不能吃');
+  const chi = V.tryClaim(hand, [], 1, true, sh, rules);
   assert.ok(chi && chi.melds[0].type === 'chi', '上家打的 2萬 可以吃 2萬3萬4萬');
-  assert.equal(V.tryClaim(hand, [], 7, true, sh), null, '沒有對子也連不起來的牌不吃碰');
+  assert.equal(V.tryClaim(hand, [], 7, true, sh, rules), null, '沒有對子也連不起來的牌不吃碰');
+  assert.equal(
+    V.tryClaim(hand, [], 13, false, E.shanten(hand)),
+    null,
+    '允許嚦咕時，吃碰沒有改善最短路線便應保留手牌',
+  );
 }
 // 10. 背景執行緒：依 ?v= 載入核心檔案，回傳同樣的結果
 {
@@ -98,7 +104,12 @@ assert.match(adv.text, /先求胡|又快又划算/);
   const context = vm.createContext(worker);
   worker.self = context;
   vm.runInContext(read('src/workers/value-worker.js'), context);
-  assert.deepEqual(loaded, ['../core/engine.js?v=99', '../core/scoring.js?v=99', '../core/value.js?v=99']);
+  assert.deepEqual(loaded, [
+    '../core/engine.js?v=99',
+    '../core/observation.js?v=99',
+    '../core/scoring.js?v=99',
+    '../core/value.js?v=99',
+  ]);
   const game = JSON.parse(JSON.stringify(position(plain)));
   context.onmessage({ data: { job: 5, game, player: 0, options: { trials: 60, seed: 7 } } });
   assert.equal(sent[0].job, 5);

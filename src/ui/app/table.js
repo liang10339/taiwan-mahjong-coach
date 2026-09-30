@@ -230,7 +230,7 @@ function render() {
   $('#drawButton').disabled = !(mine && game.phase === 'draw');
   $('#drawButton').textContent = '摸牌';
   $('#discardButton').disabled = !choosing || selected === null;
-  $('#winButton').disabled = !choosing || !E.winning(game.hands[0], game.melds[0].length);
+  $('#winButton').disabled = !choosing || !E.winning(game.hands[0], game.melds[0].length, game.rules);
   $('#sortButton').disabled = false; // 隨時都可以整理手牌
   $('#askSelected').disabled = !choosing || selected === null;
   $('#askAnswer').textContent = '';

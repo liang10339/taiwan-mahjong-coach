@@ -39,6 +39,7 @@
       streak: g.streak,
       reserve: g.reserve,
       passWater: g.passWater,
+      rules: E.ruleProfile(g.rules),
     };
   }
 
@@ -63,10 +64,14 @@
     };
   }
 
-  /** 把種子與桌規編成分享用的短字串（例如 "lx3k9a.1.0.0.16.1"） @param {Game} g */
+  /**
+   * 把種子與桌規編成分享用的短字串（例如 "lx3k9a.1.0.0.16.1"）。
+   * 非預設牌型規則加上 ~profile~version~ligu；既有六欄連結維持原樣。
+   * @param {Game} g
+   */
   function encodeDeal(g) {
     const r = rulesOf(g);
-    return [
+    const code = [
       (g.seed >>> 0).toString(36),
       r.dealer,
       r.roundWind,
@@ -74,24 +79,38 @@
       r.reserve,
       r.passWater ? 1 : 0,
     ].join('.');
+    return r.rules.liguLigu ? code : code + '~' + r.rules.id + '~' + r.rules.version + '~0';
   }
 
   /**
    * 解析分享字串（也接受整段網址或 #deal=…）；格式不對回傳 null。
    * @param {string} text
-   * @returns {{seed: number, opts: {dealer:number, roundWind:number, streak:number, reserve:number, passWater:boolean}} | null}
+   * @returns {{seed: number, opts: RuleOptions} | null}
    */
   function decodeDeal(text) {
-    const m = /(?:^|deal=)([0-9a-z]{1,7})\.([0-3])\.([0-3])\.(\d{1,2})\.(0|16)\.([01])(?:$|&)/.exec(
-      String(text || '').replace(/^.*#/, ''),
-    );
+    const m =
+      /(?:^|deal=)([0-9a-z]{1,7})\.([0-3])\.([0-3])\.(\d{1,2})\.(0|16)\.([01])(?:~([a-z0-9-]+)~([1-9]\d*)~([01]))?(?:$|&)/.exec(
+        String(text || '').replace(/^.*#/, ''),
+      );
     if (!m) return null;
     const seed = parseInt(m[1], 36);
     if (!(seed >= 0 && seed <= 0xffffffff)) return null;
-    return {
-      seed,
-      opts: { dealer: +m[2], roundWind: +m[3], streak: +m[4], reserve: +m[5], passWater: m[6] === '1' },
+    /** @type {RuleOptions} */
+    const opts = {
+      dealer: +m[2],
+      roundWind: +m[3],
+      streak: +m[4],
+      reserve: +m[5],
+      passWater: m[6] === '1',
     };
+    if (m[7]) {
+      try {
+        opts.rules = E.ruleProfile({ id: m[7], version: +m[8], liguLigu: m[9] === '1' });
+      } catch {
+        return null; // 不支援的牌型規則不能靜默換成預設規則重打。
+      }
+    }
+    return { seed, opts };
   }
 
   const api = { fingerprint, verify, rulesOf, encodeDeal, decodeDeal, hash };

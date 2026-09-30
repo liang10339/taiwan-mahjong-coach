@@ -18,6 +18,7 @@
   // 而不是預測實際胡牌機率。
   const E = typeof module !== 'undefined' ? require('./engine.js') : root.Mahjong;
   const S = typeof module !== 'undefined' ? require('./scoring.js') : root.Scoring;
+  const Observation = typeof module !== 'undefined' ? require('./observation.js') : root.Observation;
 
   /**
    * 每位玩家在第 n 巡（莊家第 n 次摸牌那一圈）胡牌的條件機率（前面都還沒人胡的情況下）。
@@ -49,6 +50,7 @@
 
   /** p 看不到的牌：每種 4 張，扣掉自己手牌、自己攤牌與所有公開的牌 */
   function unseenPool(g, p) {
+    g = Observation.forPlayer(g, p);
     const counts = Array(34).fill(4);
     const seen = [...g.hands[p], ...E.publicTiles(g, p)];
     // publicTiles 已含自己的攤牌（包含暗槓）
@@ -65,14 +67,14 @@
    * 1. 打完進聽數最少；2. 單張字牌先打；3. 和手上其他牌連不起來的先打（前後兩張內沒有同門的牌）；
    * 4. 最後才看花色，打最少張的那一門（保留主要花色，讓混一色、清一色有機會成形）。
    */
-  function policyDiscard(hand, open) {
+  function policyDiscard(hand, open, rules) {
     const suitCount = [0, 0, 0, 0];
     for (const t of hand) suitCount[t >= 27 ? 3 : Math.floor(t / 9)]++;
     let best = null;
     for (const t of new Set(hand)) {
       const rest = hand.slice();
       rest.splice(rest.indexOf(t), 1);
-      const s = E.shanten(rest, open);
+      const s = E.shanten(rest, open, rules);
       const lone = t >= 27 && hand.filter((x) => x === t).length === 1 ? 0 : 1;
       const links = rest.filter((x) =>
         t >= 27 ? x === t : x < 27 && Math.floor(x / 9) === Math.floor(t / 9) && Math.abs(x - t) <= 2,
@@ -87,7 +89,7 @@
    * 別家打出 tile 時要不要碰（任何一家）或吃（只有上家）：只在吃碰後進聽數變少時才吃碰。
    * 回傳吃碰並打出一張後的手牌、攤牌與進聽數；不吃碰時回傳 null。
    */
-  function tryClaim(hand, melds, tile, fromUpper, shanten) {
+  function tryClaim(hand, melds, tile, fromUpper, shanten, rules) {
     const open = melds.length,
       options = [];
     if (hand.filter((x) => x === tile).length >= 2) options.push({ type: 'pon', used: [tile, tile] });
@@ -102,7 +104,7 @@
     for (const o of options) {
       const rest = hand.slice();
       for (const x of o.used) rest.splice(rest.indexOf(x), 1);
-      const out = policyDiscard(rest, open + 1);
+      const out = policyDiscard(rest, open + 1, rules);
       if (out.shanten < shanten && (!best || out.shanten < best.shanten)) {
         rest.splice(rest.indexOf(out.tile), 1);
         best = {
@@ -159,8 +161,9 @@
    * @returns {{tile: number, shanten: number, remaining: number}[]}
    */
   function candidates(g, p, limit = 6) {
+    g = Observation.forPlayer(g, p);
     const open = g.melds[p].length,
-      options = E.analyze(g.hands[p], E.publicTiles(g, p), open);
+      options = E.analyze(g.hands[p], E.publicTiles(g, p), open, new Map(), g.rules);
     const best = options[0].shanten;
     const picked = options.filter((o) => o.shanten === best).slice(0, limit);
     const next = options.find((o) => o.shanten === best + 1);
@@ -177,7 +180,7 @@
       upper = (p + 3) % 4;
     let hand = start.slice(),
       melds = melds0,
-      shanten = E.shanten(hand, melds.length);
+      shanten = E.shanten(hand, melds.length, g.rules);
     for (let turn = 1; turn <= horizon && pool.length; turn++) {
       // 別家先胡，這一局就結束了
       if (rng() < othersWin(nowTurn + turn)) return null;
@@ -186,9 +189,9 @@
       for (const q of others) {
         if (!pool.length) return null;
         const tile = pool.splice(Math.floor(rng() * pool.length), 1)[0];
-        if (shanten === 0 && E.winning([...hand, tile], melds.length))
+        if (shanten === 0 && E.winning([...hand, tile], melds.length, g.rules))
           return { tsumo: false, turn, tai: taiOf(g, p, [...hand, tile], melds, tile, false, q, cache) };
-        const claim = shanten > 0 ? tryClaim(hand, melds, tile, q === upper, shanten) : null;
+        const claim = shanten > 0 ? tryClaim(hand, melds, tile, q === upper, shanten, g.rules) : null;
         if (claim) {
           ({ hand, melds, shanten } = claim);
           claimed = true;
@@ -200,13 +203,13 @@
       // 自己摸一張：能自摸就胡；沒有幫助就直接打掉（摸切），有幫助才重新挑要打哪張
       const draw = pool.splice(Math.floor(rng() * pool.length), 1)[0];
       hand.push(draw);
-      if (shanten === 0 && E.winning(hand, melds.length))
+      if (shanten === 0 && E.winning(hand, melds.length, g.rules))
         return { tsumo: true, turn, tai: taiOf(g, p, hand, melds, draw, true, null, cache) };
-      if (E.shanten(hand, melds.length) >= shanten) {
+      if (E.shanten(hand, melds.length, g.rules) >= shanten) {
         hand.pop();
         continue;
       }
-      const out = policyDiscard(hand, melds.length);
+      const out = policyDiscard(hand, melds.length, g.rules);
       hand.splice(hand.indexOf(out.tile), 1);
       shanten = out.shanten;
     }
@@ -220,9 +223,10 @@
    * @param {{trials?: number, seed?: number, tiles?: number[]}} [opts] 每種打法模擬幾次、亂數種子、只算指定的打法
    */
   function evaluate(g, p = 0, opts = {}) {
+    g = Observation.forPlayer(g, p);
     const trials = opts.trials || 300,
       horizon = horizonOf(g),
-      seed = opts.seed ?? (g.seed ^ (g.log.length * 2654435761)) >>> 0,
+      seed = opts.seed ?? Observation.fingerprint(g, p),
       nowTurn = currentTurn(g),
       cache = new Map();
     const list = opts.tiles
