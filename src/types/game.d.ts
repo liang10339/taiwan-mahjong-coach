@@ -49,6 +49,8 @@ interface LogEvent {
   robKan?: boolean;
   afterKan?: boolean;
   special?: 'eightFlowers' | 'sevenRobOne';
+  /** 吃、碰、明槓用了手上哪幾張（回應與攤牌事件） */
+  tiles?: Tile[];
 }
 
 /** 一局麻將的完整狀態。 */

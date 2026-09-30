@@ -40,6 +40,7 @@ const FILES = [
   './src/core/notebook.js' + v,
   './src/core/growth.js' + v,
   './src/core/fairness.js' + v,
+  './src/core/record.js' + v,
   './src/workers/value-worker.js' + v,
   './src/ui/tiles.js' + v,
   './src/ui/sound.js' + v,
