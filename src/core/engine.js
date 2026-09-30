@@ -407,7 +407,14 @@
     if (!match) return false;
     if (match.type === 'pass' && g.passWater && claims(g, p).some((a) => a.type === 'ron')) g.water[p] = true;
     g.pending.decisions[p] = match;
-    g.log.push({ player: p, action: 'response', choice: match.type, tile: g.pending.tile });
+    // 吃、碰、槓記下用了手上哪幾張（同一張牌可能有兩三種吃法），牌譜才能完整重現
+    g.log.push({
+      player: p,
+      action: 'response',
+      choice: match.type,
+      tile: g.pending.tile,
+      ...('tiles' in match && match.type !== 'ron' ? { tiles: match.tiles.slice() } : {}),
+    });
     resolve(g);
     return true;
   }
@@ -468,7 +475,7 @@
       tiles: [...a.tiles, pending.tile].sort((a, b) => a - b),
       from: pending.from,
     });
-    g.log.push({ player: p, action: a.type, tile: pending.tile });
+    g.log.push({ player: p, action: a.type, tile: pending.tile, tiles: a.tiles.slice(), from: pending.from });
     g.phase = 'discard';
     if (a.type === 'kan') supplement(g, p);
   }

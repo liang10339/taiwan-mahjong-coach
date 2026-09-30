@@ -11,6 +11,8 @@ const BASE = 2.5; // 底換算成台（50 底 20 台）
 // 實驗用：VARIANT=eff（只照牌效率＋口訣）、nohold（不踩吃碰煞車）、full（完整教練）
 const P = require('../src/core/policy.js');
 const VARIANT = process.env.VARIANT || 'full';
+/** 實驗用：MARGIN=0.5 表示期望值要多 0.5 台才改打效率首選以外的牌 */
+const MARGIN = process.env.MARGIN ? Number(process.env.MARGIN) : undefined;
 if (VARIANT === 'eff') {
   const choose = P.choose;
   P.choose = (input) => {
@@ -31,7 +33,7 @@ function play(seed, useCoach) {
     if (useCoach && p === 0 && g.phase === 'discard' && !E.winning(g.hands[0], g.melds[0].length)) {
       const kan = AI.chooseKan(g, 0, 'normal');
       if (kan && E.selfKan(g, 0, kan)) continue;
-      const d = A.decide(g, 0, { base: BASE });
+      const d = A.decide(g, 0, { base: BASE, margin: MARGIN });
       stances[d.stance] = (stances[d.stance] || 0) + 1;
       const f = g.fresh;
       E.discard(
@@ -44,7 +46,7 @@ function play(seed, useCoach) {
       for (let q = 0; q < 4 && g.phase === 'claim'; q++)
         if (!g.pending.decisions[q]) {
           if (q === 0 && useCoach) {
-            const c = A.claims(g, 0, { base: BASE });
+            const c = A.claims(g, 0, { base: BASE, margin: MARGIN });
             E.respond(g, 0, c.best ? c.best.action : { type: 'pass' });
           } else E.respond(g, q, AI.chooseClaim(g, q, q === 0 ? 'normal' : levels[q]));
         }
@@ -70,12 +72,15 @@ function play(seed, useCoach) {
 const n = Number(process.argv[2]) || 300;
 const sum = { coach: { won: 0, dealIn: 0, delta: 0, stances: {} }, plain: { won: 0, dealIn: 0, delta: 0 } };
 const start = Number(process.env.START) || 0;
+const diffs = []; // 每副牌「照教練打 − 只看效率」的得失差，用來算誤差範圍
 for (let seed = start + 1; seed <= start + n; seed++) {
   for (const [key, use] of [
     ['coach', true],
     ['plain', false],
   ]) {
     const r = play(seed, use);
+    if (use) diffs.push(r.delta);
+    else diffs[diffs.length - 1] -= r.delta;
     sum[key].won += r.won;
     sum[key].dealIn += r.dealIn;
     sum[key].delta += r.delta;
@@ -84,7 +89,7 @@ for (let seed = start + 1; seed <= start + n; seed++) {
   }
 }
 const pct = (x) => ((x / n) * 100).toFixed(1) + '%';
-console.log('變體', VARIANT, '局數', n);
+console.log('變體', VARIANT, 'MARGIN', MARGIN ?? '預設', '局數', n);
 for (const k of ['coach', 'plain'])
   console.log(
     k === 'coach' ? '照教練打' : '只看效率',
@@ -97,3 +102,13 @@ for (const k of ['coach', 'plain'])
     '台',
   );
 console.log('局勢分布', sum.coach.stances);
+// 同一副牌的差值平均與標準誤：差距小於約 2 個標準誤時，還不能說哪個比較好
+const mean = diffs.reduce((a, b) => a + b, 0) / diffs.length,
+  sd = Math.sqrt(diffs.reduce((a, b) => a + (b - mean) ** 2, 0) / (diffs.length - 1));
+console.log(
+  '每局差（教練 − 效率）',
+  mean.toFixed(3),
+  '台 ± 標準誤',
+  (sd / Math.sqrt(diffs.length)).toFixed(3),
+);
+console.log('DIFFS', JSON.stringify(diffs.map((x) => Math.round(x * 100) / 100)));

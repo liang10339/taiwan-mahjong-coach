@@ -28,6 +28,8 @@ const RIVER = [5, 7, 12, 16, 21, 23, 25];
 const discarded = (g, q, tiles = RIVER) => {
   g.rivers[q] = tiles.slice();
   g.cuts[q] = tiles.map(() => 'hand');
+  // 打了這麼多張，牌牆也要少掉相應的張數（模型會看牌牆剩餘）
+  g.wall = g.wall.slice(0, Math.max(20, g.wall.length - tiles.length * 4));
 };
 
 // 1. 聽牌機率：攤牌越多、打出越多越高；連續摸切也會提高
@@ -40,6 +42,7 @@ const discarded = (g, q, tiles = RIVER) => {
   assert.ok(O.tenpaiProb(open, 1) > O.tenpaiProb(quiet, 1) + 0.2, '攤三組的聽牌機率要明顯較高');
   const late = position(hand, (g) => {
     g.rivers[2] = [27, 28, 29, 0, 8, 9, 17, 18, 26, 33, 32, 5];
+    g.wall = g.wall.slice(0, 40); // 打了十二張，牌牆也少了
     g.cuts[2] = Array(12).fill('hand');
   });
   assert.ok(O.tenpaiProb(late, 2) > O.tenpaiProb(quiet, 2), '打出越多張越可能聽牌');
@@ -170,6 +173,38 @@ if (CAL) {
   assert.ok(CAL.wait.base.n[3] > CAL.wait.base.n[0], '中張要比沒有順子能等的牌危險');
   assert.ok(CAL.wait.factor.avoid < 1, '他一直在打的那門比較安全');
   assert.ok(O.probForKey('3|3|0') > O.probForKey('0|0|0'));
+}
+
+// 8. 邏輯迴歸模型：特徵與權重對得上；「非需求度」線索依權重方向影響機率與理由
+{
+  const L = require('../src/core/logistic.js');
+  const g = position(hand, (g) => {
+    g.melds[1] = pons([11, 20, 31]);
+    discarded(g, 1, [2, 3, 5, 7, 12, 16, 21]); // 打過 3萬、4萬、6萬
+  });
+  const o = O.read(g, 0)[0],
+    seen = Safety.visibleCounts(g, 0);
+  assert.equal(O.tenpaiVector(g, 1).length, O.TENPAI_FEATURES.length);
+  const v = Safety.waitVector(4, seen, o);
+  assert.equal(v.length, Safety.WAIT_FEATURES.length);
+  assert.equal(v[Safety.WAIT_FEATURES.indexOf('discNear1')], 1, '5萬 旁邊的 4萬、6萬 他打過');
+  assert.equal(v[Safety.WAIT_FEATURES.indexOf('discSame')], 0);
+  if (CAL && CAL.tenpaiModel && CAL.waitModel) {
+    assert.deepEqual(CAL.tenpaiModel.names, O.TENPAI_FEATURES, '權重要對應目前的特徵');
+    assert.deepEqual(CAL.waitModel.names, Safety.WAIT_FEATURES);
+    const p = O.tenpaiProb(g, 1);
+    assert.ok(p > 0 && p < 1);
+    // 打過旁邊牌的權重若為負，就要讓這張較安全，理由也要講出來
+    const near = L.weight(CAL.waitModel, 'discNear1');
+    if (near <= -0.25) {
+      const without = position(hand, (g) => {
+        g.melds[1] = pons([11, 20, 31]);
+        discarded(g, 1, [0, 8, 9, 12, 16, 21, 25]);
+      });
+      assert.ok(entry(g, 4).per[0].wait < entry(without, 4).per[0].wait);
+      assert.match(Safety.explain(entry(g, 4)), /打過旁邊的/);
+    }
+  }
 }
 
 console.log('defense 2.0 tests passed');

@@ -78,8 +78,11 @@ function showStart() {
     group.append(label);
   }
   stage.append(group);
-  const resumable = session.hand > 1 || session.scores.some(Boolean);
-  if (resumable) {
+  // 上次打到一半（重新整理或更新網頁）：可以用牌譜接著打
+  const unfinished = typeof resumable === 'function' ? resumable() : null;
+  if (unfinished) actions.append(openingButton('接續上一局（打到一半）', () => resumeGame(unfinished)));
+  const continuing = session.hand > 1 || session.scores.some(Boolean);
+  if (continuing) {
     actions.append(
       openingButton('繼續這一將（' + roundName() + '）', startCurrentHand),
       openingButton('開新的一將', () => newMatch(), false),

@@ -6,7 +6,8 @@
   const node = typeof module !== 'undefined';
   const E = node ? require('./engine.js') : root.Mahjong,
     AI = node ? require('./ai.js') : root.AI,
-    Observation = node ? require('./observation.js') : root.Observation;
+    Observation = node ? require('./observation.js') : root.Observation,
+    L = node ? require('./logistic.js') : root.Logistic;
   const CAL = node ? require('./data/calibration.js') : root.Calibration;
   const HAND_CHANGES = ['chi', 'pon', 'kan', 'concealed', 'added'];
 
@@ -70,7 +71,55 @@
     };
   }
 
-  /** 特徵分組的鍵：攤牌數 × 巡目 × 連續摸切 */
+  /**
+   * 聽牌機率模型（邏輯迴歸）的特徵，參考台灣麻將聽牌預測研究常用的公開資訊：
+   * 巡目、吃碰數、摸切／手切節奏、最近打出的牌（中張、字牌）、牌牆剩餘、攤牌是否同一門。
+   * 名稱與順序必須和 calibration.js 裡的權重一致。
+   */
+  const TENPAI_FEATURES = [
+    'bias',
+    'melds', // 攤牌組數
+    'melds3', // 攤三組以上
+    'chis', // 其中吃的組數
+    'discards', // 打出張數 ÷ 10
+    'discards2', // 打出張數的平方（後期增加變慢）
+    'streak', // 連續摸切（最多 6）÷ 3
+    'tsumoRecent', // 最近 6 張裡摸切的比例
+    'lateMiddleCut', // 最近 3 張手切中張（3–7）的數量 ÷ 3
+    'lateHonor', // 最近 4 張裡字牌的數量 ÷ 4
+    'left', // 牌牆剩餘 ÷ 60
+    'oneSuit', // 攤牌全同一門
+  ];
+
+  /** @param {Game} g @param {number} q */
+  function tenpaiVector(g, q) {
+    const cuts = (g.cuts && g.cuts[q]) || [],
+      river = g.rivers[q],
+      melds = g.melds[q],
+      r = AI.reading(g, q),
+      d = river.length;
+    const recent = cuts.slice(-6);
+    const lastThree = river.slice(-3).filter((t, i) => {
+      const cut = cuts[cuts.length - Math.min(3, river.length) + i];
+      return cut !== 'tsumo' && t < 27 && t % 9 >= 2 && t % 9 <= 6;
+    }).length;
+    return [
+      1,
+      melds.length,
+      melds.length >= 3 ? 1 : 0,
+      melds.filter((m) => m.type === 'chi').length,
+      d / 10,
+      (d / 10) ** 2,
+      Math.min(r.streak, 6) / 3,
+      recent.length ? recent.filter((c) => c === 'tsumo').length / recent.length : 0,
+      lastThree / 3,
+      river.slice(-4).filter((t) => t >= 27).length / 4,
+      drawable(g) / 60,
+      r.oneSuit !== null ? 1 : 0,
+    ];
+  }
+
+  /** 特徵分組的鍵：攤牌數 × 巡目 × 連續摸切（舊的分組統計，沒有模型時使用，也用來比較準確度） */
   function tenpaiKey(f) {
     const m = Math.min(f.melds, 3),
       turn = f.discards < 4 ? 0 : f.discards < 7 ? 1 : f.discards < 10 ? 2 : f.discards < 13 ? 3 : 4,
@@ -98,6 +147,8 @@
    * @param {Game} g @param {number} q
    */
   function tenpaiProb(g, q) {
+    const model = CAL && CAL.tenpaiModel;
+    if (model) return Math.min(0.97, Math.max(0.005, L.predict(model, tenpaiVector(g, q))));
     return probForKey(tenpaiKey(features(g, q)));
   }
 
@@ -144,6 +195,11 @@
         passed: passedSince(g, q),
         passedAssumption: g.playerPolicies[q].alwaysWin ? 'always-win-computer' : null,
         handCuts: recentHandCuts(g, q),
+        river: g.rivers[q].slice(),
+        meldSuits: g.melds[q]
+          .filter((m) => m.type !== 'concealed')
+          .map((m) => (m.tiles[0] < 27 ? Math.floor(m.tiles[0] / 9) : 3)),
+        left: drawable(g),
         water: false, // Opponent pass-water state is private, not a public safety signal.
       };
     });
@@ -155,6 +211,8 @@
     expectedTai,
     features,
     tenpaiKey,
+    tenpaiVector,
+    TENPAI_FEATURES,
     probForKey,
     passedSince,
     recentHandCuts,

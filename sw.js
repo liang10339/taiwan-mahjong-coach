@@ -1,6 +1,6 @@
 // Service worker：離線快取。先向網路要最新檔案，失敗時才用快取。
 // 改版時執行 `npm run bump`，會同時更新這裡的 VERSION 與 index.html 的 ?v= 參數。
-const VERSION = 27;
+const VERSION = 28;
 const CACHE = 'mahjong-coach-v' + VERSION;
 const v = '?v=' + VERSION;
 
@@ -22,6 +22,7 @@ const FILES = [
   './styles/growth.css' + v,
   './styles/fairness.css' + v,
   './styles/situation.css' + v,
+  './styles/records.css' + v,
   './src/core/engine.js' + v,
   './src/core/observation.js' + v,
   './src/core/coach.js' + v,
@@ -29,6 +30,7 @@ const FILES = [
   './src/core/scoring.js' + v,
   './src/core/ai.js' + v,
   './src/core/data/calibration.js' + v,
+  './src/core/logistic.js' + v,
   './src/core/opponents.js' + v,
   './src/core/safety.js' + v,
   './src/core/policy.js' + v,
@@ -39,6 +41,7 @@ const FILES = [
   './src/core/notebook.js' + v,
   './src/core/growth.js' + v,
   './src/core/fairness.js' + v,
+  './src/core/record.js' + v,
   './src/workers/value-worker.js' + v,
   './src/ui/tiles.js' + v,
   './src/ui/sound.js' + v,
@@ -54,6 +57,7 @@ const FILES = [
   './src/ui/app/notebook-panel.js' + v,
   './src/ui/app/growth-panel.js' + v,
   './src/ui/app/fairness-panel.js' + v,
+  './src/ui/app/records-panel.js' + v,
   './src/ui/app/flow.js' + v,
   './src/ui/app/opening.js' + v,
   './src/ui/app/settings-panel.js' + v,

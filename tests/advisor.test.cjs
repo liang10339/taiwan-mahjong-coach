@@ -69,6 +69,7 @@ assert.deepEqual(mismatch, [], '吃碰前後建議不一致');
     ],
   ];
   g.rivers = [[], [], [], [5, 7, 12, 16, 21, 23, 25, 4]];
+  g.wall = g.wall.slice(0, 28); // 後盤：上家攤三組又打了八張
   g.cuts = [[], [], [], Array(8).fill('hand')];
   g.log = [{ player: 3, action: 'discard', tile: 4, cut: 'hand' }];
   g.turn = 0;
@@ -89,7 +90,7 @@ assert.deepEqual(mismatch, [], '吃碰前後建議不一致');
 const ui = createUiContext();
 ui.button('#openingActions', '開始').onclick();
 ui.run(
-  "clearTimeout(timer); game.hands[0] = [0,4,8,9,13,17,18,22,26,27,28,29,30,31,1,10,19]; game.melds[1] = [{type:'pon',tiles:[2,2,2]},{type:'pon',tiles:[11,11,11]},{type:'pon',tiles:[20,20,20]}]; game.rivers[1].push(5,7,12,16,21,23,25,27); game.cuts[1].push('hand','hand','hand','hand','hand','hand','hand','tsumo'); game.log.push({player:1,action:'discard',tile:27,cut:'tsumo'},{action:'resolution',player:1,choice:'pass',tile:27}); game.turn = 0; game.phase = 'discard'; game.pending = null; game.fresh = null; analyze(); coach();",
+  "clearTimeout(timer); game.hands[0] = [0,4,8,9,13,17,18,22,26,27,28,29,30,31,1,10,19]; game.melds[1] = [{type:'pon',tiles:[2,2,2]},{type:'pon',tiles:[11,11,11]},{type:'pon',tiles:[20,20,20]}]; game.rivers[1].push(5,7,12,16,21,23,25,27); game.cuts[1].push('hand','hand','hand','hand','hand','hand','hand','tsumo'); game.log.push({player:1,action:'discard',tile:27,cut:'tsumo'},{action:'resolution',player:1,choice:'pass',tile:27}); game.wall = game.wall.slice(0, 44); game.turn = 0; game.phase = 'discard'; game.pending = null; game.fresh = null; analyze(); coach();",
 );
 const d = ui.run('currentDecision()');
 assert.equal(d.stance, 'balance', '東是效率首選也是最安全的牌，不必拆牌就能兼顧');

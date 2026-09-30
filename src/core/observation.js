@@ -32,6 +32,9 @@
     if (e.tile !== undefined && (e.player === viewer || !['draw', 'concealed'].includes(e.action)))
       out.tile = e.tile;
     if (e.cut !== undefined) out.cut = publicCut(e.cut, e.player, viewer);
+    // 吃碰明槓用了哪幾張是攤在桌上的公開資訊；回應只給自己看
+    if (e.tiles && (['chi', 'pon', 'kan'].includes(e.action) || e.player === viewer))
+      out.tiles = e.tiles.slice();
     return out;
   }
 

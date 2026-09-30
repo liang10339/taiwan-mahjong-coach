@@ -38,8 +38,8 @@
   /**
    * 比較每張候選牌的攻守期望值，選出這手要打的牌與局勢。
    * @param {{options: any[], efficiency: any, safety: any[], left: number, myTai: number,
-   *   base?: number, tsumoShare?: number, dealerExtra?: number, maxTenpai?: number}} input
-   *   base：底換算成幾台（例如 50 底 20 台 → 2.5）；dealerExtra：自己是莊家時放槍多付的台數。
+   *   base?: number, tsumoShare?: number, dealerExtra?: number, maxTenpai?: number, margin?: number}} input
+   *   base：底換算成幾台（例如 50 底 20 台 → 2.5）；dealerExtra：自己是莊家時放槍多付的台數；margin：改打非效率首選需要多出的期望值（預設 MARGIN）。
    */
   function choose(input) {
     const {
@@ -73,7 +73,7 @@
     rows.sort((a, b) => b.ev - a.ev || a.dealIn - b.dealIn);
     const eff = rows.find((r) => r.tile === efficiency.tile) || rows[0];
     const top = rows[0];
-    const chosen = top.ev > eff.ev + MARGIN ? top : eff;
+    const chosen = top.ev > eff.ev + (input.margin ?? MARGIN) ? top : eff;
     const sh = efficiency.shanten;
     let stance;
     if (chosen !== eff) stance = chosen.option.shanten > eff.option.shanten ? 'fold' : 'balance';

@@ -1,0 +1,97 @@
+/* 牌譜：牌局覆盤分頁的歷史牌局、匯入與逐步回放 */
+.records {
+  margin: 20px 0;
+  padding: 16px;
+  border-radius: 12px;
+  background: #f3f1e8;
+}
+.records h3 {
+  margin: 0 0 6px;
+  font-size: 17px;
+}
+.record-intro {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #6f756b;
+}
+.record-row {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 13px;
+  border-bottom: 1px solid #e3dfd2;
+}
+.record-row small {
+  color: #6f756b;
+  overflow-wrap: anywhere;
+}
+.record-import {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 13px;
+}
+.record-file {
+  max-width: 100%;
+}
+.record-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.record-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0;
+}
+.record-slider {
+  flex: 1;
+  min-width: 0;
+}
+.record-action {
+  margin: 4px 0 8px;
+  font-weight: 600;
+}
+.record-seat {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 6px 0;
+  border-top: 1px solid #e3dfd2;
+}
+.record-seat.turn > small:first-child {
+  color: #2f5f8a;
+  font-weight: 700;
+}
+.record-seat > small:first-child {
+  flex: 0 0 100%;
+  color: #6f756b;
+  font-size: 12px;
+}
+.record-seat .meld-group {
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.record-river {
+  flex: 0 0 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  opacity: 0.85;
+}
+.record-result {
+  font-weight: 600;
+}
+.record-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}

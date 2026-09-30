@@ -54,6 +54,7 @@ const fold = position(messy, (g) => {
     { type: 'pon', tiles: [20, 20, 20] },
   ];
   g.rivers[1] = [5, 7, 12, 16, 21, 23, 25, 27]; // 打過好幾張才是「很可能聽牌」
+  g.wall = g.wall.slice(0, 44); // 牌牆也要跟著少
   g.cuts[1] = ['hand', 'hand', 'hand', 'hand', 'hand', 'hand', 'hand', 'tsumo'];
   g.log = discard(1, 27, 'tsumo');
 });
