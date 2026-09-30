@@ -102,7 +102,7 @@ vm.runInContext(
 );
 get('#hand').children[16].onclick();
 get('#askSelected').onclick();
-assert.match(get('#askAnswer').textContent, /並列/);
+assert.equal(get('#askAnswer').textContent, vm.runInContext('Advisor.assess(currentDecision(), 33).text', c));
 assert.equal(get('#hand').children.length, 17);
 get('#askInput').value = '打白板可以嗎';
 get('#askForm').onsubmit({ preventDefault() {} });

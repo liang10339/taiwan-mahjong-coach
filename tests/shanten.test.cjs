@@ -74,7 +74,7 @@ for (let k = 0; k < 4000; k++) {
   const open = k % 6,
     size = (k % 2 ? 16 : 17) - 3 * open,
     hand = wall().slice(0, Math.max(1, size));
-  assert.equal(E.shanten(hand, open), referenceShanten(hand, open), JSON.stringify({ hand, open }));
+  assert.equal(E.standardShanten(hand, open), referenceShanten(hand, open), JSON.stringify({ hand, open }));
   checked++;
 }
 // 2. 單一花色集中的手牌（最容易出現大量拆法，例如清一色）
@@ -87,7 +87,7 @@ for (let k = 0; k < 1500; k++) {
     [pool[i], pool[j]] = [pool[j], pool[i]];
   }
   const hand = pool.slice(0, 16 + (k % 2));
-  assert.equal(E.shanten(hand), referenceShanten(hand), JSON.stringify(hand));
+  assert.equal(E.standardShanten(hand), referenceShanten(hand), JSON.stringify(hand));
   checked++;
 }
 // 3. 接近胡牌的手牌：五組加一對再拿掉或換掉幾張
@@ -102,7 +102,7 @@ for (let k = 0; k < 1500; k++) {
   hand.push(pair, pair);
   if (countsOf(hand).some((n) => n > 4)) continue;
   const cut = hand.slice(0, 17 - (k % 3));
-  assert.equal(E.shanten(cut), referenceShanten(cut), JSON.stringify(cut));
+  assert.equal(E.standardShanten(cut), referenceShanten(cut), JSON.stringify(cut));
   checked++;
 }
 // 4. 速度：新版要明顯比原版快

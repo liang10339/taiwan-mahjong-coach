@@ -1,6 +1,6 @@
 // Service worker：離線快取。先向網路要最新檔案，失敗時才用快取。
 // 改版時執行 `npm run bump`，會同時更新這裡的 VERSION 與 index.html 的 ?v= 參數。
-const VERSION = 26;
+const VERSION = 27;
 const CACHE = 'mahjong-coach-v' + VERSION;
 const v = '?v=' + VERSION;
 
@@ -23,6 +23,7 @@ const FILES = [
   './styles/fairness.css' + v,
   './styles/situation.css' + v,
   './src/core/engine.js' + v,
+  './src/core/observation.js' + v,
   './src/core/coach.js' + v,
   './src/core/defense.js' + v,
   './src/core/scoring.js' + v,

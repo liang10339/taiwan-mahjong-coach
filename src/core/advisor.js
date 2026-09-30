@@ -14,6 +14,8 @@
     P = node ? require('./policy.js') : root.Policy,
     S = node ? require('./situation.js') : root.Situation;
   const CAL = node ? require('./data/calibration.js') : root.Calibration;
+  const Observation = node ? require('./observation.js') : root.Observation;
+  const VERSION = 1;
 
   /** 自己胡牌大約幾台：自戰的平均台數，莊家再加莊家與連莊 @param {Game} g @param {number} p */
   function myTai(g, p) {
@@ -37,6 +39,7 @@
       open: g.melds[p].length,
       value: valueTiles(g, p),
       nextRiver: g.rivers[(p + 1) % 4],
+      rules: g.rules,
     };
   }
 
@@ -46,9 +49,10 @@
    * @param {Game} g @param {number} [p] @param {{base?: number}} [opts] base：底換算成幾台
    */
   function decide(g, p = 0, opts = {}) {
+    g = Observation.forPlayer(g, p);
     const ctx = context(g, p),
       hand = g.hands[p],
-      options = E.analyze(hand, ctx.publicTiles, ctx.open);
+      options = E.analyze(hand, ctx.publicTiles, ctx.open, new Map(), g.rules);
     if (!options.length) return null;
     const tied = C.leadOrder(
       hand,
@@ -72,6 +76,8 @@
     const situation = S.read(g, p, { options, lead: efficiency, opps, safety, plan });
     const option = plan.option;
     return {
+      version: VERSION,
+      rules: g.rules,
       ctx,
       options,
       tied,
@@ -84,6 +90,7 @@
       plan,
       opps,
       safety,
+      explain: C.explainTurn(hand, options, ctx),
     };
   }
 
@@ -92,11 +99,26 @@
    * @param {Game} g @param {number} p @param {any} action
    */
   function afterClaim(g, p, action) {
-    const h = structuredClone(g);
-    if (!E.respond(h, p, action)) return null;
-    for (let q = 0; q < 4 && h.phase === 'claim'; q++)
-      if (h.pending && !h.pending.decisions[q]) E.respond(h, q, { type: 'pass' });
-    return h.phase === 'discard' && h.turn === p ? h : null;
+    const h = structuredClone(Observation.forPlayer(g, p));
+    if (!['chi', 'pon'].includes(action.type) || !h.pending || h.pending.decisions[p]) return null;
+    const legal = E.claims(h, p).find((a) => JSON.stringify(a) === JSON.stringify(action));
+    if (!legal) return null;
+    // 只推演「成功取得吃碰」的公開結果，不詢問其他家的暗牌或尚未公開的回應。
+    const { from, tile } = h.pending;
+    for (const t of legal.tiles) h.hands[p].splice(h.hands[p].indexOf(t), 1);
+    h.rivers[from].pop();
+    h.cuts[from].pop();
+    h.melds[p].push({ type: legal.type, tiles: [...legal.tiles, tile].sort((a, b) => a - b), from });
+    h.log.push(
+      { player: p, action: 'response', choice: legal.type, tile },
+      { player: p, action: 'resolution', choice: legal.type, tile },
+      { player: p, action: legal.type, tile },
+    );
+    h.pending = null;
+    h.fresh = null;
+    h.turn = p;
+    h.phase = 'discard';
+    return h;
   }
 
   /**
@@ -105,7 +127,8 @@
    * @param {Game} g @param {number} [p] @param {{base?: number}} [opts]
    */
   function claims(g, p = 0, opts = {}) {
-    return C.claimDecision(g, p, (action) => {
+    g = Observation.forPlayer(g, p);
+    const report = C.claimDecision(g, p, (action) => {
       const h = afterClaim(g, p, action);
       const d = h && decide(h, p, opts);
       return d
@@ -119,9 +142,166 @@
           }
         : null;
     });
+    report.limit =
+      '吃碰後出牌與實戰共用攻守建議；取得吃碰以其他家未優先胡牌為前提。槓牌只枚舉補牌效率，尚未估計搶槓機率與完整台數收益。';
+    for (const o of report.options) {
+      if (!o.after) continue;
+      const h = afterClaim(g, p, o.action);
+      if (h) o.risk = Safety.evaluate(h, p).find((r) => r.tile === o.after.tile);
+    }
+    return report;
   }
 
-  const api = { decide, claims, context, afterClaim, valueTiles, myTai };
+  /** 當時的綜合建議與理由；所有選牌評語共用這一份，不以實際輸贏倒推決策。 */
+  function rationale(d) {
+    const o = d.option,
+      risk = d.safety.find((r) => r.tile === d.tile);
+    return (
+      '綜合建議打' +
+      C.label(d.tile) +
+      '：' +
+      (o.shanten === 0 ? '打後聽牌' : '打後' + o.shanten + '進聽') +
+      '，有效牌未見 ' +
+      o.remaining +
+      ' 張。' +
+      (d.folding ? '只看牌效率會打' + C.label(d.efficiency.tile) + '；這次為攻守取捨調整。' : '') +
+      (risk ? Safety.explain(risk) + '。' : '')
+    );
+  }
+
+  /** 同一局面中推薦、合理替代與明顯損失的評分。 */
+  function assess(d, tile) {
+    const option = d && d.options.find((o) => o.tile === tile);
+    if (!option)
+      return {
+        verdict: 'unknown',
+        text: '目前手牌沒有這張可比較的牌。',
+        mistake: false,
+        warning: '',
+        reason: '',
+      };
+    const row = d.plan.rows.find((r) => r.tile === tile),
+      chosen = d.plan.chosen;
+    const gap = chosen.ev - row.ev;
+    const equivalent = C.same(option, d.option) && Math.abs(gap) < 0.000001;
+    const best = tile === d.tile || equivalent;
+    const lost = Math.max(0, d.option.remaining - option.remaining);
+    const mistake =
+      !best &&
+      gap > P.MARGIN &&
+      (option.shanten > d.option.shanten || lost >= 4 || row.dealIn - chosen.dealIn >= 0.02);
+    const verdict = best ? 'best' : mistake ? 'worse' : 'close';
+    const reason = rationale(d);
+    const comparison =
+      '你選的' +
+      C.label(tile) +
+      '：' +
+      (option.shanten === 0 ? '打後聽牌' : '打後' + option.shanten + '進聽') +
+      '，有效牌未見 ' +
+      option.remaining +
+      ' 張，放槍' +
+      Safety.percent(row.dealIn) +
+      '。';
+    const text =
+      (best ? '推薦選擇。' : mistake ? '目前評估有明顯損失。' : '合理替代；與首選不同不代表打錯。') +
+      comparison +
+      reason;
+    const lossText =
+      option.shanten > d.option.shanten
+        ? '向聽退了一步以上，距離聽牌多 ' + (option.shanten - d.option.shanten) + ' 步。'
+        : lost >= 4
+          ? '損失了 ' + lost + ' 張有效進張。'
+          : '承擔較高放槍風險，綜合收益不足以補償。';
+    return {
+      verdict,
+      text,
+      mistake,
+      warning: mistake ? lossText + '建議打' + C.label(d.tile) + '。' + comparison : '',
+      reason,
+    };
+  }
+
+  /** 保存當時評分，避免模型改版後把舊題答案悄悄換掉；不含任何隱藏牌。 */
+  function snapshot(d) {
+    if (!d) return null;
+    return {
+      version: VERSION,
+      rules: d.rules,
+      recommended: d.tile,
+      efficiency: d.efficiency.tile,
+      stance: d.stance,
+      rationale: rationale(d),
+      assessments: d.options.map((o) => ({ tile: o.tile, ...assess(d, o.tile) })),
+      options: d.options.map(({ tile, shanten, remaining }) => ({ tile, shanten, remaining })),
+    };
+  }
+
+  function kans(g, p = 0, opts = {}) {
+    g = Observation.forPlayer(g, p);
+    if (!E.selfKans(g, p).length || E.winning(g.hands[p], g.melds[p].length, g.rules)) return [];
+    const d = decide(g, p, opts);
+    if (!d) return [];
+    return C.selfKanDecision(g, p, d.option).map((o) => {
+      if (d.stance === 'fold') {
+        o.recommend = false;
+        o.compact = '建議先守，暫不槓。\n' + rationale(d);
+        o.text = o.compact + '\n以下僅為補牌效率情境：\n' + o.text;
+      }
+      return o;
+    });
+  }
+
+  /** 畫面可傳入已算好的報告，問答與點選預覽、覆盤不再各算一套。 */
+  function answer(question, g, selected = null, reports = {}) {
+    g = Observation.forPlayer(g, 0);
+    if (g.phase !== 'discard' || g.turn !== 0)
+      return C.contextualAnswer(
+        question,
+        g,
+        selected,
+        reports.claim || (g.phase === 'claim' ? claims(g) : null),
+      );
+    if (E.winning(g.hands[0], g.melds[0].length, g.rules)) return '合法胡牌結構已成立，建議先自摸。';
+    const d = reports.decision || decide(g);
+    if (/槓/.test(question))
+      return (reports.kans || kans(g)).map((o) => o.compact).join('\n\n') || '目前沒有可暗槓或加槓的牌。';
+    if (/147|258|369|口訣|公式|三面聽|吃|碰/.test(question)) return C.contextualAnswer(question, g, selected);
+    let tile = /白板|白/.test(question) ? 33 : /紅中/.test(question) ? 31 : null;
+    if (tile === null)
+      for (let t = 0; t < 34; t++)
+        if (question.includes(E.names[t])) {
+          tile = t;
+          break;
+        }
+    if (tile === null && selected !== null && /這張|這個|為什麼|可以|比較/.test(question)) tile = selected;
+    if (tile !== null) return assess(d, tile).text;
+    if (/防守|安全|危險|放槍/.test(question))
+      return (
+        rationale(d) +
+        '\n最安全：' +
+        Safety.explain(d.safety[0]) +
+        '\n最危險：' +
+        Safety.explain(d.safety[d.safety.length - 1])
+      );
+    if (/推薦|建議/.test(question)) return rationale(d);
+    return C.contextualAnswer(question, g, selected);
+  }
+
+  const api = {
+    VERSION,
+    decide,
+    claims,
+    kans,
+    answer,
+    assess,
+    snapshot,
+    rationale,
+    observe: Observation.forPlayer,
+    context,
+    afterClaim,
+    valueTiles,
+    myTai,
+  };
   if (node) module.exports = api;
   else root.Advisor = api;
 })(globalThis);

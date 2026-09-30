@@ -2,8 +2,8 @@
   'use strict';
   // 錯題本：實戰中的關鍵失誤存成「這手要打哪張？」的題目，依間隔重複（萊特納盒）安排複習。
   // 答對就放進下一盒、隔更久再出；答錯回到最前面、十分鐘後再考一次。第五盒答對就算熟練。
-  // 題目只存當時看得到的資訊（自己的手牌、攤牌數、公開的牌），複習時用教練同一套算法重新評分，
-  // 所以效率並列最佳的牌都算對，教練的解說也和實戰時一致。
+  // 題目只存當時看得到的資訊與決策報告，複習沿用當時的攻守評估，合理替代選擇也算對。
+  // 舊題目沒有報告，保留牌效率評分並明確標示，避免把缺少的攻守資訊當成已知。
   const E = typeof module !== 'undefined' ? require('./engine.js') : root.Mahjong;
   const C = typeof module !== 'undefined' ? require('./coach.js') : root.Coach;
 
@@ -22,26 +22,90 @@
   /**
    * @typedef {{id: string, hand: number[], open: number, melds: number[][], pub: number[], played: number,
    *   box: number, due: number, created: number, seen: number, right: number, label?: string,
-   *   kind?: string, winner?: string, answers?: number[], safety?: {tile: number, dealIn: number, text: string}[]}} NoteItem
+   *   kind?: string, winner?: string, answers?: number[], safety?: {tile: number, dealIn: number, text: string}[],
+   *   decision?: any, rules?: any, context?: any}} NoteItem
    */
 
-  /** 從一次失誤建立題目 */
-  function fromMistake({ hand, open = 0, melds = [], pub = [], played, label = '', time = Date.now() }) {
-    return {
-      id:
-        hand
-          .slice()
-          .sort((a, b) => a - b)
-          .join(',') +
-        '|' +
-        pub.length +
-        '|' +
+  /** JSON 存檔不保留參考；固定物件欄位順序，使相同局面不受建立順序影響。 */
+  function stable(value) {
+    if (Array.isArray(value)) return value.map(stable);
+    if (value && typeof value === 'object')
+      return Object.fromEntries(
+        Object.keys(value)
+          .sort()
+          .map((key) => [key, stable(value[key])]),
+      );
+    return value;
+  }
+
+  /** 去重包含實際公開張數、桌規、攻守背景與報告，不把不同局勢合成同一題。 */
+  function identity({
+    hand,
+    open,
+    melds,
+    pub,
+    played,
+    rules,
+    context,
+    decision,
+    kind = 'decision',
+    safety = [],
+  }) {
+    const counts = Array(42).fill(0);
+    pub.forEach((tile) => counts[tile]++);
+    return JSON.stringify(
+      stable({
+        kind,
+        hand: hand.slice().sort((a, b) => a - b),
+        open,
+        melds: melds
+          .map((m) => m.slice().sort((a, b) => a - b))
+          .sort((a, b) => a.join(',').localeCompare(b.join(','))),
+        pub: counts,
         played,
+        rules: rules || null,
+        context: context || null,
+        decision: decision || null,
+        safety,
+      }),
+    );
+  }
+
+  /** 從一次失誤建立題目 */
+  function fromMistake({
+    hand,
+    open = 0,
+    melds = [],
+    pub = [],
+    played,
+    decision = null,
+    rules = null,
+    context = null,
+    label = '',
+    time = Date.now(),
+  }) {
+    const savedDecision = decision ? JSON.parse(JSON.stringify(decision)) : null;
+    const savedRules = rules ? JSON.parse(JSON.stringify(rules)) : null;
+    const savedContext = context ? JSON.parse(JSON.stringify(context)) : null;
+    return {
+      id: identity({
+        hand,
+        open,
+        melds,
+        pub,
+        played,
+        rules: savedRules,
+        context: savedContext,
+        decision: savedDecision,
+      }),
       hand: hand.slice(),
       open,
       melds: melds.map((m) => m.slice()),
       pub: pub.slice(),
       played,
+      decision: savedDecision,
+      rules: savedRules,
+      context: savedContext,
       label,
       box: 0,
       due: time, // 新題目馬上可以複習
@@ -54,6 +118,7 @@
   /**
    * 從一次放槍建立防守題：「這手打哪張最安全？」。
    * 放槍機率在當時就算好存起來（牌局之後不在了），answers 是當時最安全的牌（容許 0.5% 以內並列）。
+   * 只練防守；實戰可能值得進攻，放槍結果本身不代表決策錯誤。
    * @param {{hand: number[], open?: number, melds?: number[][], pub?: number[], played: number,
    *   safety: {tile: number, dealIn: number, text: string}[], winner?: string, label?: string, time?: number}} x
    */
@@ -69,22 +134,25 @@
     time = Date.now(),
   }) {
     const min = Math.min(...safety.map((r) => r.dealIn));
+    const savedSafety = safety.map((r) => ({ tile: r.tile, dealIn: r.dealIn, text: r.text }));
     return {
       ...fromMistake({ hand, open, melds, pub, played, label, time }),
-      id:
-        'def|' +
-        hand
-          .slice()
-          .sort((a, b) => a - b)
-          .join(',') +
-        '|' +
-        pub.length +
-        '|' +
+      id: identity({
+        hand,
+        open,
+        melds,
+        pub,
         played,
+        rules: null,
+        context: null,
+        decision: null,
+        kind: 'defense',
+        safety: savedSafety,
+      }),
       kind: 'defense',
       winner,
       answers: safety.filter((r) => r.dealIn <= min + 0.005).map((r) => r.tile),
-      safety: safety.map((r) => ({ tile: r.tile, dealIn: r.dealIn, text: r.text })),
+      safety: savedSafety,
     };
   }
 
@@ -113,24 +181,51 @@
   }
 
   /**
-   * 評分：用教練的算法重新比較，回傳是否答對、正確答案（並列最佳都算）與解說。
+   * 評分：使用實戰決策報告；舊題目才重新比較牌效率。
    * @param {NoteItem} item
    * @param {number} tile 這次選的牌
    */
   function check(item, tile) {
     if (item.kind === 'defense') return checkDefense(item, tile);
-    const options = E.analyze(item.hand, item.pub, item.open);
-    const explain = C.explainTurn(item.hand, options, { publicTiles: item.pub, open: item.open });
+    if (item.decision && Array.isArray(item.decision.assessments)) return checkDecision(item, tile);
+    const options = E.analyze(item.hand, item.pub, item.open, new Map(), item.rules || undefined);
+    const explain = C.explainTurn(item.hand, options, {
+      publicTiles: item.pub,
+      open: item.open,
+      rules: item.rules || undefined,
+    });
     const best = explain.best,
       tied = explain.tied.map((o) => o.tile),
       correct = tied.includes(tile);
     return {
       correct,
+      basis: 'legacy-efficiency',
       answers: tied,
       best: best.tile,
       judge: C.judge(options, tile, best).text,
-      lines: explain.lines,
+      lines: ['舊題目未保存攻守報告，本題僅依牌效率評分，不代表當時的攻守最佳選擇。', ...explain.lines],
       options: options.slice(0, 4),
+    };
+  }
+
+  /** 沿用已保存的判斷，讓復習與實戰一致，也避免日後改版重新定義舊局的正解。 */
+  function checkDecision(item, tile) {
+    const report = item.decision;
+    const mine = report.assessments.find((assessment) => assessment.tile === tile);
+    const answers = report.assessments
+      .filter((assessment) => ['best', 'close'].includes(assessment.verdict))
+      .map((assessment) => assessment.tile);
+    const lines = ['依當時保存的攻守綜合評估作答；推薦與合理替代選擇都算對。'];
+    if (report.rationale) lines.push(report.rationale);
+    if (mine && typeof mine.reason === 'string' && mine.reason) lines.push(mine.reason);
+    return {
+      correct: answers.includes(tile),
+      basis: 'decision',
+      answers,
+      best: report.recommended,
+      judge: mine ? mine.text : '這張牌沒有保存當時的評估，無法判定。',
+      lines,
+      options: (report.options || []).slice(0, 4),
     };
   }
 
@@ -142,7 +237,7 @@
     const best = answers[0],
       mine = byTile.get(tile),
       played = byTile.get(item.played);
-    const lines = [];
+    const lines = ['本題只練習找安全牌；放槍不等於打錯，實戰仍需衡量自己的胡牌機會與牌值。'];
     if (played)
       lines.push(
         '當時你打' +
@@ -155,6 +250,7 @@
     if (mine && !correct && tile !== item.played) lines.push('你這次選的：' + mine.text);
     return {
       correct,
+      basis: 'defense',
       answers,
       best,
       judge: correct ? '答對了：這張是當時最安全的牌。' : '這張不是最安全的牌。',

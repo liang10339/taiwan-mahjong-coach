@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict'),
   E = require('../src/core/engine.js'),
   C = require('../src/core/coach.js');
-// 拆解結果必須與引擎的進聽數一致，且每張牌都被分配到一組
+// 一般面子拆解對應一般牌型向聽；特殊牌型另由 explainTurn 選擇路線。
 let seed = 7;
 const rand = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296;
 for (let k = 0; k < 1500; k++) {
@@ -13,7 +13,7 @@ for (let k = 0; k < 1500; k++) {
   }
   const hand = wall.slice(0, 16 + (k % 2)).sort((a, b) => a - b),
     d = C.decompose(hand);
-  assert.equal(d.shanten, E.shanten(hand));
+  assert.equal(d.shanten, E.standardShanten(hand));
   assert.equal(d.groups.flatMap((g) => g.tiles).length, hand.length);
 }
 // 搭子等牌

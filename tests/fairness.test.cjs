@@ -40,6 +40,7 @@ assert.equal(F.verify(played, '00000000').ok, false);
 
 // 4. 分享字串：編碼後解碼得到同一副牌；亂填的字串回傳 null
 const code = F.encodeDeal(g);
+assert.equal(code, '21i3v9.2.1.3.16.1', '預設桌規維持既有六欄連結');
 const back = F.decodeDeal('https://x.test/app/#deal=' + code);
 assert.deepEqual(back.opts, rules);
 assert.equal(F.fingerprint(E.create(back.seed, back.opts)), print);
@@ -53,8 +54,43 @@ for (const bad of [
   '#deal=abc.1.0.0.8.1',
   'deal=abc.1.0.0.16.2',
   '#deal=zzzzzzzz.0.0.0.0.0',
+  code + '~',
+  code + '~taiwan-16-coach~1',
+  code + '~taiwan-16-coach~1~false',
+  code + '~taiwan-16-coach~1~2',
+  code + '~taiwan-16-coach~0~0',
+  code + '~taiwan-16-coach~01~0',
+  code + '~taiwan-16-coach~2~0',
+  code + '~other-profile~1~0',
+  code + '~taiwan-16-coach~1~0~extra',
 ])
   assert.equal(F.decodeDeal(bad), null, bad);
+
+// 指定牌型規則能重打、分享及驗證；舊六欄字串仍使用原有預設。
+const noLigu = E.create(g.seed, { ...rules, rules: { liguLigu: false } });
+assert.deepEqual(F.rulesOf(noLigu).rules, E.ruleProfile({ liguLigu: false }));
+const replay = E.create(noLigu.seed, F.rulesOf(noLigu));
+assert.deepEqual(replay.rules, noLigu.rules);
+assert.deepEqual(replay.hands, noLigu.hands);
+const customCode = F.encodeDeal(noLigu);
+assert.equal(customCode, code + '~taiwan-16-coach~1~0');
+for (const text of [
+  customCode,
+  '#deal=' + customCode,
+  'https://x.test/#deal=' + customCode + '&view=table',
+]) {
+  const decoded = F.decodeDeal(text);
+  assert.deepEqual(decoded.opts, { ...rules, rules: noLigu.rules });
+  const restored = E.create(decoded.seed, decoded.opts);
+  assert.deepEqual(restored.rules, noLigu.rules);
+  assert.equal(F.encodeDeal(restored), customCode);
+  assert.equal(F.fingerprint(restored), F.fingerprint(noLigu));
+}
+assert.equal(F.verify(noLigu, F.fingerprint(noLigu)).ok, true);
+assert.deepEqual(E.create(back.seed, back.opts).rules, E.DEFAULT_RULES);
+assert.deepEqual(F.decodeDeal(code + '~taiwan-16-coach~1~1').opts.rules, E.DEFAULT_RULES);
+assert.throws(() => F.encodeDeal({ ...g, rules: { ...g.rules, version: 2 } }), /Unsupported rule version/);
+assert.throws(() => F.rulesOf({ ...g, rules: { ...g.rules, id: 'unknown' } }), /Unsupported rule profile/);
 
 // 5. 畫面：開局顯示指紋；一局結束後攤牌、驗證通過；「再打一次」得到同一副牌
 const ui = createUiContext();

@@ -92,16 +92,8 @@ let currentMode = 'table';
 let claimCache = { key: '', value: null },
   kanCache = { key: '', value: [] };
 function decisionKey() {
-  return JSON.stringify([
-    game.phase,
-    game.hands[0],
-    game.melds[0],
-    E.publicTiles(game),
-    game.pending?.tile,
-    game.pending?.from,
-    game.pending?.kind,
-    game.wall.length > 0,
-  ]);
+  // 包含完整可見局面、桌規與底台；其他家暗牌與未公開回應不影響分析快取。
+  return JSON.stringify([Advisor.observe(game, 0), baseTai()]);
 }
 function currentClaim() {
   const key = decisionKey();
@@ -110,7 +102,7 @@ function currentClaim() {
 }
 function currentKans() {
   const key = decisionKey();
-  if (kanCache.key !== key) kanCache = { key, value: Coach.selfKanDecision(game, 0) };
+  if (kanCache.key !== key) kanCache = { key, value: Advisor.kans(game, 0, { base: baseTai() }) };
   return kanCache.value;
 }
 try {
@@ -139,12 +131,12 @@ function valueTiles(p) {
 let decisionCache = { key: '', value: null };
 function currentDecision() {
   if (!(game.turn === 0 && game.phase === 'discard')) return null;
-  const key = JSON.stringify([decisionKey(), game.log.length, game.fresh]);
+  const key = decisionKey();
   if (decisionCache.key !== key) {
     const d = Advisor.decide(game, 0, { base: baseTai() });
     decisionCache = {
       key,
-      value: d && { ...d, explain: Coach.explainTurn(game.hands[0], d.options, d.ctx) },
+      value: d,
     };
   }
   return decisionCache.value;

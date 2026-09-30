@@ -20,7 +20,7 @@ function saveNotebook(book) {
 }
 
 /** 實戰出牌是關鍵失誤時呼叫（必須在牌打出去之前）：把當時看得到的局面存進錯題本 */
-function rememberMistake(played) {
+function rememberMistake(played, decision = currentDecision()) {
   if (typeof Notebook === 'undefined') return;
   const item = Notebook.fromMistake({
     hand: game.hands[0],
@@ -28,6 +28,9 @@ function rememberMistake(played) {
     melds: game.melds[0].map((m) => m.tiles),
     pub: E.publicTiles(game),
     played,
+    decision: Advisor.snapshot(decision),
+    rules: game.rules,
+    context: decision && { ...decision.ctx, base: baseTai() },
     label: roundName(),
   });
   saveNotebook(Notebook.add(loadNotebook(), item));
@@ -82,7 +85,7 @@ function renderNotebook() {
         null,
         st.total
           ? '共 ' + st.total + ' 題，今天要複習 ' + st.due + ' 題，已熟練 ' + st.mastered + ' 題。'
-          : '實戰中的關鍵失誤（退一步，或少 4 張以上進張）和放槍的那一手會自動存到這裡，隔幾天再考一次，直到熟練。',
+          : '實戰中攻守綜合評估的明顯失誤會自動存到這裡，依當時的建議複習。放槍的那一手另外存成防守練習；放槍不等於打錯。',
       ),
     );
     if (st.due) {
@@ -117,7 +120,16 @@ function renderNotebook() {
       'notebook-meta',
       '第 ' + (run.index + 1) + ' / ' + run.queue.length + ' 題　' + (item.label || ''),
     ),
-    el('h4', null, item.kind === 'defense' ? '你在這手放槍了：打哪張最安全？' : '這手要打哪張？'),
+    el('h4', null, item.kind === 'defense' ? '防守練習：打哪張最安全？' : '這手要打哪張？'),
+    el(
+      'small',
+      'notebook-meta',
+      item.kind === 'defense'
+        ? '這手曾經放槍，本題只比較安全性；放槍不等於當時打錯。'
+        : item.decision
+          ? '依當時的攻守綜合評估：推薦與合理選擇都算對。'
+          : '舊題目：僅比較牌效率，沒有保存當時的攻守評估。',
+    ),
   );
   if (item.melds.length) {
     const melds = el('div', 'notebook-melds');

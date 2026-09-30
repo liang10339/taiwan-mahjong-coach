@@ -49,7 +49,7 @@ const discarded = (g, q, tiles = RIVER) => {
   assert.ok(r[0].tai >= 1);
 }
 
-// 2. 一定安全：他放過的牌、他正在過水
+// 2. 電腦放過牌只在「有胡必胡」模型下推估；對手的私密過水狀態不能影響建議
 {
   const g = position(hand, (g) => {
     g.melds[1] = pons([2, 11, 20]);
@@ -63,12 +63,16 @@ const discarded = (g, q, tiles = RIVER) => {
   });
   const east = entry(g, 27).per.find((x) => x.q === 1);
   assert.equal(east.p, 0);
+  assert.equal(east.safe, false);
+  assert.equal(east.assumedSafe, true);
   assert.match(east.reasons[0], /放過/);
   const water = position(hand, (g) => {
     g.melds[1] = pons([2, 11, 20]);
     g.water = [false, true, false, false];
   });
-  for (const r of Safety.evaluate(water, 0)) assert.equal(r.per.find((x) => x.q === 1).p, 0, '過水中不會胡');
+  const dry = structuredClone(water);
+  dry.water[1] = false;
+  assert.deepEqual(Safety.evaluate(water, 0), Safety.evaluate(dry, 0), '對手私密過水狀態不可以洩漏');
 }
 
 // 3. 壁：四張 3萬 都看得到，1萬 就沒有順子能等（只剩單吊、對碰）

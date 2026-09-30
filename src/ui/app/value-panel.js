@@ -18,7 +18,7 @@ let valueJob = 0;
 let valueState = { key: '', report: null };
 
 function valueKey() {
-  return game.seed + '|' + game.log.length + '|' + game.hands[0].join(',');
+  return decisionKey();
 }
 
 function getValueWorker() {
@@ -51,7 +51,7 @@ function requestValue() {
   if (valueState.key === key) return valueState;
   valueState = { key, report: null };
   const job = ++valueJob;
-  const snapshot = JSON.parse(JSON.stringify(game)); // 只傳資料，模擬不會改到真正的牌局
+  const snapshot = Advisor.observe(game, 0); // Worker 只收到這個座位可見的資訊
   const worker = getValueWorker();
   if (!worker) {
     valueFallback(job, snapshot);
@@ -75,7 +75,7 @@ function valueSection(body) {
   if (!settings.value || typeof Value === 'undefined') return;
   const { report } = requestValue();
   const box = el('section', 'value-card');
-  box.append(el('h5', null, '胡牌率與台數（模擬）'));
+  box.append(el('h5', null, '進攻模擬參考（不含放槍代價）'));
   if (!report) {
     box.append(el('p', 'value-wait', '正在模擬接下來的巡目…'));
     body.append(box);
@@ -83,7 +83,8 @@ function valueSection(body) {
   }
   const advice = Value.advice(report, Coach.label);
   if (advice.differs) box.classList.add('differs');
-  box.append(el('p', 'value-advice', advice.text));
+  box.append(el('p', 'value-advice', '只比較進攻收益：' + advice.text));
+  box.append(el('small', 'value-note', '本區呈現另一個進攻假設；實際出牌與覆盤評分以最上方的綜合建議為準。'));
   const table = el('div', 'value-table');
   const head = el('div', 'value-row head');
   head.append(

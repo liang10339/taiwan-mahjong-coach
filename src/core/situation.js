@@ -6,6 +6,7 @@
   // 這手牌值不值錢（一色、字牌對子、碰碰胡、莊家）、下家在吃什麼。
   // 每一手依局勢決定「做牌／進攻／攻守兼顧／先守」，只挑最重要的幾點講，同樣的話不會每手重複。
   const node = typeof module !== 'undefined';
+  const Observation = node ? require('./observation.js') : root.Observation;
   const E = node ? require('./engine.js') : root.Mahjong,
     C = node ? require('./coach.js') : root.Coach,
     O = node ? require('./opponents.js') : root.Opponents,
@@ -68,6 +69,7 @@
    * @param {Game} g @param {number} [viewer] @param {any} [input] @param {any} [lead]
    */
   function read(g, viewer = 0, input = null, lead = null) {
+    g = Observation.forPlayer(g, viewer);
     const inp = Array.isArray(input) || input === null ? { options: input, lead } : input;
     const options = inp.options || null;
     const hand = g.hands[viewer],
@@ -76,7 +78,7 @@
       left = drawable(g),
       myDraws = Math.ceil(left / 4);
     const best = inp.lead || (options && options.length ? options[0] : null),
-      sh = best ? best.shanten : E.shanten(hand, open);
+      sh = best ? best.shanten : E.shanten(hand, open, g.rules);
     const opps = inp.opps || O.read(g, viewer);
     const safety = inp.safety || Safety.evaluate(g, viewer, opps);
     const others = opps.map((o) => ({ ...o, rel: REL[o.rel] }));
@@ -118,13 +120,11 @@
           '）' +
           (o.tai >= 4 ? '，而且胡了大約 ' + o.tai + ' 台' : '') +
           '。' +
-          (o.water
-            ? '他正在過水，打出下一張牌前不能胡別人的牌，這一巡打什麼都不會放槍給他。'
-            : safe.length
-              ? '你手上的' +
-                tilesText(safe) +
-                '是他手牌沒換過的這段時間放過的牌——當時沒胡，現在也不會胡，是對他最安全的牌。'
-              : '你手上沒有他放過的牌，生張的中張（3～7）最危險。'),
+          (safe.length
+            ? '你手上的' +
+              tilesText(safe) +
+              '是可觀察的手牌未改變期間放過的牌；依「電腦有胡必胡」模型推估較安全，不適用真人故意不胡的情況。'
+            : '沒有足夠的放過牌資訊作安全推估，仍須比較各張牌的風險。'),
       );
     }
     for (const o of warm)

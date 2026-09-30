@@ -23,7 +23,22 @@
     }
     return c;
   };
-  // ---- 進聽數（shanten）：一般胡牌為五組加一對，不含特殊牌型 ----
+  // 同一份牌型規則供胡牌、向聽、進張與計台使用；保留既有預設，並記下版本方便日後覆盤。
+  /** @type {Readonly<MahjongRuleProfile>} */
+  const DEFAULT_RULES = Object.freeze({ id: 'taiwan-16-coach', version: 1, liguLigu: true });
+  /** @param {Partial<MahjongRuleProfile>} [rules] */
+  function ruleProfile(rules = DEFAULT_RULES) {
+    if (rules.id != null && rules.id !== DEFAULT_RULES.id) throw Error('Unsupported rule profile');
+    if (rules.version != null && rules.version !== DEFAULT_RULES.version)
+      throw Error('Unsupported rule version');
+    return Object.freeze({ ...DEFAULT_RULES, liguLigu: rules.liguLigu !== false });
+  }
+  function validHand(c, length, open) {
+    return (
+      Number.isInteger(open) && open >= 0 && open <= 5 && length <= 17 - 3 * open && c.every((n) => n <= 4)
+    );
+  }
+  // ---- 一般牌型進聽數：五組加一對 ----
   // 做法：把手牌分成萬、筒、索、字四門，各自列出「面子數、搭子數、有沒有眼」的所有可能，
   // 結果依該門的牌型快取；四門再合併取最佳。和逐張搜尋整副手牌的結果完全相同，
   // 但同一門的牌型會重複出現，所以快很多（教練、電腦、危險度、未來的期望值模擬都靠它）。
@@ -81,8 +96,12 @@
     suitCache.set(key, states);
     return states;
   }
-  function shanten(hand, open = 0) {
+  function standardShanten(hand, open = 0) {
     const c = countsOf(hand);
+    if (!validHand(c, hand.length, open)) return Infinity;
+    return standardFromCounts(c, open);
+  }
+  function standardFromCounts(c, open) {
     // 逐門合併：面子、搭子最多算到 5（再多也不會更好），眼最多一個
     let states = new Set([Math.min(open, 5) * 100]);
     for (const [from, to, honor] of SUITS) {
@@ -108,32 +127,48 @@
     return best;
   }
 
-  // 嚦咕嚦咕：門清，七對加一刻
-  function liguLigu(hand, open = 0) {
-    if (open || hand.length !== 17) return false;
-    const c = countsOf(hand);
+  // 嚦咕嚦咕：未攤牌，七對加一刻；四張相同牌可作兩對。
+  // 固定一種牌作刻子，剩下七個對子取能保留最多手牌的組合。
+  // 每種牌可提供兩個對子：先保留 min(n,2) 張，再保留 max(n-2,0) 張。
+  // 因為每種最多四張，只需統計價值 2／1 的對子槽，無須列舉全部完成牌型。
+  function liguFromCounts(c) {
     let pairs = 0,
-      triples = 0;
+      singles = 0;
+    const sizes = new Set(c);
     for (const n of c) {
-      if (n === 2) pairs++;
-      else if (n === 4) pairs += 2;
-      else if (n === 3) triples++;
-      else if (n) return false;
+      pairs += Math.floor(n / 2);
+      singles += n % 2;
     }
-    return pairs === 7 && triples === 1;
+    let kept = 0;
+    for (const n of sizes) {
+      const twos = Math.min(7, pairs - Math.floor(n / 2));
+      const ones = Math.min(7 - twos, singles - (n % 2));
+      kept = Math.max(kept, Math.min(n, 3) + twos * 2 + ones);
+    }
+    return 16 - kept;
   }
-  function winning(hand, open = 0) {
-    return (
-      hand.length === 17 - 3 * open &&
-      countsOf(hand).every((n) => n <= 4) &&
-      (shanten(hand, open) === -1 || liguLigu(hand, open))
-    );
+  function liguShanten(hand, open = 0) {
+    const c = countsOf(hand);
+    if (open || !validHand(c, hand.length, open)) return Infinity;
+    return liguFromCounts(c);
   }
-  function analyze(hand, publicTiles = [], open = 0, memo = new Map()) {
+  function shanten(hand, open = 0, rules = DEFAULT_RULES) {
+    const c = countsOf(hand);
+    if (!validHand(c, hand.length, open)) return Infinity;
+    const standard = standardFromCounts(c, open);
+    return open || rules.liguLigu === false ? standard : Math.min(standard, liguFromCounts(c));
+  }
+  function liguLigu(hand, open = 0, rules = DEFAULT_RULES) {
+    return rules.liguLigu !== false && hand.length === 17 && liguShanten(hand, open) === -1;
+  }
+  function winning(hand, open = 0, rules = DEFAULT_RULES) {
+    return hand.length === 17 - 3 * open && shanten(hand, open, rules) === -1;
+  }
+  function analyze(hand, publicTiles = [], open = 0, memo = new Map(), rules = DEFAULT_RULES) {
     const known = countsOf([...hand, ...publicTiles.filter((t) => t < 34)]);
     const value = (h) => {
-      const key = open + ':' + countsOf(h).join('');
-      if (!memo.has(key)) memo.set(key, shanten(h, open));
+      const key = (rules.liguLigu !== false ? 'ligu:' : 'standard:') + open + ':' + countsOf(h).join('');
+      if (!memo.has(key)) memo.set(key, shanten(h, open, rules));
       return memo.get(key);
     };
     const options = [...new Set(hand)].map((tile) => {
@@ -196,6 +231,7 @@
     /** @type {Game} */
     const g = {
       seed,
+      rules: ruleProfile(opts.rules),
       wall,
       hands: [[], [], [], []],
       flowers: [[], [], [], []],
@@ -313,20 +349,23 @@
     return true;
   }
   function win(g, p) {
-    if (g.phase !== 'discard' || g.turn !== p || !winning(g.hands[p], g.melds[p].length)) return false;
+    if (g.phase !== 'discard' || g.turn !== p || !winning(g.hands[p], g.melds[p].length, g.rules))
+      return false;
     const last = g.lastTake && g.lastTake.player === p ? g.lastTake : {};
     g.phase = 'ended';
     g.result =
-      who(g, p) + '自摸' + (liguLigu(g.hands[p], g.melds[p].length) ? '，嚦咕嚦咕成立' : '，五組加一對成立');
+      who(g, p) +
+      '自摸' +
+      (liguLigu(g.hands[p], g.melds[p].length, g.rules) ? '，嚦咕嚦咕成立' : '，五組加一對成立');
     g.log.push({ player: p, action: 'tsumo', tile: last.tile, afterKan: !!last.afterKan });
     return true;
   }
-  function aiIndex(hand, open = 0) {
+  function aiIndex(hand, open = 0, rules = DEFAULT_RULES) {
     let best = Infinity,
       index = 0;
     for (let i = 0; i < hand.length; i++) {
       const h = hand.filter((_, j) => i !== j),
-        s = shanten(h, open);
+        s = shanten(h, open, rules);
       if (s < best) {
         best = s;
         index = i;
@@ -341,7 +380,7 @@
       c = countsOf(g.hands[p]),
       out = [],
       open = g.melds[p].length;
-    if (winning([...g.hands[p], t], open) && !(g.passWater && g.water && g.water[p]))
+    if (winning([...g.hands[p], t], open, g.rules) && !(g.passWater && g.water && g.water[p]))
       out.push({ type: 'ron', tiles: [t] });
     if (g.pending.kind === 'robkan') return out;
     if (open < 5 && c[t] >= 2) out.push({ type: 'pon', tiles: [t, t] });
@@ -500,7 +539,7 @@
     const progress = (n) =>
       n === 0 ? '聽牌' : (['', '一', '兩', '三', '四', '五', '六', '七', '八', '九', '十'][n] || n) + '進聽';
     const open = g.melds[p].length,
-      before = shanten(g.hands[p], open);
+      before = shanten(g.hands[p], open, g.rules);
     if (a.type === 'ron') return '牌型已成立，可以胡牌。';
     if (a.type === 'kan') return '明槓後必須從牌尾補一張，再出牌；補牌結果未知，不能保證更快聽牌。';
     const rest = g.hands[p].slice();
@@ -510,6 +549,7 @@
         shanten(
           rest.filter((_, j) => i !== j),
           open + 1,
+          g.rules,
         ),
       ),
     );
@@ -527,6 +567,10 @@
   }
 
   const api = {
+    DEFAULT_RULES,
+    ruleProfile,
+    standardShanten,
+    liguShanten,
     cutType,
     seatWind,
     who,

@@ -3,14 +3,15 @@
   // 防守 2.0：估計打出每張牌「放槍的機率」，並說出理由。
   // 對每一家：放槍機率 ≈ 他聽牌的機率（opponents.js）× 這張正好是他要的牌的機率。
   // 「是他要的牌」的機率依牌的種類與場上線索分組，數字來自 scripts/calibrate.cjs 的自戰統計：
-  //   - 一定安全：他手牌沒換過期間放過的牌、他正在過水（打出下一張前不能胡別人的牌）
+  //   - 模型推估：假設電腦有胡必胡，可由未換牌期間放過的牌推估；不適用真人，也不讀私密過水狀態
   //   - 壁：某張牌四張都看得到，需要它的順子就不存在（例如四張 3萬 都出現，1萬2萬、2萬4萬 等不到）
   //   - 字牌見張數：見 3 張只剩單吊，見 2 張不能對碰
   //   - 么九、2/8、中張：能組成的順子越多越危險
   //   - 他最近手切的牌附近、他攤牌做一色的那門與字牌 → 較危險；他一直在打的那門 → 較安全
   const node = typeof module !== 'undefined';
   const E = node ? require('./engine.js') : root.Mahjong,
-    O = node ? require('./opponents.js') : root.Opponents;
+    O = node ? require('./opponents.js') : root.Opponents,
+    Observation = node ? require('./observation.js') : root.Observation;
   const CAL = node ? require('./data/calibration.js') : root.Calibration;
   const label = (t) => (t === 33 ? '白板' : E.names[t]);
   const SUITS = ['萬子', '筒子', '條子'];
@@ -21,6 +22,7 @@
 
   /** viewer 看得到的張數（自己的手牌＋公開的牌） */
   function visibleCounts(g, viewer) {
+    g = Observation.forPlayer(g, viewer);
     const c = Array(34).fill(0);
     for (const t of [...g.hands[viewer], ...E.publicTiles(g, viewer)]) if (t < 34) c[t]++;
     return c;
@@ -82,21 +84,19 @@
   /** 一張牌對某一家的判斷與理由 */
   function versus(g, t, seen, o) {
     const who = ['', '下家', '對家', '上家'][o.rel];
-    if (o.passed.has(t))
+    if (o.passedAssumption === 'always-win-computer' && o.passed.has(t))
       return {
         q: o.q,
         rel: o.rel,
         p: 0,
-        safe: true,
-        reasons: [who + '手牌沒換過的期間放過' + label(t) + '，現在也不會胡'],
-      };
-    if (o.water)
-      return {
-        q: o.q,
-        rel: o.rel,
-        p: 0,
-        safe: true,
-        reasons: [who + '正在過水：他打出下一張牌前不能胡別人打的牌'],
+        safe: false,
+        assumedSafe: true,
+        reasons: [
+          who +
+            '在可觀察的手牌未改變期間放過' +
+            label(t) +
+            '；依「電腦有胡必胡」模型推估，非真人牌桌的安全保證',
+        ],
       };
     if (t >= 27 && seen[t] >= 4)
       return {
@@ -142,7 +142,9 @@
    * viewer 手上每張牌打出去的放槍機率（由低到高排好），附各家的判斷與理由。
    * @param {Game} g @param {number} [viewer] @param {any[]} [opps] opponents.read() 的結果（沒給就現算）
    */
-  function evaluate(g, viewer = 0, opps = O.read(g, viewer)) {
+  function evaluate(g, viewer = 0, opps = null) {
+    g = Observation.forPlayer(g, viewer);
+    opps = opps || O.read(g, viewer);
     const seen = visibleCounts(g, viewer),
       tiles = [...new Set(g.hands[viewer])];
     return tiles

@@ -1,6 +1,7 @@
 (function (root) {
   'use strict';
   const E = typeof module !== 'undefined' ? require('./engine.js') : root.Mahjong;
+  const Observation = typeof module !== 'undefined' ? require('./observation.js') : root.Observation;
   const progress = (n) =>
     n === 0 ? '已聽牌' : (['', '一', '兩', '三', '四', '五', '六', '七', '八', '九', '十'][n] || n) + '進聽';
   const label = (t) => (t === 33 ? '白板' : E.names[t]);
@@ -60,6 +61,7 @@
   }
   /** claimReport：畫面已經算好的吃碰建議（決策核心），給了就直接用，確保和吃碰卡片一致 */
   function contextualAnswer(question, g, selected = null, claimReport = null) {
+    g = Observation.forPlayer(g, 0);
     const q = question.trim();
     if (g.phase === 'ended') return '本局已結束，請重新開局再詢問目前牌況。';
     if (g.phase === 'claim') {
@@ -99,7 +101,8 @@
     if (g.turn !== 0) return '目前輪到其他玩家，請等輪到你再依新牌況比較。';
     if (g.phase === 'draw') return '輪到你摸牌：先按「摸牌」，補花完成後再選牌出牌。現在不能先出牌。';
     if (/槓/.test(q)) {
-      if (E.winning(g.hands[0], g.melds[0].length)) return '建議先自摸，不建議為了槓牌放棄已完成的胡牌。';
+      if (E.winning(g.hands[0], g.melds[0].length, g.rules))
+        return '建議先自摸，不建議為了槓牌放棄已完成的胡牌。';
       const actions = E.selfKans(g, 0);
       return actions.length
         ? selfKanDecision(g, 0)
@@ -110,7 +113,12 @@
         : '目前沒有可暗槓或加槓的牌；不能只因有三張相同牌就暗槓。';
     }
     if (/吃|碰/.test(q)) return '目前是你的出牌階段，不能吃碰；吃碰要在別人剛打出牌的回應階段決定。';
-    return answer(q, g.hands[0], E.analyze(g.hands[0], E.publicTiles(g), g.melds[0].length), selected);
+    return answer(
+      q,
+      g.hands[0],
+      E.analyze(g.hands[0], E.publicTiles(g), g.melds[0].length, new Map(), g.rules),
+      selected,
+    );
   }
   function patternHints(hand) {
     const out = [];
@@ -353,12 +361,40 @@
       runner = options.find((o) => !same(o, best));
     const rest = hand.slice();
     rest.splice(rest.indexOf(best.tile), 1);
+    if (!open && ctx.rules?.liguLigu !== false && E.liguShanten(rest, open) < E.standardShanten(rest, open)) {
+      const groups = [];
+      for (const t of [...new Set(rest)]) {
+        const n = rest.filter((x) => x === t).length;
+        if (n === 3) groups.push({ kind: 'tri', tiles: [t, t, t] });
+        else {
+          for (let i = 0; i < Math.floor(n / 2); i++) groups.push({ kind: 'pair', tiles: [t, t] });
+          if (n % 2) groups.push({ kind: 'single', tiles: [t] });
+        }
+      }
+      return {
+        best,
+        tied,
+        runner,
+        structure: { groups, melds: 0 },
+        lines: [
+          '目前以嚦咕嚦咕（七對加一刻）最接近胡牌，四張相同牌可作兩對；吃碰槓後不適用此牌型。',
+          '牌效率建議打' +
+            label(best.tile) +
+            '：' +
+            progress(best.shanten) +
+            '，有效牌未見 ' +
+            best.remaining +
+            ' 張。',
+          '有效牌：' + outSummary(best) + '。此處同時計算一般五組加一對與嚦咕嚦咕的改善。',
+        ],
+      };
+    }
     const structure = decompose(rest, open);
     const lines = [];
     if (ctx.drawn != null && hand.includes(ctx.drawn)) {
       const before = hand.slice();
       before.splice(before.indexOf(ctx.drawn), 1);
-      const b = E.shanten(before, open),
+      const b = E.shanten(before, open, ctx.rules),
         d = label(ctx.drawn);
       if (tied.some((o) => o.tile === ctx.drawn))
         lines.push(
@@ -522,11 +558,11 @@
     return c;
   }
   // 比較略過後的待摸手牌，與吃碰後已出牌的手牌，保持相同張數階段。
-  function waitValue(hand, open, known) {
-    const shanten = E.shanten(hand, open),
+  function waitValue(hand, open, known, rules) {
+    const shanten = E.shanten(hand, open, rules),
       outs = [];
     for (let t = 0; t < 34; t++)
-      if (known[t] < 4 && E.shanten([...hand, t], open) < shanten)
+      if (known[t] < 4 && E.shanten([...hand, t], open, rules) < shanten)
         outs.push({ tile: t, remaining: 4 - known[t] });
     return {
       shanten,
@@ -572,8 +608,8 @@
     for (let draw = 0; draw < 34; draw++)
       if (known[draw] < 4) {
         const h = [...rest, draw],
-          win = E.winning(h, open),
-          best = win ? null : E.analyze(h, visible, open, memo)[0];
+          win = E.winning(h, open, g.rules),
+          best = win ? null : E.analyze(h, visible, open, memo, g.rules)[0];
         outcomes.push({
           tile: draw,
           remaining: 4 - known[draw],
@@ -651,7 +687,7 @@
   }
   /**
    * 一個吃／碰／槓／胡選項的比較結果。胡牌沒有 after；槓牌另有補牌情境（outcomes 等）。
-   * @typedef {{action: any, recommend: boolean, compact: string, text: string, after?: any, baseline?: any}} ClaimOption
+   * @typedef {{action: any, recommend: boolean, compact: string, text: string, after?: any, baseline?: any, risk?: any}} ClaimOption
    */
   /**
    * @param {Game} g @param {number} [p]
@@ -660,25 +696,28 @@
    *   沒給就只看牌效率（電腦對手用）。
    */
   function claimDecision(g, p = 0, choose) {
+    g = Observation.forPlayer(g, p);
     const hand = g.hands[p],
       pub = E.publicTiles(g, p),
       open = g.melds[p].length,
       known = knownCounts(hand, pub),
-      baseline = waitValue(hand, open, known);
+      baseline = waitValue(hand, open, known, g.rules);
     /** @type {ClaimOption[]} */
     const options = E.claims(g, p).map((action) => {
       if (action.type === 'ron')
         return {
           action,
           recommend: true,
-          compact: '建議' + (g.pending.kind === 'robkan' ? '搶槓胡' : '胡牌') + '：五組加一對已成立。',
+          compact: '建議' + (g.pending.kind === 'robkan' ? '搶槓胡' : '胡牌') + '：合法胡牌結構已成立。',
           text: '建議胡牌：牌型已成立，不必為了吃碰槓放棄這次胡牌。',
         };
       if (action.type === 'kan') return kanDecision(g, p, action, baseline, known);
       const rest = removeTiles(hand, action.tiles);
       // 河中的被吃牌已算在 pub；只把從手牌移到攤牌的牌加入 pub，避免重複扣張。
       const picked = choose ? choose(action) : null;
-      const after = picked ? picked.option : E.analyze(rest, [...pub, ...action.tiles], open + 1)[0],
+      const after = picked
+          ? picked.option
+          : E.analyze(rest, [...pub, ...action.tiles], open + 1, new Map(), g.rules)[0],
         name = claimNames[action.type],
         folding = !!picked && picked.fold;
       const recommend = !folding && better(after, baseline),
@@ -792,12 +831,13 @@
       : '本次首選：略過，不吃碰槓。';
     return { baseline, options, best, summary, limit: claimLimit };
   }
-  function selfKanDecision(g, p = 0) {
+  function selfKanDecision(g, p = 0, discardOption = null) {
+    g = Observation.forPlayer(g, p);
     const actions = E.selfKans(g, p);
     if (!actions.length) return [];
     const hand = g.hands[p],
       pub = E.publicTiles(g, p),
-      baseline = E.analyze(hand, pub, g.melds[p].length)[0],
+      baseline = discardOption || E.analyze(hand, pub, g.melds[p].length, new Map(), g.rules)[0],
       known = knownCounts(hand, pub);
     return actions.map((a) => {
       const result = kanDecision(g, p, a, baseline, known);
@@ -813,7 +853,7 @@
     );
   }
   function chooseKan(g, p) {
-    return E.winning(g.hands[p], g.melds[p].length)
+    return E.winning(g.hands[p], g.melds[p].length, g.rules)
       ? null
       : selfKanDecision(g, p).find((o) => o.recommend)?.action;
   }
