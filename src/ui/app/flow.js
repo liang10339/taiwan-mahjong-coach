@@ -29,7 +29,7 @@ function computers() {
   if (game.phase === 'claim') {
     for (let p = 1; p < 4 && game.phase === 'claim'; p++)
       if (!game.pending.decisions[p]) {
-        const choice = AI.chooseClaim(game, p, settings.level);
+        const choice = AI.chooseClaim(game, p, levelFor(p));
         E.respond(game, p, choice);
       }
     analyze();
@@ -41,7 +41,7 @@ function computers() {
   timer = setTimeout(() => {
     if (epoch !== generation) return;
     const snap = game.phase === 'discard' ? snapshot(game.turn) : null;
-    AI.act(game, game.turn, settings.level);
+    AI.act(game, game.turn, levelFor(game.turn));
     render();
     animateDiscard(snap);
     computers();

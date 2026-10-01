@@ -6,6 +6,18 @@
     C = node ? require('./coach') : root.Coach,
     Observation = node ? require('./observation') : root.Observation;
   const LEVELS = { easy: '初級', normal: '中級', hard: '高級' };
+  /**
+   * 高級電腦的風格：和教練同一個決策核心，只是參數不同（真人牌桌上常見的三種打法）。
+   * level 傳風格名稱就是「那種風格的高級電腦」；傳 hard 是教練本身的參數。
+   * future：之後幾巡放槍代價的權重；valueWeight：台數的權重；claimMode：吃碰的判斷方式。
+   */
+  const STYLES = {
+    fast: { name: '速攻', note: '能吃碰就吃碰、很少棄胡', opts: { future: 0, claimMode: 'efficiency' } },
+    safe: { name: '保守', note: '有人可能聽牌就收手、不攤牌', opts: { future: 2, claimMode: 'cautious' } },
+    big: { name: '大牌', note: '留字牌對、做一色，台數看得很重', opts: { valueWeight: 2 } },
+  };
+  /** 這個難度是不是用決策核心（高級或某種風格），是的話回傳 advisor 參數 */
+  const coreOpts = (level) => (level === 'hard' ? {} : STYLES[level] ? STYLES[level].opts : null);
 
   // 依公開資訊估計對手離聽牌多近：0 看不出、1 可能接近、2 很可能已聽牌
   const SUITS = ['萬', '筒', '條'];
@@ -88,7 +100,8 @@
       const pool = random() < 0.3 ? options : ok;
       return pool[Math.floor(random() * pool.length)].tile;
     }
-    if (level === 'hard') return advisor().decide(g, p).tile;
+    const core = coreOpts(level);
+    if (core) return advisor().decide(g, p, core).tile;
     return options[0].tile;
   }
   function chooseClaim(g, p, level = 'normal') {
@@ -105,8 +118,9 @@
         options.find((a) => a.type === 'pon' || a.type === 'kan') || options.find((a) => a.type === 'chi');
       return take && random() < 0.8 ? take : { type: 'pass' };
     }
-    if (level === 'hard') {
-      const best = advisor().claims(g, p).best;
+    const core = coreOpts(level);
+    if (core) {
+      const best = advisor().claims(g, p, core).best;
       return best ? best.action : { type: 'pass' };
     }
     return C.chooseClaim(g, p);
@@ -142,6 +156,8 @@
     SUITS,
     reading,
     LEVELS,
+    STYLES,
+    coreOpts,
     threat,
     chooseDiscard,
     chooseClaim,

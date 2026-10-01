@@ -58,6 +58,8 @@ interface Game {
   rules?: MahjongRuleProfile;
   /** 初級電腦的亂數狀態（存檔接續時保留，讓同一局的電腦行為不變） */
   _ai?: number;
+  /** 電腦對手公開宣告的風格（fast／safe／big，null＝一般），教練讀牌時選用對應的聽牌模型 */
+  playerStyles?: (string | null)[];
   /** 宣告的對手策略假設，不代表觀測到對手能否胡牌。 */
   playerPolicies?: { alwaysWin: boolean }[];
   observationFor?: number;

@@ -11,7 +11,8 @@
 //        比較兩個版本的教練：同一副牌的基準局完全相同，所以直接逐副相減，誤差比各自和基準比還小
 // 其他選項：--start 起始種子（預設 0，跑 start+1 … start+局數）、--workers 平行數、
 //           --a / --b 比較的兩種打法（預設 coach 對 normal）、--margin 教練改打非效率首選要多幾台、
-//           --future 之後幾巡放槍代價的權重（實驗用，預設 1）
+//           --future 之後幾巡放槍代價的權重（實驗用，預設 1）、
+//           --opponents 另外三家（依下家、對家、上家），例如 fast,fast,fast（預設 normal,hard,normal）
 // 實驗用環境變數：VARIANT=eff（教練只照牌效率＋口訣）、nohold（不踩吃碰煞車）
 'use strict';
 const fs = require('node:fs');
@@ -31,6 +32,7 @@ function args(argv) {
   for (const k of ['start', 'workers', 'budget']) out[k] = Number(out[k]);
   if (out.margin !== undefined) out.margin = Number(out.margin);
   if (out.future !== undefined) out.future = Number(out.future);
+  if (out.opponents !== undefined) out.opponents = String(out.opponents).split(',');
   return out;
 }
 
@@ -56,7 +58,9 @@ if (process.argv[2] === '--worker') {
   process.on('message', (seeds) => {
     if (seeds === 'stop') process.exit(0);
     for (const seed of seeds)
-      process.send(Arena.duel(seed, cfg.a, cfg.b, { margin: cfg.margin, future: cfg.future }));
+      process.send(
+        Arena.duel(seed, cfg.a, cfg.b, { margin: cfg.margin, future: cfg.future, opponents: cfg.opponents }),
+      );
     process.send('ready');
   });
   process.send('ready');
@@ -87,6 +91,7 @@ function main() {
     b: opt.b,
     margin: opt.margin ?? null,
     ...(opt.future !== undefined ? { future: opt.future } : {}),
+    ...(opt.opponents ? { opponents: opt.opponents } : {}),
     variant: process.env.VARIANT || 'full',
     code: codePrint(),
   };

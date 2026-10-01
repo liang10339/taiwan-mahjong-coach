@@ -112,6 +112,8 @@
     ])
       if (g[key] !== undefined) view[key] = g[key];
     if (g.dice) view.dice = g.dice.slice();
+    // 電腦對手公開宣告的風格（速攻、保守、大牌），和桌規一樣是公開資訊
+    if (g.playerStyles) view.playerStyles = g.playerStyles.slice();
     if (g.rules) view.rules = { id: g.rules.id, version: g.rules.version, liguLigu: g.rules.liguLigu };
     projected.add(view);
     return view;

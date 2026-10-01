@@ -103,6 +103,8 @@ function startCurrentHand() {
     newHand();
     return;
   }
+  // 開頁時就洗好的第一局沒有經過 dealGame()，這裡依目前設定寫入電腦風格
+  declareStyles(game);
   if (settings.opening === 'full') runCeremony(beginPlay);
   else beginPlay();
 }

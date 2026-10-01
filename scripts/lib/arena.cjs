@@ -26,7 +26,7 @@ function strategy(name, opts = {}) {
         return c.best ? c.best.action : { type: 'pass' };
       },
     };
-  if (!(name in AI.LEVELS)) throw Error('不認得的打法：' + name);
+  if (!(name in AI.LEVELS) && !(name in AI.STYLES)) throw Error('不認得的打法：' + name);
   return {
     kan: (g, p) => AI.chooseKan(g, p, name),
     discard: (g, p) => AI.chooseDiscard(g, p, name),
@@ -39,8 +39,10 @@ function strategy(name, opts = {}) {
  * @param {number} seed
  * @param {Strategy[]} seats
  */
-function play(seed, seats) {
+function play(seed, seats, styles = null) {
   const g = E.create(seed * 104729, { reserve: 16, passWater: true, dealer: seed % 4 });
+  // 電腦的風格是公開宣告的（和實際 App 相同），教練讀牌時會用那種風格的聽牌模型
+  if (styles) g.playerStyles = styles;
   let steps = 0;
   while (g.phase !== 'ended' && steps++ < 500) {
     const p = g.turn,
@@ -90,7 +92,8 @@ function play(seed, seats) {
  * 回傳每個座位「候選 − 基準」的得失差，以及雙方的胡牌、放槍次數。
  */
 function duel(seed, candidate, baseline, opts = {}) {
-  const lineup = OPPONENTS.map((n) => strategy(n));
+  const names = opts.opponents || OPPONENTS,
+    lineup = names.map((n) => strategy(n));
   const cand = strategy(candidate, opts),
     base = strategy(baseline, opts);
   const out = { seed, diffs: [], a: { won: 0, dealIn: 0, delta: 0 }, b: { won: 0, dealIn: 0, delta: 0 } };
@@ -101,7 +104,10 @@ function duel(seed, candidate, baseline, opts = {}) {
       ['b', base],
     ]) {
       const seats = [0, 1, 2, 3].map((p) => (p === s ? me : lineup[(p - s + 3) % 4]));
-      const r = play(seed, seats);
+      const styles = [0, 1, 2, 3].map((p) =>
+        p === s ? null : AI.STYLES[names[(p - s + 3) % 4]] ? names[(p - s + 3) % 4] : null,
+      );
+      const r = play(seed, seats, styles.some(Boolean) ? styles : null);
       const sum = out[key];
       sum.won += r.winner === s ? 1 : 0;
       sum.dealIn += r.from === s ? 1 : 0;

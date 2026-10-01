@@ -8,6 +8,8 @@ const seats = ['你（東家・莊家）', '南家', '西家', '北家'],
 // 設定（存在本機）：電腦難度、教練提示、危險度、抓位、底台
 const settings = {
   level: 'normal',
+  /** 高級電腦的風格：mixed 三家各一種（速攻、大牌、保守），或三家同一種 */
+  style: 'mixed',
   coach: true,
   danger: false,
   seatDraw: true,
@@ -23,6 +25,19 @@ const settings = {
 try {
   Object.assign(settings, JSON.parse(localStorage.getItem('mahjong-coach-settings') || '{}'));
 } catch (e) {}
+/** 座位 p 的電腦用哪個難度／風格（AI.act 的 level）；高級時依風格設定 */
+function levelFor(p) {
+  if (settings.level !== 'hard') return settings.level;
+  if (settings.style === 'mixed') return ['hard', 'fast', 'big', 'safe'][p];
+  return AI.STYLES[settings.style] ? settings.style : 'hard';
+}
+/** 把電腦的風格寫進牌局（公開資訊：教練讀牌時會用那種風格的聽牌模型） */
+function declareStyles(g) {
+  if (settings.level === 'hard')
+    g.playerStyles = [null, 1, 2, 3].map((p) => (p && AI.STYLES[levelFor(p)] ? levelFor(p) : null));
+  else delete g.playerStyles;
+  return g;
+}
 function saveSettings() {
   try {
     localStorage.setItem('mahjong-coach-settings', JSON.stringify(settings));

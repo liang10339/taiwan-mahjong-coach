@@ -60,7 +60,7 @@ function resumeGame(saved) {
   if (typeof Sound !== 'undefined' && Sound.unlock) Sound.unlock();
   generation++;
   clearTimeout(timer);
-  game = r.game;
+  game = declareStyles(r.game);
   if (saved.aiState !== undefined) game._ai = saved.aiState;
   turnLog = saved.turnLog || [];
   reviewTimeline = saved.reviewTimeline || [];

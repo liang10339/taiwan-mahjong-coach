@@ -49,7 +49,7 @@
    * 每張候選牌打出後，剩下的手牌胡了大約幾台、收入多少（含底，自摸與胡別人加權）。
    * @returns {Map<number, {tai: {ron: number, tsumo: number, items: any[], exact: boolean}, income: number}>}
    */
-  function incomeByTile(g, p, hand, options, publicTiles, base) {
+  function incomeByTile(g, p, hand, options, publicTiles, base, weight = 1) {
     const out = new Map(),
       share = (CAL && CAL.tsumoShare) || 0.4;
     for (const o of options) {
@@ -57,7 +57,9 @@
       const rest = hand.slice();
       rest.splice(rest.indexOf(o.tile), 1);
       const tai = HV.estimate(g, p, rest, { shanten: o.shanten, publicTiles });
-      out.set(o.tile, { tai, income: HV.income(g, p, tai, base, share) });
+      // weight：做大牌風格把台數看得更重（只影響選擇，顯示的台數不變）
+      const scaled = weight === 1 ? tai : { ...tai, ron: tai.ron * weight, tsumo: tai.tsumo * weight };
+      out.set(o.tile, { tai, income: HV.income(g, p, scaled, base, share) });
     }
     return out;
   }
@@ -66,14 +68,15 @@
    * 不吃碰、保留現在的手牌：之後胡牌的期望收入（台）。和吃碰後出牌的期望收入比，
    * 吃碰會少掉門清（胡別人少 1 台、自摸少 2 台），進張要多到補得回來才值得。
    */
-  function passValue(g, p, base) {
+  function passValue(g, p, base, weight = 1) {
     const hand = g.hands[p],
       open = g.melds[p].length,
       pub = E.publicTiles(g, p),
       known = Array(34).fill(0);
     for (const t of [...hand, ...pub]) if (t < 34) known[t]++;
     const v = C.waitValue(hand, open, known, g.rules),
-      tai = HV.estimate(g, p, hand, { shanten: v.shanten, publicTiles: pub });
+      est = HV.estimate(g, p, hand, { shanten: v.shanten, publicTiles: pub }),
+      tai = weight === 1 ? est : { ...est, ron: est.ron * weight, tsumo: est.tsumo * weight };
     return (
       P.winProb(v.shanten, v.remaining, O.drawable(g)) *
       HV.income(g, p, tai, base, (CAL && CAL.tsumoShare) || 0.4)
@@ -83,7 +86,7 @@
   /**
    * 輪到 p 出牌時的完整建議。
    * efficiency：只看牌效率（並列時依口訣）的首選；tile／option：攻守期望值選出的最後建議。
-   * @param {Game} g @param {number} [p] @param {{base?: number, margin?: number, future?: number}} [opts] base：底換算成幾台；margin：改打非效率首選需要多出的期望值（台）
+   * @param {Game} g @param {number} [p] @param {{base?: number, margin?: number, future?: number, valueWeight?: number}} [opts] base：底換算成幾台；margin：改打非效率首選需要多出的期望值（台）；valueWeight：台數的權重（做大牌風格用）
    */
   function decide(g, p = 0, opts = {}) {
     g = Observation.forPlayer(g, p);
@@ -100,7 +103,15 @@
     const efficiency = tied[0];
     const opps = O.read(g, p),
       safety = Safety.evaluate(g, p, opps);
-    const worth = incomeByTile(g, p, hand, options, ctx.publicTiles, opts.base ?? BASE);
+    const worth = incomeByTile(
+      g,
+      p,
+      hand,
+      options,
+      ctx.publicTiles,
+      opts.base ?? BASE,
+      opts.valueWeight ?? 1,
+    );
     const plan = P.choose({
       options,
       efficiency,
@@ -169,7 +180,8 @@
   /**
    * 吃碰槓胡的建議：吃碰後要打的牌，由吃碰後的局面呼叫 decide() 決定。
    * 吃碰後的局勢是「先守」時不建議吃碰：攤牌會暴露手牌、少了安全牌，也破壞門清。
-   * @param {Game} g @param {number} [p] @param {{base?: number, margin?: number, future?: number}} [opts]
+   * @param {Game} g @param {number} [p] @param {{base?: number, margin?: number, future?: number, valueWeight?: number, claimMode?: string}} [opts]
+   *   claimMode：efficiency 只看牌效率吃碰（速攻）、cautious 有人可能聽牌就不吃碰（保守）；預設看期望收入
    */
   function claims(g, p = 0, opts = {}) {
     g = Observation.forPlayer(g, p);
@@ -179,14 +191,15 @@
       const d = h && decide(h, p, opts);
       if (!d) return null;
       // 吃碰後的期望收入（胡牌機率 × 胡了的台數）要不少於略過：吃碰會破壞門清，進張要補得回來
-      if (stay === null) stay = passValue(g, p, opts.base ?? BASE);
+      if (stay === null) stay = passValue(g, p, opts.base ?? BASE, opts.valueWeight ?? 1);
+      const maxTenpai = Math.max(...d.opps.map((o) => o.tenpai));
+      // 速攻風格：只看牌效率，能變快就吃碰；保守風格：有人可能聽牌（≥ 35%）就不攤牌
+      if (opts.claimMode === 'efficiency') return { option: d.option, fold: false };
       return {
         option: d.option,
-        fold: P.holdBackClaim({
-          stance: d.stance,
-          efficiency: d.efficiency,
-          maxTenpai: Math.max(...d.opps.map((o) => o.tenpai)),
-        }),
+        fold:
+          P.holdBackClaim({ stance: d.stance, efficiency: d.efficiency, maxTenpai }) ||
+          (opts.claimMode === 'cautious' && maxTenpai >= 0.35),
         worth: d.plan.chosen.gain >= stay,
         gain: d.plan.chosen.gain,
         stay,

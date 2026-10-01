@@ -11,7 +11,7 @@
   "format": "taiwan-mahjong-coach.record",
   "version": 1,
   "perspective": "full",
-  "dealing": "engine-v1",
+  "dealing": "engine-v2",
   "seed": 123456789,
   "options": { "dealer": 0, "roundWind": 0, "streak": 0, "reserve": 16, "passWater": true,
                "rules": { "id": "taiwan-16-coach", "version": 1, "liguLigu": true } },
@@ -34,7 +34,7 @@
 | 欄位 | 說明 |
 |---|---|
 | `version` | 牌譜格式版本。格式改變時加一，舊版本仍要能讀或明確拒絕 |
-| `dealing` | 發牌程序。`engine-v1`＝每家輪流取一張、共十六輪、取到花立即補。日後改成實際取墩（每次兩墩）時用新名字，舊牌譜照舊程序重播，不會變成另一局 |
+| `dealing` | 配牌程序。`engine-v2`（v2.8 起）＝實際取墩：從莊家起每人每次拿兩墩（4 張）、拿四輪，配完再從莊家起依序補花。`engine-v1`（v2.7 以前）＝每家輪流取一張、共十六輪、取到花立即補。同一個種子兩種程序配出不同的牌，所以舊牌譜照 `engine-v1` 重播，不會變成另一局。分享連結裡實際取墩的牌局多一段 `!2`，沒有這段的舊連結照 `engine-v1` |
 | `options.rules` | 牌型規則設定（例如是否允許嚦咕嚦咕） |
 | `commands` | 玩家依序做的動作：`draw` 摸牌、`discard` 打牌（`cut`：`tsumo` 摸切／`empty` 空切／`hand` 手切）、`respond` 回應別人打的牌（`pass`／`chi`／`pon`／`kan`／`ron`，吃碰槓附 `tiles` 用了手上哪幾張）、`selfKan` 暗槓或加槓、`win` 自摸 |
 | `coach` | 產生牌譜時的教練版本（`Advisor.VERSION`），覆盤時知道當時用哪一版判斷 |
@@ -43,9 +43,9 @@
 
 匯入時會完整重播一次；動作無法套用（檔案被改過）、版本或發牌程序不支援，都會明確拒絕，不會默默變成別的牌局。
 
-## 預留：實戰記錄（`perspective: "seat"`，尚未實作）
+## 實戰記錄（`perspective: "seat"`）
 
-日後你在別的地方（實體牌桌或其他平台）打牌、自己輸入時，沒有洗牌種子，也看不到別家的暗牌。這種牌譜改存「你這個座位看得到的事件」：
+你在別的地方（實體牌桌或其他平台）打牌、在「牌局覆盤 → 實戰記錄」自己輸入時，沒有洗牌種子，也看不到別家的暗牌。這種記錄只存「你這個座位看得到的事件」，由 `src/core/seatrecord.js` 檢查與重建：
 
 ```json
 {
@@ -53,20 +53,38 @@
   "version": 1,
   "perspective": "seat",
   "seat": 0,
-  "options": { "dealer": 2, "roundWind": 0, "streak": 0, "reserve": 16, "passWater": true, "rules": { } },
-  "start": { "hand": [0, 1, 2, "…16 張"], "flowers": [34] },
+  "options": { "dealer": 2, "roundWind": 0, "streak": 0, "reserve": 16, "passWater": false,
+               "rules": { "id": "taiwan-16-coach", "version": 1, "liguLigu": true } },
+  "start": { "hand": [0, 1, 2, "…共 16 張，補完花之後"], "flowers": [34], "otherFlowers": { "2": [38] } },
   "events": [
-    { "p": 0, "a": "draw", "tile": 12 },
-    { "p": 0, "a": "discard", "tile": 30, "cut": "hand" },
-    { "p": 1, "a": "discard", "tile": 7 },
-    { "p": 2, "a": "pon", "tile": 7, "from": 1 },
-    { "p": 3, "a": "draw" }
+    { "p": 2, "a": "draw" },
+    { "p": 2, "a": "discard", "tile": 30 },
+    { "p": 3, "a": "draw" },
+    { "p": 3, "a": "flower", "tile": 36 },
+    { "p": 3, "a": "draw" },
+    { "p": 3, "a": "discard", "tile": 7 },
+    { "p": 0, "a": "chi", "tiles": [5, 6] },
+    { "p": 0, "a": "discard", "tile": 27, "cut": "hand" },
+    { "p": 1, "a": "pon", "tiles": [27, 27] },
+    { "p": 1, "a": "discard", "tile": 12 },
+    { "p": 2, "a": "ron" }
   ],
-  "result": { "winner": 3, "tai": 5, "from": null },
+  "result": "對家胡 4筒（下家放槍）",
   "source": "manual"
 }
 ```
 
-- 別家的摸牌不記是哪張（看不到），只記「摸了一張」；別家的打牌、吃碰槓的攤牌都是公開資訊。
-- 分析時直接把這些事件組成「你這個座位的視角」（`src/core/observation.js` 的格式），教練、防守、覆盤、錯題本都能沿用，因為它們本來就只讀玩家看得到的資訊。
-- 目前 `record.js` 遇到 `perspective: "seat"` 會明確回報「不能用種子重播」；實作實戰記錄時再加上對應的讀取與輸入畫面。
+| 事件 `a` | 意思 | 欄位 |
+|---|---|---|
+| `draw` | 摸一張（含槓後補牌、補花後補牌） | 你自己的要記 `tile`；別家不記 |
+| `discard` | 打出一張 | `tile`，你自己的可記 `cut` |
+| `chi` / `pon` / `kan` | 吃、碰、明槓上一張打出的牌 | `tiles`：用了手上哪幾張（只能吃上家） |
+| `concealed` / `added` | 暗槓、加槓（之後接一個 `draw`） | 你自己的暗槓與所有加槓記 `tile` |
+| `flower` | 摸到花、攤出來（之後接一個 `draw` 補牌） | `tile` |
+| `ron` / `tsumo` | 胡上一張打出的牌、自摸 | — |
+
+- 座位是相對的：`seat` 是你，`(seat + 1) % 4` 是下家，以此類推；畫面上你固定是 0。
+- 開局配到的花不記事件：你的在 `start.flowers`，別家的在 `start.otherFlowers`（只影響牌牆剩餘張數的推算）。
+- 重建時把事件組成和引擎相同形狀的牌局，看不到的牌是 `null`，再交給 `src/core/observation.js` 投影成你的視角；教練、防守、覆盤評分直接沿用。牌牆剩餘張數由看得到的牌推算（144 張扣掉手牌張數、攤牌、牌河、花）。
+- 測試（`tests/seatrecord.test.cjs`）把電腦打的牌局轉成實戰記錄，確認重建的局面與每一手教練建議都和真正的牌局相同。
+- 不合理的事件（手上沒有那張、某種牌超過 4 張、吃的不是上家）會指出是第幾個事件。
