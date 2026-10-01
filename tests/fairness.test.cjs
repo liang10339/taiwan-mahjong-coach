@@ -39,12 +39,22 @@ assert.equal(F.verify(swapped, playedPrint).ok, false);
 assert.equal(F.verify(played, '00000000').ok, false);
 
 // 4. 分享字串：編碼後解碼得到同一副牌；亂填的字串回傳 null
-const code = F.encodeDeal(g);
-assert.equal(code, '21i3v9.2.1.3.16.1', '預設桌規維持既有六欄連結');
+const code = F.encodeDeal(g),
+  six = '21i3v9.2.1.3.16.1';
+assert.equal(code, six + '!2', '預設桌規：六欄加上實際取墩配牌的標記');
 const back = F.decodeDeal('https://x.test/app/#deal=' + code);
-assert.deepEqual(back.opts, rules);
+assert.deepEqual(back.opts, { ...rules, dealing: 'engine-v2' });
 assert.equal(F.fingerprint(E.create(back.seed, back.opts)), print);
 assert.equal(F.decodeDeal(code).seed, 123456789);
+// 舊的六欄連結（沒有 !2）照舊配牌程序重現當時那副牌
+const old = F.decodeDeal('#deal=' + six);
+assert.equal(old.opts.dealing, 'engine-v1');
+assert.deepEqual(
+  E.create(old.seed, old.opts).hands,
+  E.create(123456789, { ...rules, dealing: 'engine-v1' }).hands,
+);
+assert.equal(F.encodeDeal(E.create(old.seed, old.opts)), six);
+assert.notDeepEqual(E.create(old.seed, old.opts).hands, g.hands, '兩種配牌程序配出不同的牌');
 const big = E.create(Date.now(), rules); // 實際使用的種子是毫秒時間，大於 32 位元
 assert.equal(F.fingerprint(E.create(F.decodeDeal(F.encodeDeal(big)).seed, rules)), F.fingerprint(big));
 for (const bad of [
@@ -54,15 +64,17 @@ for (const bad of [
   '#deal=abc.1.0.0.8.1',
   'deal=abc.1.0.0.16.2',
   '#deal=zzzzzzzz.0.0.0.0.0',
-  code + '~',
-  code + '~taiwan-16-coach~1',
-  code + '~taiwan-16-coach~1~false',
-  code + '~taiwan-16-coach~1~2',
-  code + '~taiwan-16-coach~0~0',
-  code + '~taiwan-16-coach~01~0',
-  code + '~taiwan-16-coach~2~0',
-  code + '~other-profile~1~0',
-  code + '~taiwan-16-coach~1~0~extra',
+  six + '~',
+  six + '~taiwan-16-coach~1',
+  six + '~taiwan-16-coach~1~false',
+  six + '~taiwan-16-coach~1~2',
+  six + '~taiwan-16-coach~0~0',
+  six + '~taiwan-16-coach~01~0',
+  six + '~taiwan-16-coach~2~0',
+  six + '~other-profile~1~0',
+  six + '~taiwan-16-coach~1~0~extra',
+  six + '!3',
+  six + '!2!2',
 ])
   assert.equal(F.decodeDeal(bad), null, bad);
 
@@ -73,14 +85,14 @@ const replay = E.create(noLigu.seed, F.rulesOf(noLigu));
 assert.deepEqual(replay.rules, noLigu.rules);
 assert.deepEqual(replay.hands, noLigu.hands);
 const customCode = F.encodeDeal(noLigu);
-assert.equal(customCode, code + '~taiwan-16-coach~1~0');
+assert.equal(customCode, six + '~taiwan-16-coach~1~0!2');
 for (const text of [
   customCode,
   '#deal=' + customCode,
   'https://x.test/#deal=' + customCode + '&view=table',
 ]) {
   const decoded = F.decodeDeal(text);
-  assert.deepEqual(decoded.opts, { ...rules, rules: noLigu.rules });
+  assert.deepEqual(decoded.opts, { ...rules, dealing: 'engine-v2', rules: noLigu.rules });
   const restored = E.create(decoded.seed, decoded.opts);
   assert.deepEqual(restored.rules, noLigu.rules);
   assert.equal(F.encodeDeal(restored), customCode);
@@ -88,7 +100,7 @@ for (const text of [
 }
 assert.equal(F.verify(noLigu, F.fingerprint(noLigu)).ok, true);
 assert.deepEqual(E.create(back.seed, back.opts).rules, E.DEFAULT_RULES);
-assert.deepEqual(F.decodeDeal(code + '~taiwan-16-coach~1~1').opts.rules, E.DEFAULT_RULES);
+assert.deepEqual(F.decodeDeal(six + '~taiwan-16-coach~1~1').opts.rules, E.DEFAULT_RULES);
 assert.throws(() => F.encodeDeal({ ...g, rules: { ...g.rules, version: 2 } }), /Unsupported rule version/);
 assert.throws(() => F.rulesOf({ ...g, rules: { ...g.rules, id: 'unknown' } }), /Unsupported rule profile/);
 

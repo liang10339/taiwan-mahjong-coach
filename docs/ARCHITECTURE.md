@@ -18,26 +18,25 @@ sw.js                   離線快取（Service Worker）；VERSION 是整個網�
 manifest.webmanifest    PWA 設定（名稱、圖示）
 src/
   core/                 純邏輯，不碰畫面
-    engine.js           牌局引擎：洗牌、摸打、吃碰槓胡、補花、過水、保留八墩、進聽數
+    engine.js           牌局引擎：洗牌、實際取墩配牌（engine-v2，舊牌譜用 engine-v1）、摸打、吃碰槓胡、補花、過水、保留八墩、進聽數
     scoring.js          台數（北部台算法）與結算
     coach.js            教練：牌效率比較、拆牌解說、吃碰槓比較（吃碰後打哪張由 advisor 決定）
-    defense.js          舊的防守組合排除（高級電腦仍在用）
-    ai.js               電腦對手（初級、中級、高級）與讀牌
+    ai.js               電腦對手：初級、中級（牌效率）、高級（決策核心）與三種風格（速攻、保守、大牌）
     data/calibration.js 自戰統計表（npm run calibrate 產生，請勿手改）
     logistic.js         邏輯迴歸的預測（權重由 npm run calibrate 訓練）
-    record.js           牌譜：種子＋桌規＋動作；有格式版本；重播、回到某一步、匯入驗證（docs/RECORD_FORMAT.md）
+    record.js           牌譜：種子＋桌規＋動作；有格式與配牌程序版本；重播、回到某一步、匯入驗證（docs/RECORD_FORMAT.md）
+    seatrecord.js       實戰記錄：只記單一座位看得到的事件，重建成那個座位的視角，交給教練逐手覆盤
+    handvalue.js        手牌價值：這手胡了大約幾台（聽牌時逐張計台，還沒聽看門清、字牌、花、一色）
+    skills.js           技能標籤與熟練度：每手考哪種判斷、各技能和教練一致的比例
     opponents.js        對手模型：三家聽牌機率（邏輯迴歸）、胡牌台數、放過的牌、最近手切
     safety.js           防守 2.0：每張牌的放槍機率與理由（放過的牌、過水、壁、字牌見張數、手切附近、一色）
-    policy.js           攻守期望值：胡牌機率 × 收入 − 放槍機率 × 對方台數，決定打哪張與局勢
+    policy.js           攻守期望值：胡牌機率 × 這手的收入 − 這張與之後幾巡的放槍代價，決定打哪張與局勢
     situation.js        場況判斷的文字：局勢、對手訊號、牌牆、死搭子、台數方向（只負責說明）
     advisor.js          決策核心：所有「打哪張、要不要吃碰」的唯一來源
     quiz.js             新手學堂的階段與題庫
-    value.js            期望值模擬：每張候選牌的胡牌率、平均台數、期望台數（蒙地卡羅）
     notebook.js         錯題本：失誤題目與間隔重複排程
     growth.js           成長報告：一致率、失誤率、胡牌放槍率與進退步比較
     fairness.js         公平性：牌牆指紋、用種子重洗驗證、分享字串編解碼
-  workers/
-    value-worker.js     在背景執行緒跑 value.js，畫面不卡
   ui/                   畫面
     tiles.js            牌面 SVG（實體台麻外觀）
     sound.js            音效（Web Audio 合成）與中文報牌
@@ -49,12 +48,13 @@ src/
       table.js          牌桌：手牌、牌河、四家牌架、出牌動畫、吃碰槓按鈕
       coach-panel.js    教練欄：逐手解說、吃碰槓比較、攻守、讀牌、台數卡
       situation-panel.js 教練欄最上方的場況判斷（快取、同樣的話幾手內不重複）
-      value-panel.js    教練欄的期望值區塊（送工作給 Worker、顯示結果）
+      value-panel.js    教練欄的攻守期望值表（直接列出決策核心選牌用的數字）
       review.js         牌局覆盤：決策紀錄、逐手回放、歷史牌局
       notebook-panel.js 錯題本畫面與本機存取（覆盤分頁）
       growth-panel.js   成長報告畫面與趨勢圖（覆盤分頁）
       fairness-panel.js 開局公布指紋、局後攤牌驗證、同一副牌分享與重打
       records-panel.js  自動保存與接續、歷史牌譜、逐步回放、匯出匯入
+      manual-panel.js   實戰記錄：點牌輸入別處打的牌、撤銷、草稿保存、逐手覆盤
       flow.js           流程：電腦輪流、摸打按鈕、開新局、結算、音效事件、鍵盤
       opening.js        開始畫面與完整開局（抓位、擲骰、開門、配牌、補花）
       settings-panel.js 分頁切換、各種開關、⚙ 設定、報牌聲音設定
@@ -125,7 +125,8 @@ Advisor.claims(game, 你)     每個吃／碰先做出吃碰後的局面，再�
 
 - **進聽數**（`engine.shanten`）是最熱的函式：教練、電腦、危險度都大量呼叫。它逐門拆解並快取，改動時務必跑 `tests/shanten.test.cjs`（和原始實作逐手比對）。
 - **重畫**：`render()` 每次動作都會執行。耗時的計算要依牌局狀態快取（參考 `state.js` 的 `decisionCache`、`claimCache`；一次決策約 8 毫秒），不要在重畫時讀取版面尺寸（`clientWidth` 等會逼瀏覽器重算整頁版面；參考 `table.js` 的 `watchRiverSize`）。
-- 需要大量模擬的功能放進 Web Worker：期望值模擬（`value.js`）由 `src/workers/value-worker.js` 在背景執行，主執行緒只送牌局、收結果；不支援 Worker 時才在主執行緒用較少的模擬次數。
+- 進聽數的 `analyze` 在張數陣列上逐門增量計算（只重算摸進那張所在的一門），約是 v2.7 的十倍快；`scripts/evaluate-coach.cjs` 32000 局約 6 分鐘。
+- 決策只有一個來源（`advisor.js`）：教練、高級電腦、攻守期望值表、實戰記錄的覆盤都呼叫它。以前教練欄另有一套蒙地卡羅模擬，會和標題建議不一致，已移除。
 
 ## 擴充指南
 
@@ -136,12 +137,13 @@ Advisor.claims(game, 你)     每個吃／碰先做出吃碰後的局面，再�
 4. `state.js` 的 `settings` 加預設值、`ruleOpts()` 傳進引擎；`index.html` 的 ⚙ 設定加選項、`settings-panel.js` 綁定。
 5. 在 `tests/` 加測試：規則本身、計台，以及至少一局完整牌局的牌數守恆。
 
-### 新增電腦難度或更強的 AI
-- `src/core/ai.js` 的 `chooseDiscard`、`chooseClaim`、`chooseKan` 依 `level` 分支；新增難度時加一個 level，並在 `index.html` 的難度選單加選項。
+### 新增電腦難度、風格或更強的 AI
+- `src/core/ai.js` 的 `chooseDiscard`、`chooseClaim`、`chooseKan` 依 `level` 分支。高級電腦與三種風格（`STYLES`）都呼叫決策核心，只是參數不同；新增風格只要在 `STYLES` 加一組參數，`npm run calibrate` 會另外校準它的聽牌模型。
+- 改了決策後用 `node scripts/evaluate-coach.cjs 4000 --out eval-results/x.jsonl --compare eval-results/舊版.jsonl` 和舊版逐副比較（同一副牌、四個座位輪換），看差距有沒有超過兩個標準誤；`--opponents fast,fast,fast` 換對手。
 - AI 只能讀公開資訊與自己的手牌（`E.publicTiles(g, p)`），不能偷看牌牆與別家暗牌。`tests/ai-fairness.test.cjs` 會把看不到的牌打亂、確認決定不變；新的 AI 也必須通過（教練的吃碰槓建議由 `tests/claim-coach.test.cjs` 檢查）。
 
 ### 把運算移到 Web Worker（更強 AI）
-`src/core` 不碰 DOM，可以直接在 Worker 裡 `importScripts('src/core/engine.js', ...)`。`src/workers/value-worker.js` 就是範例：主執行緒把 `game` 以 JSON 傳進 Worker（`Game` 全是一般資料），附上工作編號；Worker 回傳結果，主執行緒只採用最新一筆。更強的 AI 可以照同樣方式回傳決策（例如 `{type: 'discard', index}`），再由主執行緒呼叫 `engine` 套用。
+`src/core` 不碰 DOM，可以直接在 Worker 裡 `importScripts('src/core/engine.js', ...)`：主執行緒把 `game` 以 JSON 傳進 Worker（`Game` 全是一般資料），附上工作編號；Worker 回傳決策（例如 `{type: 'discard', index}`），主執行緒只採用最新一筆，再呼叫 `engine` 套用。目前一次決策只要幾毫秒，還不需要 Worker。
 
 ### 多人連線
 - 伺服器用 Node.js 直接 `require('./src/core/engine.js')`，由伺服器保管完整的 `game`（含牌牆與四家手牌），每位玩家只收到「自己看得到的部分」——這正是 `E.publicTiles(g, viewer)` 的概念。

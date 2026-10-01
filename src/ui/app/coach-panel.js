@@ -194,18 +194,25 @@ function coach() {
   const best = ex.best,
     decision = currentDecision(),
     recommended = decision.option,
-    folding = !!decision && decision.folding;
+    folding = !!decision && decision.folding,
+    forValue = !!decision && decision.forValue;
   title.replaceChildren(
     el(
       'span',
       null,
-      folding ? (decision.stance === 'fold' ? '建議先守：打 ' : '攻守兼顧：打 ') : '建議打出 ',
+      folding
+        ? decision.stance === 'fold'
+          ? '建議先守：打 '
+          : '攻守兼顧：打 '
+        : forValue
+          ? '做台數：打 '
+          : '建議打出 ',
     ),
     Tiles.node(decision ? decision.tile : best.tile, 'md'),
   );
   copy.className = 'coach-chips';
   copy.replaceChildren(
-    ...(folding ? [el('span', 'chip', '只看效率會打 ' + Coach.label(best.tile))] : []),
+    ...(folding || forValue ? [el('span', 'chip', '只看效率會打 ' + Coach.label(best.tile))] : []),
     el('span', 'chip', recommended.shanten === 0 ? '打後聽牌' : '打後' + readiness(recommended.shanten)),
     el('span', 'chip', (recommended.shanten === 0 ? '可胡 ' : '有效牌 ') + recommended.remaining + ' 張'),
   );
@@ -233,7 +240,7 @@ function coach() {
     more.append(el('summary', null, '牌效率細節（進張、結構、次佳打法）'), rest);
     body.append(more);
   }
-  valueSection(body); // 胡牌率與台數（模擬，算好後自動更新）
+  valueSection(body); // 攻守期望值表（和標題的建議出自同一個判斷）
   body.append(
     el(
       'h5',

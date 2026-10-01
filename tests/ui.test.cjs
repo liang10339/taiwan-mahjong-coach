@@ -34,7 +34,6 @@ const c = vm.createContext({
   console,
 });
 const spoken = [];
-c.Defense = require('../src/core/defense.js');
 c.Coach = require('../src/core/coach.js');
 c.Scoring = require('../src/core/scoring.js');
 c.AI = require('../src/core/ai.js');

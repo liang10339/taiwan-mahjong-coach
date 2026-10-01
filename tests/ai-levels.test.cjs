@@ -1,6 +1,8 @@
 const assert = require('node:assert/strict'),
   E = require('../src/core/engine.js'),
-  A = require('../src/core/ai.js');
+  A = require('../src/core/ai.js'),
+  Safety = require('../src/core/safety.js'),
+  Advisor = require('../src/core/advisor.js');
 function conserve(g) {
   const all = [
     ...g.wall,
@@ -26,9 +28,9 @@ for (const level of Object.keys(A.LEVELS))
       } else A.act(g, g.turn, level);
       conserve(g);
     }
-    if (g.win) results[level]++;
+    if (g.log.some((e) => e.action === 'ron' || e.action === 'tsumo')) results[level]++;
   }
-// 高級：對手已攤三組（很可能聽牌）、自己還很遠 → 打可排除的安全牌
+// 高級：對手已攤三組（很可能聽牌）、自己還很遠 → 和教練一樣改打安全的牌
 const g = E.create(3);
 g.melds[1] = [
   { type: 'pon', tiles: [27, 27, 27], from: 2 },
@@ -43,12 +45,11 @@ g.rivers = [[29, 29], [30, 30], [31, 31], [29]];
 const hard = A.chooseDiscard(g, 0, 'hard'),
   normal = A.chooseDiscard(g, 0, 'normal');
 assert.equal(A.threat(g, 1), 2);
-assert.ok(
-  A.danger(g, 0, hard).score <= Math.min(...g.hands[0].map((t) => A.danger(g, 0, t).score)),
-  'hard AI folds with the safest tile',
-);
-assert.ok(A.danger(g, 0, hard).score < A.danger(g, 0, normal).score || hard === normal);
-assert.equal(A.dangerLevel(A.danger(g, 0, 29)), 'safe'); // 北：自己一張、牌河三張，四張全見，三家都無法用它胡
+const risk = new Map(Safety.evaluate(g, 0).map((r) => [r.tile, r.dealIn]));
+assert.equal(hard, Advisor.decide(g, 0).tile, '高級電腦和教練的建議相同');
+assert.ok(risk.get(hard) <= Math.min(...risk.values()) + 0.01, 'hard AI folds with a (near-)safest tile');
+assert.ok(risk.get(hard) <= risk.get(normal));
+assert.equal(risk.get(29), 0); // 北：自己一張、牌河三張，四張全見，三家都無法用它胡
 // 初級：能碰就碰
 const pg = E.create(4);
 pg.hands[1] = [5, 5, ...pg.hands[1].slice(2)];

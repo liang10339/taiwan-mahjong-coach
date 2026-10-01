@@ -147,7 +147,11 @@
    * @param {Game} g @param {number} q
    */
   function tenpaiProb(g, q) {
-    const model = CAL && CAL.tenpaiModel;
+    // 已知對手風格（本程式的電腦會公開自己的風格）時，用那種風格自己對打校準出來的模型；
+    // 不知道（例如實戰記錄裡的真人）就用混合對手的模型
+    const style = g.playerStyles && g.playerStyles[q],
+      styled = style && CAL && CAL.styles && CAL.styles[style];
+    const model = (styled && styled.tenpaiModel) || (CAL && CAL.tenpaiModel);
     if (model) return Math.min(0.97, Math.max(0.005, L.predict(model, tenpaiVector(g, q))));
     return probForKey(tenpaiKey(features(g, q)));
   }

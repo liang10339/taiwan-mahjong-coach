@@ -30,8 +30,9 @@ for (const o of r.options) {
   const known = [...ready, 2];
   for (const out of o.after.outs) assert.equal(out.remaining, 4 - known.filter((t) => t === out.tile).length);
 }
+// 固定用舊配牌程序（engine-v1）的起手牌當題目
 for (const seed of [2, 5]) {
-  const s = E.create(seed);
+  const s = E.create(seed, { dealing: 'engine-v1' });
   g = fixture(s.hands[0], s.hands[0][0]);
   r = C.claimDecision(g);
   assert.ok(r.best);

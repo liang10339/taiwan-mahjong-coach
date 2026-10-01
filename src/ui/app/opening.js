@@ -103,6 +103,8 @@ function startCurrentHand() {
     newHand();
     return;
   }
+  // 開頁時就洗好的第一局沒有經過 dealGame()，這裡依目前設定寫入電腦風格
+  declareStyles(game);
   if (settings.opening === 'full') runCeremony(beginPlay);
   else beginPlay();
 }
@@ -269,20 +271,30 @@ function runCeremony(done) {
       table.append(box);
     }
     stage.append(table);
+    // 照引擎實際的配牌事件播放（你的牌翻開、別家只看得到牌背）；舊程序的牌局沒有事件，就照規則示意
+    const view = Observation.forPlayer(game, 0);
+    const deals = view.opening.length
+      ? view.opening.filter((e) => e.type === 'deal')
+      : Array.from({ length: 16 }, (_, i) => ({
+          player: (game.dealer + (i % 4)) % 4,
+          round: Math.floor(i / 4),
+          tiles: [null, null, null, null],
+        }));
     let step = 0;
-    for (let round = 0; round < 4; round++)
-      for (let k = 0; k < 4; k++) {
-        const p = (game.dealer + k) % 4;
-        openingLater(() => {
-          boxes.forEach((b) => b.box.classList.remove('taking'));
-          boxes[p].box.classList.add('taking');
-          counts[p] += 4;
-          boxes[p].tiles.append(Tiles.back('xxs'), Tiles.back('xxs')); // 每次拿兩墩
-          boxes[p].count.textContent = counts[p] + ' 張';
-          if (typeof Sound !== 'undefined') Sound.play('draw');
-          $('#openingText').textContent = '第 ' + (round + 1) + ' 輪：' + seatLabel(p) + '拿 4 張。';
-        }, ++step * 220);
-      }
+    for (const e of deals) {
+      const p = e.player;
+      openingLater(() => {
+        boxes.forEach((b) => b.box.classList.remove('taking'));
+        boxes[p].box.classList.add('taking');
+        counts[p] += e.tiles.length;
+        if (e.tiles.every((t) => t !== null))
+          e.tiles.forEach((t) => boxes[p].tiles.append(Tiles.node(t, 'xxs')));
+        else boxes[p].tiles.append(Tiles.back('xxs'), Tiles.back('xxs')); // 每次拿兩墩
+        boxes[p].count.textContent = counts[p] + ' 張';
+        if (typeof Sound !== 'undefined') Sound.play('draw');
+        $('#openingText').textContent = '第 ' + (e.round + 1) + ' 輪：' + seatLabel(p) + '拿兩墩（4 張）。';
+      }, ++step * 220);
+    }
     openingLater(
       () => {
         boxes.forEach((b) => b.box.classList.remove('taking'));
@@ -298,18 +310,35 @@ function runCeremony(done) {
   }
 
   function stepFlowers() {
-    const holders = [0, 1, 2, 3].filter((p) => game.flowers[p].length);
+    // 依引擎的補花事件：從莊家起依序，攤出花、從牌尾補；補到花再補（同一家會出現第二行）
+    const view = Observation.forPlayer(game, 0);
+    const events = view.opening.length
+      ? view.opening.filter((e) => e.type === 'flowers')
+      : [0, 1, 2, 3]
+          .map((k) => (game.dealer + k) % 4)
+          .filter((p) => game.flowers[p].length)
+          .map((p) => ({
+            player: p,
+            flowers: game.flowers[p],
+            replacements: game.flowers[p].map(() => null),
+          }));
     const { stage, actions } = openingShow(
       '補花',
-      holders.length
-        ? '配到的花牌要攤在面前，再從牌尾補一張；補到花就再補，直到補到一般牌。'
+      events.length
+        ? '從莊家開始依序補花：配到的花牌攤在面前，再從牌尾補同樣張數；補到花就再補，直到補到一般牌。'
         : '這一局配牌時沒有人拿到花牌，不用補花。',
     );
-    for (const p of holders) {
+    const seen = new Set();
+    for (const e of events) {
       const line = el('p', 'opening-flowers');
-      line.append(el('b', null, seatLabel(p)));
-      game.flowers[p].forEach((t) => line.append(Tiles.node(t, 'sm')));
-      line.append(el('small', null, '從牌尾補 ' + game.flowers[p].length + ' 張'));
+      line.append(el('b', null, seatLabel(e.player) + (seen.has(e.player) ? '（又補到花）' : '')));
+      seen.add(e.player);
+      e.flowers.forEach((t) => line.append(Tiles.node(t, 'sm')));
+      line.append(el('small', null, '從牌尾補 ' + e.flowers.length + ' 張'));
+      if (e.replacements.every((t) => t !== null)) {
+        line.append(el('small', null, '：'));
+        e.replacements.forEach((t) => line.append(Tiles.node(t, 'xs')));
+      }
       stage.append(line);
     }
     actions.append(openingButton('開始打牌', done));

@@ -8,6 +8,8 @@ function decisionRecord(choice, options, summary, kind = 'claim') {
     tile: game.pending?.tile ?? choice.tile,
     summary,
     details: options.map((o) => o.compact).join('\n\n'),
+    /** 吃碰時你的選擇和教練建議是否相同（技能統計用）；槓等其他紀錄為 null */
+    agree: /** @type {boolean | null} */ (null),
   };
 }
 function resolutionText(x) {

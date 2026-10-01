@@ -95,3 +95,71 @@
   gap: 8px;
   margin-top: 8px;
 }
+
+/* 實戰記錄：輸入別處打的牌、逐手覆盤 */
+.manual-options,
+.manual-flowers,
+.manual-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+  font-size: 13px;
+}
+.manual-options label,
+.manual-flowers label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.manual-row .active {
+  background: #1f5d4a;
+  color: #fff;
+}
+.manual-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin: 6px 0;
+}
+.manual-tile {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.manual-count,
+.manual-status,
+.manual-summary {
+  margin: 6px 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.manual-hand {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin: 6px 0;
+}
+.manual-recent {
+  margin: 4px 0;
+  color: #6f756b;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.manual-review-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 13px;
+  border-bottom: 1px solid #e3dfd2;
+}
+.manual-review-row.worse {
+  color: #a4442c;
+}
+.manual-reason {
+  margin: 2px 0 6px;
+  color: #6f756b;
+  font-size: 12px;
+}
