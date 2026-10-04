@@ -69,7 +69,7 @@ function resumeGame(saved) {
   selected = null;
   suggestions = [];
   heard = { log: game.log.length, phase: game.phase }; // 不重播之前的音效
-  scoreCache = { log: -1, value: null };
+  scoreCache = { log: -1, value: [] };
   resetSituation();
   publishDealPrint(game);
   savedMark = '';

@@ -13,6 +13,8 @@
 //           --a / --b 比較的兩種打法（預設 coach 對 normal）、--margin 教練改打非效率首選要多幾台、
 //           --future 之後幾巡放槍代價的權重（實驗用，預設 1）、
 //           --opponents 另外三家（依下家、對家、上家），例如 fast,fast,fast（預設 normal,hard,normal）
+//           --pool 對手池名稱（bots、casual、mixed、strong、styles，見 scripts/lib/envs.cjs；會當成 --opponents）、
+//           --env 桌規名稱（default、friends：一炮多響、100 底 20 台、有連莊）
 // 實驗用環境變數：VARIANT=eff（教練只照牌效率＋口訣）、nohold（不踩吃碰煞車）
 'use strict';
 const fs = require('node:fs');
@@ -32,7 +34,14 @@ function args(argv) {
   for (const k of ['start', 'workers', 'budget']) out[k] = Number(out[k]);
   if (out.margin !== undefined) out.margin = Number(out.margin);
   if (out.future !== undefined) out.future = Number(out.future);
-  if (out.opponents !== undefined) out.opponents = String(out.opponents).split(',');
+  if (out.pool !== undefined) {
+    const { POOLS } = require('./lib/envs.cjs');
+    if (!POOLS[out.pool])
+      throw Error('不認得的對手池：' + out.pool + '（' + Object.keys(POOLS).join('、') + '）');
+    out.opponents = POOLS[out.pool];
+  }
+  if (out.opponents !== undefined)
+    out.opponents = Array.isArray(out.opponents) ? out.opponents : String(out.opponents).split(',');
   return out;
 }
 
@@ -59,7 +68,12 @@ if (process.argv[2] === '--worker') {
     if (seeds === 'stop') process.exit(0);
     for (const seed of seeds)
       process.send(
-        Arena.duel(seed, cfg.a, cfg.b, { margin: cfg.margin, future: cfg.future, opponents: cfg.opponents }),
+        Arena.duel(seed, cfg.a, cfg.b, {
+          margin: cfg.margin,
+          future: cfg.future,
+          opponents: cfg.opponents,
+          env: cfg.env,
+        }),
       );
     process.send('ready');
   });
@@ -78,6 +92,8 @@ function codePrint() {
       .map((f) => path.join(core, f)),
     path.join(core, 'data/calibration.js'),
     path.join(__dirname, 'lib/arena.cjs'),
+    path.join(__dirname, 'lib/envs.cjs'),
+    path.join(__dirname, 'lib/humans.cjs'),
   ].sort();
   for (const f of files) hash.update(fs.readFileSync(f));
   return hash.digest('hex').slice(0, 10);
@@ -92,6 +108,7 @@ function main() {
     margin: opt.margin ?? null,
     ...(opt.future !== undefined ? { future: opt.future } : {}),
     ...(opt.opponents ? { opponents: opt.opponents } : {}),
+    ...(opt.env ? { env: opt.env } : {}),
     variant: process.env.VARIANT || 'full',
     code: codePrint(),
   };
@@ -170,6 +187,11 @@ function report(Arena, rows, cfg, complete, seconds) {
       pct(s[side].dealIn),
       '平均每局',
       s[side].delta.toFixed(3),
+      '台',
+      '｜自摸占胡牌',
+      pct(s[side].tsumoShare),
+      '胡牌平均',
+      s[side].avgTai.toFixed(2),
       '台',
     );
   // 差距小於約 2 個標準誤時，還不能說哪個比較好

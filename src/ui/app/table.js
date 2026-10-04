@@ -3,9 +3,16 @@
 // 依出牌順序還原桌上的牌（被吃碰槓胡拿走的牌不留在桌上）
 function discardPile() {
   const pile = [];
+  let prev = null;
   for (const e of game.log) {
     if (e.action === 'discard') pile.push({ tile: e.tile, player: e.player, cut: e.cut || 'hand' });
-    else if (['chi', 'pon', 'kan', 'ron'].includes(e.action) && !e.robKan) pile.pop();
+    else if (['chi', 'pon', 'kan', 'ron'].includes(e.action) && !e.robKan) {
+      // 一炮多響：同一張牌的好幾筆 ron 紀錄只拿走牌河上的那張一次
+      const again =
+        e.action === 'ron' && prev && prev.action === 'ron' && prev.tile === e.tile && prev.from === e.from;
+      if (!again) pile.pop();
+    }
+    prev = e;
   }
   return pile;
 }
@@ -204,10 +211,10 @@ function myStatus() {
 function render() {
   const mine = game.turn === 0,
     choosing = mine && game.phase === 'discard';
-  const ws = winScore(),
+  const wss = winScores(),
     status =
       game.phase === 'ended'
-        ? game.result + (ws ? '・' + ws.result.total + ' 台' : '')
+        ? game.result + (wss.length ? '・' + wss.map((x) => x.result.total).join('、') + ' 台' : '')
         : game.phase === 'claim'
           ? game.pending.kind === 'robkan'
             ? '加槓確認：等待搶槓胡或略過'

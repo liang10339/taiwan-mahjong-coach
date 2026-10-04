@@ -110,7 +110,7 @@ Advisor.claims(game, 你)     每個吃／碰先做出吃碰後的局面，再�
 
 因此：
 
-- 新增檔案時，要在 `index.html` 加 `<script>`，也要加到 `sw.js` 的 `FILES`。漏了會被 `tests/assets.test.cjs` 抓到。
+- 新增檔案時，只要在 `index.html` 加 `<script>`，然後執行 `npm run sync`，`sw.js` 的 `FILES` 會自動更新（`npm run bump` 也會順便執行）。`tests/assets.test.cjs` 與 `tests/load-order.test.cjs` 會檢查清單一致，以及核心檔案 `require` 的依賴是否排在它前面。
 - 一個檔案「載入時就立刻執行」的程式，只能用到比它早載入的檔案；啟動流程統一放在最後的 `main.js`。
 
 ## 型別檢查
@@ -130,7 +130,8 @@ Advisor.claims(game, 你)     每個吃／碰先做出吃碰後的局面，再�
 
 ## 擴充指南
 
-### 新增桌規（例如無花玩法、一炮多響、Migi）
+### 新增桌規（例如無花玩法、Migi；一炮多響 `rules.multiRon` 是現成的範例）
+0. 影響牌型或勝負判定的桌規放進規則集（`engine.js` 的 `DEFAULT_RULES` 與 `ruleProfile`）：欄位的預設值必須等於舊行為，`record.js` 的 `optionsOf` 只在非預設時才寫出，舊牌譜才能照舊重播。`multiRon` 的做法可以照著看（`engine.resolve`、`engine.winners`、`scoring.settleAll`）。
 1. 在 `src/types/game.d.ts` 的 `RuleOptions` 與 `Game` 加上欄位並寫說明。
 2. `engine.create(seed, opts)` 讀取選項並存進 `game`；引擎內依 `game.xxx` 分支。
 3. `scoring.js` 依同一個欄位計台。

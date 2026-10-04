@@ -12,6 +12,8 @@ interface MahjongRuleProfile {
   id: string;
   version: number;
   liguLigu: boolean;
+  /** 一炮多響：同一張牌好幾家能胡時全部都胡（預設 false，只有出牌者下家方向最近一家胡） */
+  multiRon: boolean;
 }
 
 /** 座位：0 是你，1 下家、2 對家、3 上家（逆時針）。 */

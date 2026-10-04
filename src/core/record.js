@@ -49,7 +49,15 @@
       streak: g.streak || 0,
       reserve: g.reserve || 0,
       passWater: !!g.passWater,
-      rules: g.rules ? { id: g.rules.id, version: g.rules.version, liguLigu: g.rules.liguLigu } : undefined,
+      rules: g.rules
+        ? {
+            id: g.rules.id,
+            version: g.rules.version,
+            liguLigu: g.rules.liguLigu,
+            // 預設（關閉）不寫出，舊牌譜與沒開一炮多響的牌譜內容完全相同
+            ...(g.rules.multiRon ? { multiRon: true } : {}),
+          }
+        : undefined,
     };
   }
 

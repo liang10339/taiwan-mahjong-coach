@@ -47,11 +47,17 @@ test('有人很可能聽牌、自己還差很遠：之後的放槍代價讓守�
     hand: [5, 27, 27, 27],
     pressure: 1.5,
   };
-  const now = P.choose({ ...input, future: 0 }),
-    later = P.choose({ ...input, future: 1 });
+  const now = P.choose({ ...input, margin: 0.15, future: 0 }),
+    later = P.choose({ ...input, margin: 0.15, future: 1 });
   // 只看這一張會硬攻；算進之後幾巡，改打安全牌守
   assert.equal(now.option.tile, 5);
   assert.equal(later.option.tile, 27);
   assert.equal(later.stance, 'fold');
   assert.ok(later.chosen.ev - now.chosen.ev <= 0, '算進之後的代價，期望值只會更低');
+});
+
+test('預設值：換牌門檻 0.3、守到底權重 0（v2.9 掃描與驗證結果，見 policy.js 註解）', () => {
+  assert.equal(P.CHOOSE_MARGIN, 0.3);
+  assert.equal(P.FUTURE_WEIGHT, 0);
+  assert.equal(P.MARGIN, 0.15);
 });

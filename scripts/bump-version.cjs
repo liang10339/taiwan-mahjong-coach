@@ -12,4 +12,5 @@ const next = current + 1;
 fs.writeFileSync(swPath, sw.replace(`const VERSION = ${current};`, `const VERSION = ${next};`));
 const html = fs.readFileSync(htmlPath, 'utf8').replace(/\?v=\d+/g, `?v=${next}`);
 fs.writeFileSync(htmlPath, html);
+require('./sync-assets.cjs').sync(); // 順便讓離線快取清單跟 index.html 一致
 console.log(`快取版本 ${current} → ${next}`);

@@ -63,15 +63,27 @@
 
   /** 效率首選以外的牌，期望值要高出這麼多（台）才換：差不多時照牌效率打，建議才穩定、好理解 */
   const MARGIN = 0.15;
+  /**
+   * 選牌時，改打非效率首選要高出多少台才換（v2.9 起 0.3；覆盤判斷「失誤」仍用 MARGIN）。
+   * 同一批 1000 副牌掃描 0.05 至 1.2：0.05 −0.07、0.15 為 0、0.3 +0.08、0.5 +0.02、0.8 −0.05、1.2 −0.08（每局台，相對 0.15）；
+   * 偏離效率首選越多，胡牌率掉越多，放槍減少的好處抵不過。
+   */
+  const CHOOSE_MARGIN = 0.3;
+  /**
+   * 「守到底」（之後幾巡放槍代價）的預設權重。v2.9 起預設 0（程式與 `future` 參數保留，可實驗）：
+   * 新種子 3000 副（12000 局）對照，margin 0.3＋future 0 比 v2.8 設定每局多 0.046 ± 0.023 台；
+   * 單獨 future 0 在調參用的 1000 副上多 0.038 ± 0.023 台，單獨 margin 0.3 在新種子上多 0.024 ± 0.022 台。
+   */
+  const FUTURE_WEIGHT = 0;
 
   /**
    * 比較每張候選牌的攻守期望值，選出這手要打的牌與局勢。
    * @param {{options: any[], efficiency: any, safety: any[], left: number, myTai: number,
    *   base?: number, tsumoShare?: number, dealerExtra?: number, maxTenpai?: number, margin?: number,
    *   incomeOf?: (option: any) => number, hand?: number[], pressure?: number, payout?: number, future?: number}} input
-   *   base：底換算成幾台（例如 50 底 20 台 → 2.5）；dealerExtra：自己是莊家時放槍多付的台數；margin：改打非效率首選需要多出的期望值（預設 MARGIN）；
+   *   base：底換算成幾台（例如 50 底 20 台 → 2.5）；dealerExtra：自己是莊家時放槍多付的台數；margin：改打非效率首選需要多出的期望值（預設 CHOOSE_MARGIN）；
    *   incomeOf：打出這張後「胡了能收多少台（含底）」——各張不同（例如留住字牌對、做成一色、聽台數高的牌）；沒給就每張都用 myTai 的平均值。
-   *   hand、pressure（三家聽牌機率總和）、payout（放槍一次平均賠幾台）：算之後幾巡的放槍代價；future 是它的權重（預設 1，0 表示只看這一張）。
+   *   hand、pressure（三家聽牌機率總和）、payout（放槍一次平均賠幾台）：算之後幾巡的放槍代價；future 是它的權重（預設 FUTURE_WEIGHT，0 表示只看這一張）。
    */
   function choose(input) {
     const {
@@ -96,7 +108,7 @@
       left,
       pressure: input.pressure || 0,
       payout: input.payout ?? base + ((CAL && CAL.avgTaiAll) || 2) + dealerExtra,
-      weight: input.future ?? 1,
+      weight: input.future ?? FUTURE_WEIGHT,
       safeTiles,
       safeStock: input.hand ? input.hand.filter((t) => safeTiles.has(t)).length : safeTiles.size,
     };
@@ -136,7 +148,7 @@
     rows.sort((a, b) => b.ev - a.ev || a.dealIn - b.dealIn);
     const eff = rows.find((r) => r.tile === efficiency.tile) || rows[0];
     const top = rows[0];
-    const chosen = top.ev > eff.ev + (input.margin ?? MARGIN) ? top : eff;
+    const chosen = top.ev > eff.ev + (input.margin ?? CHOOSE_MARGIN) ? top : eff;
     const sh = efficiency.shanten;
     // 換牌的理由：比效率首選安全（防守），或是不比較危險但胡了台數較高（做台）
     const reason =
@@ -173,6 +185,8 @@
     futureLoss,
     holdBackClaim,
     MARGIN,
+    CHOOSE_MARGIN,
+    FUTURE_WEIGHT,
     LEAK,
     HORIZON,
     FOLD_WIN,

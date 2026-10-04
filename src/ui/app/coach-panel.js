@@ -91,8 +91,7 @@ function coach() {
   body.append(title, copy);
   if (game.phase === 'ended') {
     title.textContent = game.result;
-    const ws = winScore();
-    if (ws) body.append(scoreCard(ws));
+    for (const ws of winScores()) body.append(scoreCard(ws));
     if (session.last) body.append(settleCard());
     body.append(fairnessCard());
     const good = turnLog.filter((x) => x.judge.verdict === 'best').length;

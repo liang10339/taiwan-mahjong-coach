@@ -306,12 +306,26 @@
     }
     return { deltas, payments };
   }
+  /**
+   * 一炮多響的結算：每位胡牌的家各自算台、各自向放槍者收，放槍者付所有人的總和。
+   * 只有一位胡牌時和 settle 完全相同。
+   */
+  function settleAll(g, results, stake = {}) {
+    const deltas = [0, 0, 0, 0],
+      payments = [];
+    for (const result of results) {
+      const one = settle(g, result, stake);
+      one.deltas.forEach((d, i) => (deltas[i] += d));
+      payments.push(...one.payments.map((x) => ({ ...x, winner: result.winner })));
+    }
+    return { deltas, payments };
+  }
   function summary(result) {
     return result.items.length
       ? result.items.map((x) => x.name + ' ' + x.tai + '台').join('、') + '，共 ' + result.total + ' 台'
       : '沒有台數（屁胡），只算底';
   }
-  const api = { score, settle, summary, decompositions, isLiguLigu, winningTiles, context };
+  const api = { score, settle, settleAll, summary, decompositions, isLiguLigu, winningTiles, context };
   if (typeof module !== 'undefined') module.exports = api;
   else root.Scoring = api;
 })(globalThis);

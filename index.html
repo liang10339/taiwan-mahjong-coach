@@ -15,15 +15,15 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@900&display=swap"
     />
-    <link rel="stylesheet" href="styles/state.css?v=29" />
-    <link rel="stylesheet" href="styles/tiles.css?v=29" />
-    <link rel="stylesheet" href="styles/table.css?v=29" />
-    <link rel="stylesheet" href="styles/opening.css?v=29" />
-    <link rel="stylesheet" href="styles/notebook.css?v=29" />
-    <link rel="stylesheet" href="styles/growth.css?v=29" />
-    <link rel="stylesheet" href="styles/fairness.css?v=29" />
-    <link rel="stylesheet" href="styles/situation.css?v=29" />
-    <link rel="stylesheet" href="styles/records.css?v=29" />
+    <link rel="stylesheet" href="styles/state.css?v=31" />
+    <link rel="stylesheet" href="styles/tiles.css?v=31" />
+    <link rel="stylesheet" href="styles/table.css?v=31" />
+    <link rel="stylesheet" href="styles/opening.css?v=31" />
+    <link rel="stylesheet" href="styles/notebook.css?v=31" />
+    <link rel="stylesheet" href="styles/growth.css?v=31" />
+    <link rel="stylesheet" href="styles/fairness.css?v=31" />
+    <link rel="stylesheet" href="styles/situation.css?v=31" />
+    <link rel="stylesheet" href="styles/records.css?v=31" />
     <title>牌桌教練｜台灣麻將練習</title>
   </head>
   <body>
@@ -36,7 +36,7 @@
           <button class="mode-tab" data-mode="review">牌局覆盤</button>
         </nav>
         <div class="topbar-actions"
-          ><span class="status-dot"></span><span class="version">教練練習 v2.8</span
+          ><span class="status-dot"></span><span class="version">教練練習 v2.9</span
           ><details class="voice-settings game-settings"
             ><summary class="icon-button" title="牌局設定" aria-label="牌局設定">⚙</summary
             ><div class="voice-panel settings-panel"
@@ -71,6 +71,9 @@
                 ><input type="checkbox" id="cutsToggle" /> 牌河用灰底輔助標示摸切（預設關）</label
               ><label class="check"
                 ><input type="checkbox" id="passWaterToggle" /> 過水（放過胡牌後，打出一張前不能胡）</label
+              ><label class="check"
+                ><input type="checkbox" id="multiRonToggle" />
+                一炮多響（同一張牌好幾家能胡就全部胡，預設只有最近一家）</label
               ><label class="check"
                 ><input type="checkbox" id="reserveToggle" /> 保留八墩（剩 16 張流局）</label
               ><label
@@ -318,45 +321,45 @@
       </div>
     </div>
     <div class="toast" id="toast" role="status"></div>
-    <script src="src/core/engine.js?v=29"></script>
-    <script src="src/core/observation.js?v=29"></script>
-    <script src="src/core/coach.js?v=29"></script>
-    <script src="src/core/scoring.js?v=29"></script>
-    <script src="src/core/ai.js?v=29"></script>
-    <script src="src/core/data/calibration.js?v=29"></script>
-    <script src="src/core/logistic.js?v=29"></script>
-    <script src="src/core/handvalue.js?v=29"></script>
-    <script src="src/core/opponents.js?v=29"></script>
-    <script src="src/core/safety.js?v=29"></script>
-    <script src="src/core/policy.js?v=29"></script>
-    <script src="src/core/situation.js?v=29"></script>
-    <script src="src/core/advisor.js?v=29"></script>
-    <script src="src/core/quiz.js?v=29"></script>
-    <script src="src/core/skills.js?v=29"></script>
-    <script src="src/core/notebook.js?v=29"></script>
-    <script src="src/core/growth.js?v=29"></script>
-    <script src="src/core/fairness.js?v=29"></script>
-    <script src="src/core/record.js?v=29"></script>
-    <script src="src/core/seatrecord.js?v=29"></script>
-    <script src="src/ui/tiles.js?v=29"></script>
-    <script src="src/ui/sound.js?v=29"></script>
-    <script src="src/ui/lessons.js?v=29"></script>
-    <script src="src/ui/stages.js?v=29"></script>
-    <script src="src/ui/app/dom.js?v=29"></script>
-    <script src="src/ui/app/state.js?v=29"></script>
-    <script src="src/ui/app/table.js?v=29"></script>
-    <script src="src/ui/app/coach-panel.js?v=29"></script>
-    <script src="src/ui/app/situation-panel.js?v=29"></script>
-    <script src="src/ui/app/value-panel.js?v=29"></script>
-    <script src="src/ui/app/review.js?v=29"></script>
-    <script src="src/ui/app/notebook-panel.js?v=29"></script>
-    <script src="src/ui/app/growth-panel.js?v=29"></script>
-    <script src="src/ui/app/fairness-panel.js?v=29"></script>
-    <script src="src/ui/app/records-panel.js?v=29"></script>
-    <script src="src/ui/app/manual-panel.js?v=29"></script>
-    <script src="src/ui/app/flow.js?v=29"></script>
-    <script src="src/ui/app/opening.js?v=29"></script>
-    <script src="src/ui/app/settings-panel.js?v=29"></script>
-    <script src="src/ui/app/main.js?v=29"></script>
+    <script src="src/core/engine.js?v=31"></script>
+    <script src="src/core/observation.js?v=31"></script>
+    <script src="src/core/coach.js?v=31"></script>
+    <script src="src/core/scoring.js?v=31"></script>
+    <script src="src/core/ai.js?v=31"></script>
+    <script src="src/core/data/calibration.js?v=31"></script>
+    <script src="src/core/logistic.js?v=31"></script>
+    <script src="src/core/handvalue.js?v=31"></script>
+    <script src="src/core/opponents.js?v=31"></script>
+    <script src="src/core/safety.js?v=31"></script>
+    <script src="src/core/policy.js?v=31"></script>
+    <script src="src/core/situation.js?v=31"></script>
+    <script src="src/core/advisor.js?v=31"></script>
+    <script src="src/core/quiz.js?v=31"></script>
+    <script src="src/core/skills.js?v=31"></script>
+    <script src="src/core/notebook.js?v=31"></script>
+    <script src="src/core/growth.js?v=31"></script>
+    <script src="src/core/fairness.js?v=31"></script>
+    <script src="src/core/record.js?v=31"></script>
+    <script src="src/core/seatrecord.js?v=31"></script>
+    <script src="src/ui/tiles.js?v=31"></script>
+    <script src="src/ui/sound.js?v=31"></script>
+    <script src="src/ui/lessons.js?v=31"></script>
+    <script src="src/ui/stages.js?v=31"></script>
+    <script src="src/ui/app/dom.js?v=31"></script>
+    <script src="src/ui/app/state.js?v=31"></script>
+    <script src="src/ui/app/table.js?v=31"></script>
+    <script src="src/ui/app/coach-panel.js?v=31"></script>
+    <script src="src/ui/app/situation-panel.js?v=31"></script>
+    <script src="src/ui/app/value-panel.js?v=31"></script>
+    <script src="src/ui/app/review.js?v=31"></script>
+    <script src="src/ui/app/notebook-panel.js?v=31"></script>
+    <script src="src/ui/app/growth-panel.js?v=31"></script>
+    <script src="src/ui/app/fairness-panel.js?v=31"></script>
+    <script src="src/ui/app/records-panel.js?v=31"></script>
+    <script src="src/ui/app/manual-panel.js?v=31"></script>
+    <script src="src/ui/app/flow.js?v=31"></script>
+    <script src="src/ui/app/opening.js?v=31"></script>
+    <script src="src/ui/app/settings-panel.js?v=31"></script>
+    <script src="src/ui/app/main.js?v=31"></script>
   </body>
 </html>
