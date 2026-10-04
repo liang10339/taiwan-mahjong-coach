@@ -1,9 +1,9 @@
-# 牌桌教練 v2.8
+# 牌桌教練 v2.9
 台灣 16 張的單機教練練習（PWA，可離線、可安裝到手機主畫面）。仍採下列簡化桌規，並非完整比賽規則。
 
 ## 開啟
 - 需要 [Node.js](https://nodejs.org/) 20 以上。第一次先執行 `npm install`（安裝格式與型別檢查工具）。
-- `npm start`，開啟 http://localhost:4176 。右上角顯示「教練練習 v2.8」。
+- `npm start`，開啟 http://localhost:4176 。右上角顯示「教練練習 v2.9」。
 - 沒有 Node.js 時也可以：`python -m http.server 4176 --bind 127.0.0.1`。
 - 發布後的網址：main 更新時會自動部署到 GitHub Pages（見下方「開發」）。
 
@@ -34,7 +34,7 @@
 - 多人同時能胡時只由出牌者下家方向最近一家胡（頭跳），不支援一炮多響。
 - 尚未實作：天聽、地聽、報聽、Migi（咪機）、無花玩法的「見風有台」、最低台門檻、特殊牌型（十三么等非台灣 16 張牌型）。
 - 教練的防守機率來自本程式電腦自戰的統計，對真人牌桌只是參考，不是安全保證；對手放過的牌是依「電腦有胡必胡」推估。
-- 教練是否讓人「贏更多」尚未證實：4000 至 16000 局對照顯示放槍明顯減少，但每局得失在誤差內（見 [docs/CALIBRATION.md](docs/CALIBRATION.md) 與 [CHANGELOG.md](CHANGELOG.md) 的 v2.8 結果）。
+- 教練是否讓人「贏更多」尚未證實：4000 至 16000 局對照顯示放槍明顯減少，但每局得失仍在誤差內（v2.9 調權重後新種子 12000 局對照每局 +0.077 ± 0.057 台；見 [docs/CALIBRATION.md](docs/CALIBRATION.md) 與 [CHANGELOG.md](CHANGELOG.md) 的 v2.8 結果）。
 
 ## 文件
 - [CHANGELOG.md](CHANGELOG.md)：各版本更新紀錄。
