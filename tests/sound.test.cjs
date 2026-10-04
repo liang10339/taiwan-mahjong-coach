@@ -92,6 +92,42 @@ S.play('discard');
   windowHandlers.keydown();
   assert.equal(resumed, 1, '只解鎖一次');
 }
+// 電腦出牌比報牌快：最多排一句，再來新的就清掉舊的、直接唸最新那張（輪到你時不會還在唸前幾家的牌）
+{
+  const queue = [];
+  let cuts = 0;
+  const ctx3 = vm.createContext({
+    console,
+    localStorage: { getItem: () => null, setItem() {} },
+    speechSynthesis: {
+      getVoices: () => [{ voiceURI: 'tw', lang: 'zh-TW', name: 'TW' }],
+      speak: (u) => queue.push(u),
+      cancel: () => {
+        cuts++;
+        queue.length = 0;
+      },
+    },
+    SpeechSynthesisUtterance: function (text) {
+      this.text = text;
+    },
+  });
+  vm.runInContext(source, ctx3);
+  const S3 = ctx3.Sound;
+  S3.say('一萬');
+  S3.say('二萬');
+  assert.equal(cuts, 0, '正在唸一句、後面排一句：照常排隊');
+  S3.say('三萬');
+  assert.equal(cuts, 1, '已經落後兩句：清掉舊的');
+  assert.deepEqual(
+    queue.map((u) => u.text),
+    ['三萬'],
+    '只唸最新的那張',
+  );
+  queue[0].onend();
+  S3.say('四萬');
+  S3.say('五萬');
+  assert.equal(cuts, 1, '唸完的句子不算落後');
+}
 console.log(
   'PASS: Chinese tile names, voice selection/styles, persistence, queued calls, mute/reset, missing voices and unavailable audio, voices loading late, first-click unlock.',
 );

@@ -67,7 +67,7 @@
 
   /**
    * 把種子與桌規編成分享用的短字串（例如 "lx3k9a.1.0.0.16.1"）。
-   * 非預設牌型規則加上 ~profile~version~ligu；實際取墩配牌再加 !2。既有六欄連結維持原樣（舊配牌）。
+   * 非預設牌型規則加上 ~profile~version~ligu（一炮多響再加 ~1）；實際取墩配牌再加 !2。既有六欄連結維持原樣（舊配牌）。
    * @param {Game} g
    */
   function encodeDeal(g) {
@@ -80,7 +80,18 @@
       r.reserve,
       r.passWater ? 1 : 0,
     ].join('.');
-    const withRules = r.rules.liguLigu ? code : code + '~' + r.rules.id + '~' + r.rules.version + '~0';
+    // 規則和預設不同時才加 ~規則集~版本~嚦咕；開一炮多響再多一欄 ~1（沒有這欄＝頭跳，舊連結照舊）
+    const plain = r.rules.liguLigu && !r.rules.multiRon;
+    const withRules = plain
+      ? code
+      : code +
+        '~' +
+        r.rules.id +
+        '~' +
+        r.rules.version +
+        '~' +
+        (r.rules.liguLigu ? 1 : 0) +
+        (r.rules.multiRon ? '~1' : '');
     // 實際取墩的配牌加上 !2；沒有這段的舊連結照舊配牌（engine-v1）重現同一副牌
     return r.dealing === 'engine-v2' ? withRules + '!2' : withRules;
   }
@@ -92,7 +103,7 @@
    */
   function decodeDeal(text) {
     const m =
-      /(?:^|deal=)([0-9a-z]{1,7})\.([0-3])\.([0-3])\.(\d{1,2})\.(0|16)\.([01])(?:~([a-z0-9-]+)~([1-9]\d*)~([01]))?(?:!(2))?(?:$|&)/.exec(
+      /(?:^|deal=)([0-9a-z]{1,7})\.([0-3])\.([0-3])\.(\d{1,2})\.(0|16)\.([01])(?:~([a-z0-9-]+)~([1-9]\d*)~([01])(?:~(1))?)?(?:!(2))?(?:$|&)/.exec(
         String(text || '').replace(/^.*#/, ''),
       );
     if (!m) return null;
@@ -105,11 +116,16 @@
       streak: +m[4],
       reserve: +m[5],
       passWater: m[6] === '1',
-      dealing: m[10] === '2' ? 'engine-v2' : 'engine-v1',
+      dealing: m[11] === '2' ? 'engine-v2' : 'engine-v1',
     };
     if (m[7]) {
       try {
-        opts.rules = E.ruleProfile({ id: m[7], version: +m[8], liguLigu: m[9] === '1' });
+        opts.rules = E.ruleProfile({
+          id: m[7],
+          version: +m[8],
+          liguLigu: m[9] === '1',
+          multiRon: m[10] === '1',
+        });
       } catch {
         return null; // 不支援的牌型規則不能靜默換成預設規則重打。
       }
