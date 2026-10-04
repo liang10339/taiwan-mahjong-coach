@@ -38,8 +38,7 @@ function renderReview() {
   const review = $('#reviewView .empty-review');
   review.replaceChildren();
   historyPanel(review);
-  const ws = winScore();
-  if (ws) review.append(scoreCard(ws));
+  for (const ws of winScores()) review.append(scoreCard(ws));
   if (!reviewTimeline.length) {
     review.append(
       el('strong', null, '還沒有可覆盤的決策'),

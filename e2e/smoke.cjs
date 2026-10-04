@@ -115,6 +115,15 @@ async function run() {
     assert.ok((await page.locator('#growthPanel').innerText()).length > 0, '成長報告應該有內容');
     assert.ok((await page.locator('#manualPanel').innerText()).length > 0, '實戰記錄應該有內容');
 
+    // 設定裡有一炮多響的選項，勾選後會記住
+    await page.locator('details.game-settings summary').click();
+    await page.locator('#multiRonToggle').check();
+    assert.equal(
+      await page.evaluate(() => JSON.parse(localStorage.getItem('mahjong-coach-settings') || '{}').multiRon),
+      true,
+    );
+    await page.locator('#multiRonToggle').uncheck();
+
     // 5. Service Worker 註冊成功
     const sw = await page.evaluate(async () => !!(await navigator.serviceWorker.getRegistration()));
     assert.ok(sw, 'Service Worker 應該已註冊');

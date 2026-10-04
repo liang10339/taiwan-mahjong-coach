@@ -207,7 +207,7 @@ function newHand(msg = '') {
   session.settled = false;
   session.last = null;
   session.next = null;
-  scoreCache = { log: -1, value: null };
+  scoreCache = { log: -1, value: [] };
   selected = null;
   suggestions = [];
   lastDrawn = null;
@@ -248,20 +248,34 @@ function newHand(msg = '') {
 function finishHand() {
   session.settled = true;
   archiveGame(); // 完整牌譜放進歷史
-  const ws = winScore(),
+  const wss = winScores(),
+    // 歷史與學習進度記「你」的結果：你胡牌就用你的那一手，否則用第一位贏家
+    ws = wss.find((x) => x.winner === 0) || wss[0] || null,
     [base, perTai] = settings.stake.split('/').map(Number);
   let deltas = [0, 0, 0, 0],
     payments = [];
-  if (ws && typeof Scoring !== 'undefined' && Scoring.settle) {
-    ({ deltas, payments } = Scoring.settle(game, ws.result, { base, perTai }));
+  if (wss.length && typeof Scoring !== 'undefined' && Scoring.settleAll) {
+    ({ deltas, payments } = Scoring.settleAll(
+      game,
+      wss.map((x) => x.result),
+      { base, perTai },
+    ));
   }
   session.scores = session.scores.map((v, i) => v + deltas[i]);
-  const dealerStays = !ws || ws.winner === game.dealer,
+  const dealerStays = !wss.length || wss.some((x) => x.winner === game.dealer),
     nextDealer = dealerStays ? game.dealer : (game.dealer + 1) % 4;
   const nextRound =
     !dealerStays && nextDealer === session.firstDealer ? (session.round + 1) % 4 : session.round;
   session.next = { dealer: nextDealer, streak: dealerStays ? game.streak + 1 : 0, round: nextRound };
-  session.last = { winner: ws ? ws.winner : null, deltas, payments, dealerStays, base, perTai };
+  session.last = {
+    winner: ws ? ws.winner : null,
+    winners: wss.map((x) => x.winner),
+    deltas,
+    payments,
+    dealerStays,
+    base,
+    perTai,
+  };
   // 你放槍：把那一手存成錯題本的防守題
   if (ws && !ws.result.tsumo && ws.result.ctx.from === 0 && turnLog.length)
     rememberDealIn(turnLog[turnLog.length - 1], seats[ws.winner]);

@@ -25,13 +25,21 @@
   };
   // 同一份牌型規則供胡牌、向聽、進張與計台使用；保留既有預設，並記下版本方便日後覆盤。
   /** @type {Readonly<MahjongRuleProfile>} */
-  const DEFAULT_RULES = Object.freeze({ id: 'taiwan-16-coach', version: 1, liguLigu: true });
+  // 規則集（rule profile）：影響「牌型與胡牌判定」的桌規。新增桌規時在這裡加欄位並給預設值，
+  // 預設值必須等於舊行為，舊牌譜才能照舊重播（牌譜只在欄位不是預設值時才寫出）。
+  //   liguLigu：嚦咕嚦咕（門清七對加一刻）可以胡
+  //   multiRon：一炮多響——同一張牌好幾家都能胡時全部都胡；預設關閉（只有出牌者下家方向最近一家胡，頭跳）
+  const DEFAULT_RULES = Object.freeze({ id: 'taiwan-16-coach', version: 1, liguLigu: true, multiRon: false });
   /** @param {Partial<MahjongRuleProfile>} [rules] */
   function ruleProfile(rules = DEFAULT_RULES) {
     if (rules.id != null && rules.id !== DEFAULT_RULES.id) throw Error('Unsupported rule profile');
     if (rules.version != null && rules.version !== DEFAULT_RULES.version)
       throw Error('Unsupported rule version');
-    return Object.freeze({ ...DEFAULT_RULES, liguLigu: rules.liguLigu !== false });
+    return Object.freeze({
+      ...DEFAULT_RULES,
+      liguLigu: rules.liguLigu !== false,
+      multiRon: !!rules.multiRon,
+    });
   }
   function validHand(c, length, open) {
     return (
@@ -529,6 +537,31 @@
     resolve(g);
     return true;
   }
+  /** 這次回應裡誰胡牌：一炮多響時所有人，否則只有排第一的（出牌者下家方向最近的一家） */
+  function ronWinners(g, ranked) {
+    const rons = ranked.filter((r) => r.a.type === 'ron').map((r) => r.p);
+    return g.rules && g.rules.multiRon ? rons : rons.slice(0, 1);
+  }
+  /**
+   * 這局胡牌的人（座位陣列，依出牌者下家方向）；沒人胡（流局或未結束）回傳空陣列。
+   * 一炮多響時同一張牌的 ron 紀錄會連續出現，往回數到不是同一張牌、同一個放槍者為止。
+   */
+  function winners(g) {
+    if (!g.log) return [];
+    for (let i = g.log.length - 1; i >= 0; i--) {
+      const e = g.log[i];
+      if (e.action === 'tsumo' || e.action === 'flowers') return [e.player];
+      if (e.action !== 'ron') continue;
+      const out = [e.player];
+      for (let j = i - 1; j >= 0; j--) {
+        const f = g.log[j];
+        if (f.action !== 'ron' || f.tile !== e.tile || f.from !== e.from || !!f.robKan !== !!e.robKan) break;
+        out.unshift(f.player);
+      }
+      return out;
+    }
+    return [];
+  }
   function resolve(g) {
     if (Object.keys(g.pending.decisions).length < 4) return;
     const pending = g.pending;
@@ -551,13 +584,15 @@
         finishAdded(g, pending.from, pending.kan);
         return;
       }
-      const { p } = ranked[0];
+      const winners = ronWinners(g, ranked);
       g.hands[pending.from].splice(g.hands[pending.from].indexOf(pending.tile), 1);
-      g.hands[p].push(pending.tile);
-      g.turn = p;
+      for (const p of winners) {
+        g.hands[p].push(pending.tile);
+        g.log.push({ player: p, action: 'ron', tile: pending.tile, robKan: true, from: pending.from });
+      }
+      g.turn = winners[0];
       g.phase = 'ended';
-      g.result = who(g, p) + '搶槓胡 ' + names[pending.tile];
-      g.log.push({ player: p, action: 'ron', tile: pending.tile, robKan: true, from: pending.from });
+      g.result = winners.map((p) => who(g, p)).join('、') + '搶槓胡 ' + names[pending.tile];
       return;
     }
     if (!ranked.length) {
@@ -574,10 +609,20 @@
     g.rivers[pending.from].pop();
     if (g.cuts && g.cuts[pending.from]) g.cuts[pending.from].pop();
     if (a.type === 'ron') {
-      g.hands[p].push(pending.tile);
+      // 一炮多響時每位胡牌的家各拿一份這張牌（桌面上只有一張，牌數守恆只看沒人胡的局）
+      const winners = ronWinners(g, ranked);
+      for (const w of winners) {
+        g.hands[w].push(pending.tile);
+        g.log.push({ player: w, action: 'ron', tile: pending.tile, from: pending.from });
+      }
       g.phase = 'ended';
-      g.result = who(g, p) + '胡 ' + names[pending.tile] + '（' + who(g, pending.from) + '放槍）';
-      g.log.push({ player: p, action: 'ron', tile: pending.tile, from: pending.from });
+      g.result =
+        winners.map((w) => who(g, w)).join('、') +
+        '胡 ' +
+        names[pending.tile] +
+        '（' +
+        who(g, pending.from) +
+        '放槍）';
       return;
     }
     for (const t of a.tiles) g.hands[p].splice(g.hands[p].indexOf(t), 1);
@@ -695,6 +740,7 @@
     liguLigu,
     claims,
     respond,
+    winners,
     selfKans,
     selfKan,
     publicTiles,

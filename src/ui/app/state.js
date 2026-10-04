@@ -15,6 +15,7 @@ const settings = {
   seatDraw: true,
   stake: '100/20',
   passWater: true,
+  multiRon: false,
   reserve: true,
   showCuts: false,
   /** 開局方式：quick 直接開始、full 完整開局（抓位、擲骰、開門、配牌、補花） */
@@ -83,6 +84,7 @@ function ruleOpts() {
     streak: session.streak,
     reserve: settings.reserve ? 16 : 0,
     passWater: settings.passWater,
+    rules: { multiRon: !!settings.multiRon },
   };
 }
 let game = E.create(Date.now() >>> 0, ruleOpts()), // 種子存成 32 位元（洗牌只用低 32 位元），公開驗證時數字才一致
@@ -95,7 +97,7 @@ let peek = false,
   replayIndex = 0,
   replayMistakes = false,
   dangerCache = { key: '', value: null };
-let scoreCache = { log: -1, value: null };
+let scoreCache = { log: -1, value: [] };
 let lastDrawn = null,
   turnLog = [],
   lastReview = null;
@@ -164,14 +166,21 @@ function analyze() {
   const d = currentDecision();
   suggestions = d ? d.options : [];
 }
-// 胡牌後的台數（依牌局紀錄計算一次後快取）
-function winScore() {
-  if (game.phase !== 'ended' || typeof Scoring === 'undefined') return null;
-  const w = [...game.log].reverse().find((e) => ['ron', 'tsumo', 'flowers'].includes(e.action));
-  if (!w) return null;
+// 胡牌後每位贏家的台數（依牌局紀錄計算一次後快取）；一炮多響時有好幾位，流局是空陣列
+function winScores() {
+  if (game.phase !== 'ended' || typeof Scoring === 'undefined') return [];
+  const winners = E.winners(game);
+  if (!winners.length) return [];
   if (scoreCache.log !== game.log.length)
-    scoreCache = { log: game.log.length, value: { winner: w.player, result: Scoring.score(game, w.player) } };
+    scoreCache = {
+      log: game.log.length,
+      value: winners.map((winner) => ({ winner, result: Scoring.score(game, winner) })),
+    };
   return scoreCache.value;
+}
+// 第一位贏家（只有一位贏家時就是唯一的那位），沒人胡牌是 null
+function winScore() {
+  return winScores()[0] || null;
 }
 function drawable() {
   return Math.max(0, game.wall.length - (game.reserve || 0));

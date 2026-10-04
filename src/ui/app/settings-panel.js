@@ -142,6 +142,7 @@ function setupSettings() {
   /** @type {[string, string, boolean][]} [勾選框, 設定名稱, 是否立即重畫（否則下一局生效）] */
   const toggles = [
     ['#passWaterToggle', 'passWater', false],
+    ['#multiRonToggle', 'multiRon', false],
     ['#reserveToggle', 'reserve', false],
     ['#cutsToggle', 'showCuts', true],
     ['#valueToggle', 'value', true],

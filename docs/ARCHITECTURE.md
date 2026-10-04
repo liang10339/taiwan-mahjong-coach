@@ -130,7 +130,8 @@ Advisor.claims(game, 你)     每個吃／碰先做出吃碰後的局面，再�
 
 ## 擴充指南
 
-### 新增桌規（例如無花玩法、一炮多響、Migi）
+### 新增桌規（例如無花玩法、Migi；一炮多響 `rules.multiRon` 是現成的範例）
+0. 影響牌型或勝負判定的桌規放進規則集（`engine.js` 的 `DEFAULT_RULES` 與 `ruleProfile`）：欄位的預設值必須等於舊行為，`record.js` 的 `optionsOf` 只在非預設時才寫出，舊牌譜才能照舊重播。`multiRon` 的做法可以照著看（`engine.resolve`、`engine.winners`、`scoring.settleAll`）。
 1. 在 `src/types/game.d.ts` 的 `RuleOptions` 與 `Game` 加上欄位並寫說明。
 2. `engine.create(seed, opts)` 讀取選項並存進 `game`；引擎內依 `game.xxx` 分支。
 3. `scoring.js` 依同一個欄位計台。
