@@ -63,15 +63,20 @@ if (process.argv[2] === '--worker') {
         eff = AI.chooseDiscard(g, Positions.SEAT, 'normal');
       const row = { id: pos.id, left, open, coach, eff };
       if (coach !== eff) {
-        const r = Oracle.evaluate(g, Positions.SEAT, [coach, eff], {
-          n: cfg.n,
-          seed: seed * 31 + pos.k,
-          env,
-        });
-        row.evCoach = r[0].ev;
-        row.evEff = r[1].ev;
-        row.diff = r[0].ev - r[1].ev;
-        row.se = Math.max(r[0].diffSe, r[1].diffSe);
+        // 對手有暗槓等猜不了牌的局面略過（記下原因，彙總時另外列出）
+        try {
+          const r = Oracle.evaluate(g, Positions.SEAT, [coach, eff], {
+            n: cfg.n,
+            seed: seed * 31 + pos.k,
+            env,
+          });
+          row.evCoach = r[0].ev;
+          row.evEff = r[1].ev;
+          row.diff = r[0].ev - r[1].ev;
+          row.se = Math.max(r[0].diffSe, r[1].diffSe);
+        } catch (e) {
+          row.skipped = String(e.message);
+        }
       }
       rows.push(row);
     }
@@ -135,6 +140,7 @@ const f = (x) => (x >= 0 ? '+' : '') + x.toFixed(3);
 
 /** 彙總：不同的局面佔幾成、教練的選擇平均比只看效率多幾台（沒有不同的局面算 0） */
 function summarize(rows) {
+  rows = rows.filter((r) => !r.skipped);
   const diffs = rows.map((r) => (r.diff === undefined ? 0 : r.diff)),
     differ = rows.filter((r) => r.diff !== undefined);
   return {
@@ -150,6 +156,8 @@ function summarize(rows) {
 }
 
 function report(rows, cfg, complete) {
+  const skipped = rows.filter((r) => r.skipped).length;
+  rows = rows.filter((r) => !r.skipped);
   const line = (name, rs) => {
     const s = summarize(rs);
     console.log(
@@ -161,6 +169,7 @@ function report(rows, cfg, complete) {
     );
   };
   console.log('設定', JSON.stringify(cfg), complete ? '' : '（還沒跑完，再下同一個指令會接著跑）');
+  if (skipped) console.log('略過（猜不了牌，例如對手有暗槓）', skipped, '個局面');
   line('全部', rows);
   line(
     '早盤 ≥60',
