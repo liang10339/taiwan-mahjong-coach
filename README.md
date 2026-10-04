@@ -42,6 +42,7 @@
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)：程式架構、資料流、擴充指南。
 - [docs/RECORD_FORMAT.md](docs/RECORD_FORMAT.md)：牌譜與實戰記錄格式。
 - [docs/CALIBRATION.md](docs/CALIBRATION.md)：自戰校準報告。
+- [docs/ORACLE.md](docs/ORACLE.md)：離線標準答案（猜牌後模擬）——做法、結果，以及它看不到放槍風險的盲點。
 - [docs/EVALUATION.md](docs/EVALUATION.md)：教練評估矩陣——各種桌規與對手下，教練比只看效率好多少。
 - [docs/TESTING.md](docs/TESTING.md)：各測試檔驗證的內容。
 

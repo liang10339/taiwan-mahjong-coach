@@ -27,6 +27,7 @@
 - `assets.test.cjs`：index.html、離線快取清單、版本號與圖示一致。
 - `multiron.test.cjs`：一炮多響的開關、三家同胡、部分略過、搶槓、結算守恆、牌譜寫出與重播、400 局電腦自戰。
 - `multiron-ui.test.cjs`：多位贏家的台數卡與結算、連莊與下莊、牌河只拿走一次、預設只有一家。
+- `oracle.test.cjs`：離線標準答案——猜牌牌數守恆、不偷看別家手牌與牌牆（洗亂後猜出來的牌相同）、對手暗槓會拒絕、評估可重現、局面可用種子重現。
 - `load-order.test.cjs`：核心檔案 `require` 的依賴都排在 index.html 前面；sw.js 的 FILES 與 index.html 產生的一致。
 - `tiles.test.cjs`：八條的排列與每張牌面都畫得出來。
 - `eval-gate.test.cjs`：CI 守門——固定 24 副牌、四座位輪換的公平對照，教練放槍不多於只看效率、得失沒有大幅退步。
