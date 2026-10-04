@@ -25,6 +25,7 @@
 - `growth.test.cjs`：各階段一致率、最近與之前比較、舊版紀錄相容、建議、趨勢圖與局後紀錄欄位。
 - `fairness.test.cjs`：指紋重現、整局打完的牌牆驗證、竄改偵測、分享連結編解碼、再打一次與從連結開局。
 - `assets.test.cjs`：index.html、離線快取清單、版本號與圖示一致。
+- `load-order.test.cjs`：核心檔案 `require` 的依賴都排在 index.html 前面；sw.js 的 FILES 與 index.html 產生的一致。
 - `tiles.test.cjs`：八條的排列與每張牌面都畫得出來。
 - `eval-gate.test.cjs`：CI 守門——固定 24 副牌、四座位輪換的公平對照，教練放槍不多於只看效率、得失沒有大幅退步。
 - `handvalue.test.cjs`：聽牌時逐張計台、還沒聽牌看門清字牌一色、收入計算、教練的候選牌都有台數估計。

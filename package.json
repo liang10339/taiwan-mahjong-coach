@@ -11,6 +11,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "bump": "node scripts/bump-version.cjs",
+    "sync": "node scripts/sync-assets.cjs",
     "calibrate": "node scripts/calibrate.cjs",
     "check": "npm run format:check && npm run typecheck && npm test",
     "e2e": "node e2e/smoke.cjs"

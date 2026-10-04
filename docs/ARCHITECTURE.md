@@ -110,7 +110,7 @@ Advisor.claims(game, 你)     每個吃／碰先做出吃碰後的局面，再�
 
 因此：
 
-- 新增檔案時，要在 `index.html` 加 `<script>`，也要加到 `sw.js` 的 `FILES`。漏了會被 `tests/assets.test.cjs` 抓到。
+- 新增檔案時，只要在 `index.html` 加 `<script>`，然後執行 `npm run sync`，`sw.js` 的 `FILES` 會自動更新（`npm run bump` 也會順便執行）。`tests/assets.test.cjs` 與 `tests/load-order.test.cjs` 會檢查清單一致，以及核心檔案 `require` 的依賴是否排在它前面。
 - 一個檔案「載入時就立刻執行」的程式，只能用到比它早載入的檔案；啟動流程統一放在最後的 `main.js`。
 
 ## 型別檢查
