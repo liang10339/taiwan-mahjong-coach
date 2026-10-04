@@ -22,3 +22,18 @@ jobs:
         run: npm run typecheck
       - name: 測試
         run: npm test
+
+  # 真瀏覽器冒煙測試：載入頁面、打幾手牌、接續、切換分頁、Service Worker
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: 安裝 Chromium
+        run: npx playwright-core install --with-deps chromium
+      - name: 真瀏覽器冒煙測試
+        run: npm run e2e

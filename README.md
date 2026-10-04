@@ -12,6 +12,7 @@
 |---|---|
 | `npm start` | 本機伺服器 http://localhost:4176 |
 | `npm test` | 平行執行 `tests/` 全部測試（約 15 秒） |
+| `npm run e2e` | 用真的 Chromium 開頁面打幾手牌、接續、切換分頁（需要 Chromium，見 `e2e/smoke.cjs`；CI 另有獨立工作） |
 | `npm run typecheck` | TypeScript 檢查 `src/` 的 JavaScript（依 JSDoc 型別） |
 | `npm run format` | 用 Prettier 統一排版 |
 | `npm run check` | 格式＋型別＋測試，送 PR 前跑一次 |

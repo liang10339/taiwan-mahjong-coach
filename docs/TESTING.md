@@ -35,3 +35,7 @@
 - `skills.test.cjs`：孤張判斷、技能標籤、熟練度排序、成長報告的技能區與只練最弱技能。
 - `shanten.test.cjs` 之外，進聽數改寫另以 30 萬手隨機牌和舊實作逐手比對（結果完全相同）。
 
+
+## 真瀏覽器測試（`npm run e2e`）
+
+`e2e/smoke.cjs`：用 playwright-core 啟動 Chromium，載入實際頁面、打 5 手牌、重新整理後接續、切到學堂與覆盤、確認 Service Worker 註冊，並要求沒有頁面錯誤或本機檔案載入失敗。假 DOM 的單元測試看不到載入順序、全域名稱、CSS 與 Service Worker 的問題，大幅重構（例如改成 ES modules）前後都應該跑這個。不放進 `npm test`，因為需要瀏覽器、約 25 秒。Chromium 位置：環境變數 `CHROMIUM_PATH`，或 `PLAYWRIGHT_BROWSERS_PATH`／`/opt/pw-browsers`／`~/.cache/ms-playwright` 底下的 `chromium-*`；沒有的話執行 `npx playwright-core install chromium`。
