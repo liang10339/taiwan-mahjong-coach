@@ -15,15 +15,15 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@900&display=swap"
     />
-    <link rel="stylesheet" href="styles/state.css?v=31" />
-    <link rel="stylesheet" href="styles/tiles.css?v=31" />
-    <link rel="stylesheet" href="styles/table.css?v=31" />
-    <link rel="stylesheet" href="styles/opening.css?v=31" />
-    <link rel="stylesheet" href="styles/notebook.css?v=31" />
-    <link rel="stylesheet" href="styles/growth.css?v=31" />
-    <link rel="stylesheet" href="styles/fairness.css?v=31" />
-    <link rel="stylesheet" href="styles/situation.css?v=31" />
-    <link rel="stylesheet" href="styles/records.css?v=31" />
+    <link rel="stylesheet" href="styles/state.css?v=32" />
+    <link rel="stylesheet" href="styles/tiles.css?v=32" />
+    <link rel="stylesheet" href="styles/table.css?v=32" />
+    <link rel="stylesheet" href="styles/opening.css?v=32" />
+    <link rel="stylesheet" href="styles/notebook.css?v=32" />
+    <link rel="stylesheet" href="styles/growth.css?v=32" />
+    <link rel="stylesheet" href="styles/fairness.css?v=32" />
+    <link rel="stylesheet" href="styles/situation.css?v=32" />
+    <link rel="stylesheet" href="styles/records.css?v=32" />
     <title>牌桌教練｜台灣麻將練習</title>
   </head>
   <body>
@@ -36,7 +36,7 @@
           <button class="mode-tab" data-mode="review">牌局覆盤</button>
         </nav>
         <div class="topbar-actions"
-          ><span class="status-dot"></span><span class="version">教練練習 v2.9</span
+          ><span class="status-dot"></span><span class="version">教練練習 v2.9.1</span
           ><details class="voice-settings game-settings"
             ><summary class="icon-button" title="牌局設定" aria-label="牌局設定">⚙</summary
             ><div class="voice-panel settings-panel"
@@ -198,8 +198,9 @@
                   12 等 3）只能等一種。</p
                 >
                 <p
-                  ><b>範圍</b>：教練比較每張牌的攻守期望值——胡牌機率 ×
-                  胡了的台數，減去這一張與之後幾巡的放槍代價；對手聽牌與放槍機率由電腦自戰校準，只用公開資訊。高級電腦和教練用同一套判斷。台數依北部台算法。</p
+                  ><b>範圍</b>：教練比較每張牌的攻守期望值——胡牌機率 × 胡了的台數，減去這一張的放槍代價（多出
+                  0.3
+                  台以上才改打效率首選以外的牌）；對手聽牌與放槍機率由電腦自戰校準，只用公開資訊。高級電腦和教練用同一套判斷。台數依北部台算法。</p
                 >
               </div>
               <section class="coach-questions" aria-label="問教練">
@@ -321,45 +322,45 @@
       </div>
     </div>
     <div class="toast" id="toast" role="status"></div>
-    <script src="src/core/engine.js?v=31"></script>
-    <script src="src/core/observation.js?v=31"></script>
-    <script src="src/core/coach.js?v=31"></script>
-    <script src="src/core/scoring.js?v=31"></script>
-    <script src="src/core/ai.js?v=31"></script>
-    <script src="src/core/data/calibration.js?v=31"></script>
-    <script src="src/core/logistic.js?v=31"></script>
-    <script src="src/core/handvalue.js?v=31"></script>
-    <script src="src/core/opponents.js?v=31"></script>
-    <script src="src/core/safety.js?v=31"></script>
-    <script src="src/core/policy.js?v=31"></script>
-    <script src="src/core/situation.js?v=31"></script>
-    <script src="src/core/advisor.js?v=31"></script>
-    <script src="src/core/quiz.js?v=31"></script>
-    <script src="src/core/skills.js?v=31"></script>
-    <script src="src/core/notebook.js?v=31"></script>
-    <script src="src/core/growth.js?v=31"></script>
-    <script src="src/core/fairness.js?v=31"></script>
-    <script src="src/core/record.js?v=31"></script>
-    <script src="src/core/seatrecord.js?v=31"></script>
-    <script src="src/ui/tiles.js?v=31"></script>
-    <script src="src/ui/sound.js?v=31"></script>
-    <script src="src/ui/lessons.js?v=31"></script>
-    <script src="src/ui/stages.js?v=31"></script>
-    <script src="src/ui/app/dom.js?v=31"></script>
-    <script src="src/ui/app/state.js?v=31"></script>
-    <script src="src/ui/app/table.js?v=31"></script>
-    <script src="src/ui/app/coach-panel.js?v=31"></script>
-    <script src="src/ui/app/situation-panel.js?v=31"></script>
-    <script src="src/ui/app/value-panel.js?v=31"></script>
-    <script src="src/ui/app/review.js?v=31"></script>
-    <script src="src/ui/app/notebook-panel.js?v=31"></script>
-    <script src="src/ui/app/growth-panel.js?v=31"></script>
-    <script src="src/ui/app/fairness-panel.js?v=31"></script>
-    <script src="src/ui/app/records-panel.js?v=31"></script>
-    <script src="src/ui/app/manual-panel.js?v=31"></script>
-    <script src="src/ui/app/flow.js?v=31"></script>
-    <script src="src/ui/app/opening.js?v=31"></script>
-    <script src="src/ui/app/settings-panel.js?v=31"></script>
-    <script src="src/ui/app/main.js?v=31"></script>
+    <script src="src/core/engine.js?v=32"></script>
+    <script src="src/core/observation.js?v=32"></script>
+    <script src="src/core/coach.js?v=32"></script>
+    <script src="src/core/scoring.js?v=32"></script>
+    <script src="src/core/ai.js?v=32"></script>
+    <script src="src/core/data/calibration.js?v=32"></script>
+    <script src="src/core/logistic.js?v=32"></script>
+    <script src="src/core/handvalue.js?v=32"></script>
+    <script src="src/core/opponents.js?v=32"></script>
+    <script src="src/core/safety.js?v=32"></script>
+    <script src="src/core/policy.js?v=32"></script>
+    <script src="src/core/situation.js?v=32"></script>
+    <script src="src/core/advisor.js?v=32"></script>
+    <script src="src/core/quiz.js?v=32"></script>
+    <script src="src/core/skills.js?v=32"></script>
+    <script src="src/core/notebook.js?v=32"></script>
+    <script src="src/core/growth.js?v=32"></script>
+    <script src="src/core/fairness.js?v=32"></script>
+    <script src="src/core/record.js?v=32"></script>
+    <script src="src/core/seatrecord.js?v=32"></script>
+    <script src="src/ui/tiles.js?v=32"></script>
+    <script src="src/ui/sound.js?v=32"></script>
+    <script src="src/ui/lessons.js?v=32"></script>
+    <script src="src/ui/stages.js?v=32"></script>
+    <script src="src/ui/app/dom.js?v=32"></script>
+    <script src="src/ui/app/state.js?v=32"></script>
+    <script src="src/ui/app/table.js?v=32"></script>
+    <script src="src/ui/app/coach-panel.js?v=32"></script>
+    <script src="src/ui/app/situation-panel.js?v=32"></script>
+    <script src="src/ui/app/value-panel.js?v=32"></script>
+    <script src="src/ui/app/review.js?v=32"></script>
+    <script src="src/ui/app/notebook-panel.js?v=32"></script>
+    <script src="src/ui/app/growth-panel.js?v=32"></script>
+    <script src="src/ui/app/fairness-panel.js?v=32"></script>
+    <script src="src/ui/app/records-panel.js?v=32"></script>
+    <script src="src/ui/app/manual-panel.js?v=32"></script>
+    <script src="src/ui/app/flow.js?v=32"></script>
+    <script src="src/ui/app/opening.js?v=32"></script>
+    <script src="src/ui/app/settings-panel.js?v=32"></script>
+    <script src="src/ui/app/main.js?v=32"></script>
   </body>
 </html>

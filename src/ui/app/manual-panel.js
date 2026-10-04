@@ -106,6 +106,14 @@ function manualSetup(box) {
     select('莊家', MANUAL_SEATS, rec.options.dealer, (v) => (rec.options.dealer = v)),
     select('圈風', ['東', '南', '西', '北'], rec.options.roundWind, (v) => (rec.options.roundWind = v)),
     select('連莊', ['0', '1', '2', '3', '4', '5'], rec.options.streak, (v) => (rec.options.streak = v)),
+    select(
+      '一張牌多家能胡',
+      ['頭跳（只算最近一家）', '一炮多響'],
+      rec.options.rules.multiRon ? 1 : 0,
+      (v) => {
+        rec.options.rules = { ...rec.options.rules, multiRon: v === 1 };
+      },
+    ),
   );
   box.append(opts);
   // 目前的起手牌（點一下移除）
@@ -289,7 +297,23 @@ function manualPlay(box) {
       if (manual.picked.length)
         box.append(el('small', null, '已選：' + manual.picked.map(Coach.label).join('、')));
     }
-  } else if (g.result) box.append(el('p', 'record-result', g.result));
+  } else {
+    if (g.result) box.append(el('p', 'record-result', g.result));
+    // 一炮多響：別家也胡同一張時，接著記
+    const last = g.log.at(-1);
+    if (g.rules.multiRon && last && last.action === 'ron') {
+      const row = el('div', 'manual-row');
+      row.append(el('small', null, '一炮多響，還有誰也胡？'));
+      MANUAL_SEATS.forEach((name, p) => {
+        if (p === last.from || g.log.some((x) => x.action === 'ron' && x.player === p)) return;
+        const b = el('button', 'secondary-button', name + '也胡');
+        b.type = 'button';
+        b.onclick = () => manualPush({ p, a: 'ron' });
+        row.append(b);
+      });
+      box.append(row);
+    }
+  }
 
   const actions = el('div', 'record-actions');
   const undo = el('button', 'secondary-button', '撤銷上一步');

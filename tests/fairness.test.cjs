@@ -99,6 +99,13 @@ for (const text of [
   assert.equal(F.fingerprint(restored), F.fingerprint(noLigu));
 }
 assert.equal(F.verify(noLigu, F.fingerprint(noLigu)).ok, true);
+// 一炮多響：連結多一欄 ~1，分享與「同一副牌再打一次」都保留這條桌規
+const multi = E.create(g.seed, { ...rules, rules: { multiRon: true } });
+const multiCode = F.encodeDeal(multi);
+assert.equal(multiCode, six + '~taiwan-16-coach~1~1~1!2');
+assert.equal(E.create(F.decodeDeal(multiCode).seed, F.decodeDeal(multiCode).opts).rules.multiRon, true);
+assert.equal(F.decodeDeal(six + '~taiwan-16-coach~1~1!2').opts.rules.multiRon, false, '沒有這欄就是頭跳');
+assert.equal(F.decodeDeal(six + '~taiwan-16-coach~1~1~2!2'), null);
 assert.deepEqual(E.create(back.seed, back.opts).rules, E.DEFAULT_RULES);
 assert.deepEqual(F.decodeDeal(six + '~taiwan-16-coach~1~1').opts.rules, E.DEFAULT_RULES);
 assert.throws(() => F.encodeDeal({ ...g, rules: { ...g.rules, version: 2 } }), /Unsupported rule version/);

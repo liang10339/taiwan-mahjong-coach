@@ -165,6 +165,7 @@
   }
   function stop() {
     waiting.length = 0;
+    live.clear();
     try {
       root.speechSynthesis?.cancel();
     } catch (e) {}
@@ -218,6 +219,10 @@
     }
     return speakNow(text);
   }
+  // 還沒唸完的句子（含正在唸的）。電腦出牌比報牌快時，句子會越排越長，輪到你時還在唸前幾家的牌；
+  // 所以最多只排一句：正在唸一句、後面又等著一句時再來新的，就把舊的都清掉，直接唸最新的那張。
+  const live = new Set();
+  const BACKLOG = 2;
   function speakNow(text) {
     try {
       const available = voices(),
@@ -231,6 +236,12 @@
       u.voice = voice;
       u.rate = profiles[profile].rate;
       u.pitch = profiles[profile].pitch;
+      if (live.size >= BACKLOG) {
+        live.clear();
+        root.speechSynthesis.cancel();
+      }
+      live.add(u);
+      u.onend = u.onerror = () => live.delete(u);
       root.speechSynthesis.speak(u);
       return true;
     } catch (e) {
@@ -244,6 +255,7 @@
     } catch (e) {}
     if (!on && root.speechSynthesis)
       try {
+        live.clear();
         root.speechSynthesis.cancel();
       } catch (e) {}
   }

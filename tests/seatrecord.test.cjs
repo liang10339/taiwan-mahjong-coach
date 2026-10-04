@@ -125,3 +125,27 @@ test('不合理的記錄會指出第幾個事件有問題', () => {
   assert.match(S.state(record).error, /只能吃上家/);
   assert.match(S.parse('{').error, /JSON/);
 });
+
+test('一炮多響：開了這條桌規才能接著記第二家胡同一張', () => {
+  const base = (multiRon) => {
+    const r = S.create({ multiRon });
+    r.start.hand = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+    r.events = [
+      { p: 0, a: 'draw', tile: 30 },
+      { p: 0, a: 'discard', tile: 30 },
+      { p: 1, a: 'ron' },
+      { p: 3, a: 'ron' },
+    ];
+    return r;
+  };
+  const on = S.state(base(true));
+  assert.equal(on.error, null);
+  assert.equal(on.game.log.filter((e) => e.action === 'ron').length, 2);
+  assert.match(on.game.result, /南家、北家胡 北/);
+  assert.equal(on.game.rivers[0].length, 0, '牌河上那張只拿走一次');
+  const off = S.state(base(false));
+  assert.match(off.error, /第 4 個事件：這一局已經結束/);
+  const twice = base(true);
+  twice.events.push({ p: 1, a: 'ron' });
+  assert.match(S.state(twice).error, /不能再胡/);
+});

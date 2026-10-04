@@ -16,7 +16,7 @@
 
   /**
    * 新的實戰記錄。seat 是你的座位（畫面上固定是 0）；dealer、roundWind 等和本程式的桌規欄位相同。
-   * @param {{seat?: number, dealer?: number, roundWind?: number, streak?: number, reserve?: number, passWater?: boolean, note?: string}} [opts]
+   * @param {{seat?: number, dealer?: number, roundWind?: number, streak?: number, reserve?: number, passWater?: boolean, multiRon?: boolean, note?: string}} [opts]
    */
   function create(opts = {}) {
     return {
@@ -30,7 +30,7 @@
         streak: opts.streak ?? 0,
         reserve: opts.reserve ?? 16,
         passWater: !!opts.passWater,
-        rules: { ...E.DEFAULT_RULES },
+        rules: { ...E.DEFAULT_RULES, multiRon: !!opts.multiRon },
       },
       start: { hand: [], flowers: [], otherFlowers: {} },
       events: [],
@@ -133,6 +133,8 @@
   function apply(g, e, me) {
     const p = e.p;
     if (![0, 1, 2, 3].includes(p) || !ACTIONS.includes(e.a)) return '格式不對';
+    // 一炮多響：同一張牌已經有人胡了，別家也能接著記胡（同一張、同一個放槍者）
+    if (g.phase === 'ended' && e.a === 'ron' && g.rules.multiRon) return alsoRon(g, p, me);
     if (g.phase === 'ended') return '這一局已經結束';
     const mine = p === me;
     const label = (t) => (isTile(t) || isFlower(t) ? E.names[t] : '?');
@@ -258,6 +260,28 @@
       }
     }
     return '格式不對';
+  }
+
+  /** 一炮多響的第二、第三家胡牌：和引擎一樣各拿一份那張牌，牌河只拿走一次 */
+  function alsoRon(g, p, me) {
+    const first = g.log.at(-1);
+    if (!first || first.action !== 'ron') return '這一局已經結束';
+    const winners = [];
+    for (let i = g.log.length - 1; i >= 0 && g.log[i].action === 'ron'; i--) winners.unshift(g.log[i].player);
+    if (winners.includes(p) || p === first.from) return '這一家不能再胡這張';
+    g.hands[p].push(p === me ? first.tile : null);
+    g.log.push({ player: p, action: 'ron', tile: first.tile, from: first.from });
+    winners.push(p);
+    // 依出牌者下家方向排，和引擎的結果文字一致
+    winners.sort((a, b) => ((a - first.from + 4) % 4) - ((b - first.from + 4) % 4));
+    g.result =
+      winners.map((w) => E.who(g, w)).join('、') +
+      '胡 ' +
+      E.names[first.tile] +
+      '（' +
+      E.who(g, first.from) +
+      '放槍）';
+    return null;
   }
 
   /** 檢查格式；沒問題回傳 null，否則回傳原因 */

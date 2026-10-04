@@ -8,7 +8,7 @@
  */
 const ENVS = {
   default: {
-    label: '預設桌規（頭跳、50 底 20 台、不連莊）',
+    label: '預設桌規（頭跳、50 底 20 台、不連莊；App 的預設是 100 底 20 台）',
     rules: {},
     stake: { base: 50, perTai: 20 },
     streaks: [0],
