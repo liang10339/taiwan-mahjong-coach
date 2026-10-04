@@ -62,14 +62,21 @@ function play(seed, seats, styles = null, envSpec = 'default') {
   });
   // 電腦的風格是公開宣告的（和實際 App 相同），教練讀牌時會用那種風格的聽牌模型
   if (styles) g.playerStyles = styles;
+  playOut(g, seats);
+  return settle(g, env);
+}
+
+/** 從目前的局面打到結束（每個座位用自己的打法）。評估與離線標準答案的模擬都用這個。 */
+function playOut(g, seats, maxSteps = 500, hook = null) {
   let steps = 0;
-  while (g.phase !== 'ended' && steps++ < 500) {
+  while (g.phase !== 'ended' && steps++ < maxSteps) {
     const p = g.turn,
       s = seats[p];
     if (g.phase === 'draw') E.draw(g, p);
     else if (g.phase === 'discard') {
       if (E.winning(g.hands[p], g.melds[p].length, g.rules)) E.win(g, p);
       else {
+        if (hook) hook(g, p); // 輪到 p 出牌前（評估用：記錄局面）
         const kan = s.kan(g, p);
         if (!(kan && E.selfKan(g, p, kan))) {
           const t = s.discard(g, p),
@@ -87,7 +94,12 @@ function play(seed, seats, styles = null, envSpec = 'default') {
       for (let q = 0; q < 4 && g.phase === 'claim'; q++)
         if (!g.pending.decisions[q]) E.respond(g, q, seats[q].claim(g, q));
   }
-  // 結算和 App 一樣：底＋台×每台，莊家與連莊、自摸三家付、一炮多響各自向放槍者收；單位換算成「台」
+  return g;
+}
+
+/** 結算和 App 一樣：底＋台×每台，莊家與連莊、自摸三家付、一炮多響各自向放槍者收；單位換算成「台」 */
+function settle(g, envSpec = 'default') {
+  const env = envOf(envSpec);
   const winners = E.winners(g),
     results = winners.map((w) => Scoring.score(g, w)),
     deltas = [0, 0, 0, 0];
@@ -173,4 +185,4 @@ function summarize(rows) {
   };
 }
 
-module.exports = { BASE, OPPONENTS, ENVS, POOLS, envOf, strategy, play, duel, summarize };
+module.exports = { BASE, OPPONENTS, ENVS, POOLS, envOf, strategy, play, playOut, settle, duel, summarize };
