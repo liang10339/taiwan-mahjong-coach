@@ -1,5 +1,5 @@
 // 校準：讓電腦自己對打，用「知道每家真正手牌」的資料，統計教練的機率該是多少。
-// 用法：npm run calibrate            （預設 1600 局，依 CPU 數平行；約十幾分鐘）
+// 用法：npm run calibrate            （預設 8000 局，依 CPU 數平行；四核心約 4 分鐘）
 //       npm run calibrate -- 400      （指定局數，快速試跑）
 // 產出：src/core/data/calibration.js（教練讀的統計表）與 docs/CALIBRATION.md（準確度報告）。
 // 每 5 局保留 1 局不拿來統計，只拿來驗證（避免「用考題練習再考同一題」）。
@@ -22,7 +22,7 @@ function blank() {
     passed: [0, 0], // 放過的牌：[其實是他要的牌, 樣本數]
     water: [0, 0],
     win: {}, // 自己的進聽數|有效牌|剩餘牌 → [最後胡牌, 樣本數]
-    tai: { plain: [0, 0], all: [0, 0], tsumo: [0, 0] },
+    tai: { plain: [0, 0], all: [0, 0], tsumo: [0, 0], extra: [0, 0] },
     // 邏輯迴歸的訓練資料（訓練局）與驗證資料（驗證局，抽樣 30%）
     rows: { tx: [], ty: [], wx: [], wy: [], tenpaiTest: [], pairTest: [] },
   };
@@ -33,8 +33,11 @@ const add = (obj, key, hit) => {
   row[1] += 1;
 };
 
-/** 跑 [from, to] 這些種子的牌局，回傳統計表（在子行程裡執行） */
-function run(from, to) {
+/**
+ * 跑 [from, to] 這些種子的牌局，回傳統計表（在子行程裡執行）。
+ * style：四家都用同一種風格的高級電腦（fast／safe／big），用來分別校準各風格的聽牌模型。
+ */
+function run(from, to, style = null) {
   const E = require('../src/core/engine.js');
   const AI = require('../src/core/ai.js');
   const O = require('../src/core/opponents.js');
@@ -42,6 +45,7 @@ function run(from, to) {
   const Scoring = require('../src/core/scoring.js');
   const P = require('../src/core/policy.js');
   const Observation = require('../src/core/observation.js');
+  const HV = require('../src/core/handvalue.js');
   const stats = blank();
   let sampler = 12345;
   const sample = () => {
@@ -51,7 +55,7 @@ function run(from, to) {
   const cellKey = (f) => [f.kind, f.bucket, +f.nearCut, +f.suitHit, +f.avoid].join('|');
   for (let seed = from; seed <= to; seed++) {
     const g = E.create(seed * 7919, { reserve: 16, passWater: true, dealer: seed % 4 });
-    const levels = LEVELS.map((_, i) => LEVELS[(i + seed) % 4]);
+    const levels = style ? [style, style, style, style] : LEVELS.map((_, i) => LEVELS[(i + seed) % 4]);
     const testGame = seed % 5 === 0;
     const moments = [[], [], [], []];
     let steps = 0;
@@ -122,6 +126,18 @@ function run(from, to) {
       stats.tai.all[1]++;
       stats.tai.tsumo[0] += w.action === 'tsumo' ? 1 : 0;
       stats.tai.tsumo[1]++;
+      // 手牌價值（handvalue.js）看不到的零碎台數：實際台數 − 聽牌時看得出的台數（都不含莊家與連莊）
+      const scored = Scoring.score(g, winner);
+      if (!scored.ctx.special) {
+        const hand = g.hands[winner].slice();
+        hand.splice(hand.lastIndexOf(w.tile), 1);
+        const r = HV.rough(g, winner, hand, 0, Array(34).fill(0)),
+          dealerPart = g.dealer === winner ? 1 + 2 * (g.streak || 0) : 0,
+          seen = (w.action === 'tsumo' ? r.tsumo : r.ron) - dealerPart - HV.EXTRA,
+          actual = scored.items.filter((x) => !/^莊家|^連/.test(x.name)).reduce((a, x) => a + x.tai, 0);
+        stats.tai.extra[0] += actual - seen;
+        stats.tai.extra[1]++;
+      }
       if (winner !== g.dealer && AI.reading(g, winner).oneSuit === null) {
         stats.tai.plain[0] += tai;
         stats.tai.plain[1]++;
@@ -144,7 +160,7 @@ function merge(parts) {
         row[1] += n;
       }
     for (const k of ['passed', 'water']) ((out[k][0] += s[k][0]), (out[k][1] += s[k][1]));
-    for (const k of ['plain', 'all', 'tsumo'])
+    for (const k of ['plain', 'all', 'tsumo', 'extra'])
       ((out.tai[k][0] += s.tai[k][0]), (out.tai[k][1] += s.tai[k][1]));
     for (const k of Object.keys(out.rows)) for (const r of s.rows[k]) out.rows[k].push(r);
   }
@@ -200,7 +216,10 @@ function fitWait(cells) {
 }
 
 /** 寫出教練讀的統計表與報告 */
-function write(stats) {
+/** 各風格的對局從這個種子開始，和混合對局不重疊 */
+const STYLE_SEED = 100000;
+
+function write(stats, styleStats = {}) {
   const S = require('../src/core/safety.js');
   const wait = fitWait(stats.cells);
   // 樣本不足的格子用預設值補上
@@ -224,6 +243,19 @@ function write(stats) {
     avgTai: stats.tai.plain[1] ? round(stats.tai.plain[0] / stats.tai.plain[1]) : 3,
     avgTaiAll: stats.tai.all[1] ? round(stats.tai.all[0] / stats.tai.all[1]) : 3,
     tsumoShare: stats.tai.tsumo[1] ? round(stats.tai.tsumo[0] / stats.tai.tsumo[1]) : 0.4,
+    taiExtra: stats.tai.extra[1] ? round(stats.tai.extra[0] / stats.tai.extra[1]) : 0.4,
+    // 各風格分別自戰校準的聽牌模型（教練知道對手是哪種風格的電腦時使用）
+    styles: Object.fromEntries(
+      Object.entries(styleStats).map(([style, st]) => [
+        style,
+        {
+          games: st.games,
+          tenpaiModel: { names: O.TENPAI_FEATURES, w: fit(st.rows.tx, st.rows.ty) },
+          avgTaiAll: st.tai.all[1] ? round(st.tai.all[0] / st.tai.all[1]) : null,
+          tsumoShare: st.tai.tsumo[1] ? round(st.tai.tsumo[0] / st.tai.tsumo[1]) : null,
+        },
+      ]),
+    ),
   };
   const js =
     '// 由 scripts/calibrate.cjs 產生（' +
@@ -237,7 +269,7 @@ function write(stats) {
   const doc = path.join(ROOT, 'docs/CALIBRATION.md'),
     old = fs.existsSync(doc) ? fs.readFileSync(doc, 'utf8') : '',
     keep = old.includes('## 實戰驗證') ? '\n' + old.slice(old.indexOf('## 實戰驗證')) : '';
-  fs.writeFileSync(doc, report(stats, data) + keep);
+  fs.writeFileSync(doc, report(stats, data, styleStats) + keep);
   console.log('已寫入 src/core/data/calibration.js 與 docs/CALIBRATION.md（' + stats.games + ' 局）');
 }
 
@@ -326,8 +358,65 @@ function modelComparison(stats, data, prior, waitOf) {
   ];
 }
 
+/**
+ * 各風格：同一種風格四家對打的驗證局上，混合對手的聽牌模型和該風格自己的模型各準不準。
+ * 差距大表示對手打法不同時，讀牌的機率也該跟著換。
+ */
+function styleComparison(styleStats, data) {
+  const L = require('../src/core/logistic.js');
+  const { score } = require('./logistic-fit.cjs');
+  const AI = require('../src/core/ai.js');
+  const rows = [];
+  for (const [style, st] of Object.entries(styleStats)) {
+    const t = st.rows.tenpaiTest;
+    if (!t.length) continue;
+    const y = t.map((r) => r.y),
+      mixed = score(
+        t.map((r) => L.predict(data.tenpaiModel, r.tv)),
+        y,
+      ),
+      own = score(
+        t.map((r) => L.predict(data.styles[style].tenpaiModel, r.tv)),
+        y,
+      ),
+      base = y.reduce((a, b) => a + b, 0) / y.length;
+    rows.push(
+      '| ' +
+        AI.STYLES[style].name +
+        ' | ' +
+        st.games +
+        ' | ' +
+        (base * 100).toFixed(1) +
+        '% | ' +
+        mixed.logLoss.toFixed(4) +
+        ' | ' +
+        own.logLoss.toFixed(4) +
+        ' | ' +
+        ((1 - own.logLoss / mixed.logLoss) * 100).toFixed(1) +
+        '% | ' +
+        (data.styles[style].avgTaiAll ?? '—') +
+        ' |',
+    );
+  }
+  if (!rows.length) return [];
+  return [
+    '## 對手風格（各自校準）',
+    '',
+    '高級電腦有三種風格（速攻、保守、大牌），都用同一個決策核心、只是參數不同。每種風格另外讓四家同風格對打，',
+    '校準它自己的聽牌模型；教練知道對手是哪種電腦時用那一種，不知道（例如實戰記錄裡的真人）就用混合模型。',
+    '',
+    '| 風格 | 局數 | 讀牌時對方已聽牌的比例 | 混合模型 log-loss | 風格模型 log-loss | 改善 | 胡牌平均台數 |',
+    '|---|---|---|---|---|---|---|',
+    ...rows,
+    '',
+    '**適用範圍**：這些數字只描述本程式的電腦。真人的風格沒有校準資料，教練對真人一律用混合模型；',
+    '「對某種電腦有效」不代表對同樣打法的真人也有效。',
+    '',
+  ];
+}
+
 /** 準確度報告：在沒拿來統計的驗證局上，比較新模型與簡單基準 */
-function report(stats, data) {
+function report(stats, data, styleStats = {}) {
   // 在子行程外重新載入，讓模組讀到剛寫好的統計表
   delete require.cache[require.resolve('../src/core/data/calibration.js')];
   const pct = (x) => (Math.round(x * 1000) / 10).toFixed(1) + '%';
@@ -445,6 +534,7 @@ function report(stats, data) {
     ...tenpaiRows,
     '',
     ...modelComparison(stats, data, prior, waitOf),
+    ...styleComparison(styleStats, data),
     '## 放槍機率準不準（驗證局）',
     '',
     '驗證局共 ' + n + ' 筆「打這張牌給某一家」，實際放槍 ' + hits + ' 筆（' + pct(avg) + '）。',
@@ -481,6 +571,9 @@ function report(stats, data) {
       ' 台；自摸占 ' +
       pct(data.tsumoShare) +
       '。',
+    '- 手牌價值（handvalue.js）還沒聽牌時看不到的零碎台數（暗刻、獨聽、平胡等），平均 ' +
+      data.taiExtra +
+      ' 台。',
     '- 自己「進聽數 × 有效牌 × 牌牆剩餘」對應的最後胡牌比例共 ' +
       Object.keys(data.win).length +
       ' 組，供攻守期望值使用。',
@@ -490,28 +583,59 @@ function report(stats, data) {
 }
 
 if (process.argv[2] === '--child') {
-  const [from, to] = process.argv.slice(3).map(Number);
-  process.send(run(from, to));
+  const [from, to] = process.argv.slice(3, 5).map(Number);
+  process.send(run(from, to, process.argv[5] || null));
 } else if (require.main === module) {
-  const total = Number(process.argv[2]) || 1600,
+  const total = Number(process.argv[2]) || 8000,
     workers = Math.max(1, Math.min(os.cpus().length, 8)),
-    size = Math.ceil(total / workers),
-    parts = [],
     started = Date.now();
-  let done = 0;
-  for (let w = 0; w < workers; w++) {
-    const from = w * size + 1,
-      to = Math.min(total, (w + 1) * size);
-    if (from > to) continue;
-    const child = fork(__filename, ['--child', String(from), String(to)]);
-    child.on('message', (s) => {
-      parts.push(s);
-      console.log('完成 ' + from + '–' + to + '（' + Math.round((Date.now() - started) / 1000) + ' 秒）');
+  // 工作：混合對局切成 workers 段；三種風格各跑四分之一的局數
+  const jobs = [],
+    split = (from, count, style) => {
+      const size = Math.ceil(count / workers);
+      for (let w = 0; w < workers; w++) {
+        const a = from + w * size,
+          b = Math.min(from + count - 1, a + size - 1);
+        if (a <= b) jobs.push({ from: a, to: b, style });
+      }
+    };
+  split(1, total, null);
+  const AI = require('../src/core/ai.js');
+  const styles = Object.keys(AI.STYLES);
+  styles.forEach((style, i) => split(STYLE_SEED * (i + 1) + 1, Math.ceil(total / 4), style));
+  const parts = { mixed: [] };
+  let next = 0,
+    running = 0;
+  const launch = () => {
+    if (next >= jobs.length) {
+      if (running === 0) {
+        const styleStats = Object.fromEntries(styles.map((st) => [st, merge(parts[st] || [])]));
+        write(merge(parts.mixed), styleStats);
+      }
+      return;
+    }
+    const job = jobs[next++];
+    running++;
+    const child = fork(__filename, ['--child', String(job.from), String(job.to), job.style || '']);
+    child.on('message', (res) => {
+      (parts[job.style || 'mixed'] = parts[job.style || 'mixed'] || []).push(res);
+      console.log(
+        '完成 ' +
+          (job.style ? AI.STYLES[job.style].name + ' ' : '') +
+          job.from +
+          '–' +
+          job.to +
+          '（' +
+          Math.round((Date.now() - started) / 1000) +
+          ' 秒）',
+      );
     });
     child.on('exit', () => {
-      if (++done === Math.min(workers, Math.ceil(total / size))) write(merge(parts));
+      running--;
+      launch();
     });
-  }
+  };
+  for (let w = 0; w < workers; w++) launch();
 }
 
 module.exports = { run, merge, fitWait, blank };

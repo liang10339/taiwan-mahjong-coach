@@ -60,7 +60,7 @@ function resumeGame(saved) {
   if (typeof Sound !== 'undefined' && Sound.unlock) Sound.unlock();
   generation++;
   clearTimeout(timer);
-  game = r.game;
+  game = declareStyles(r.game);
   if (saved.aiState !== undefined) game._ai = saved.aiState;
   turnLog = saved.turnLog || [];
   reviewTimeline = saved.reviewTimeline || [];
@@ -111,6 +111,11 @@ function downloadRecord(record, name) {
 
 /** 匯入牌譜文字；成功就打開回放 */
 function importRecordText(text) {
+  // 實戰記錄（只記單一座位看得到的事件）交給實戰記錄區覆盤
+  try {
+    if (JSON.parse(text).perspective === 'seat' && typeof importManualText === 'function')
+      return importManualText(text);
+  } catch (e) {}
   const r = Record.parse(text);
   if (r.error) {
     notify('無法匯入牌譜：' + r.error);

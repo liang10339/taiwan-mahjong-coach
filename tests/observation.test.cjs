@@ -1,11 +1,10 @@
 const assert = require('node:assert/strict');
 const E = require('../src/core/engine.js');
+const A = require('../src/core/advisor.js');
 const View = require('../src/core/observation.js');
 const AI = require('../src/core/ai.js');
 const O = require('../src/core/opponents.js');
 const Safety = require('../src/core/safety.js');
-const Defense = require('../src/core/defense.js');
-const Value = require('../src/core/value.js');
 
 // Construct a legal 144-tile inventory with an unrevealed kan, not just an
 // arbitrary state whose duplicate tiles might accidentally explain a difference.
@@ -120,7 +119,6 @@ for (const sample of [g, twin]) {
 }
 assert.deepEqual(O.read(g, 0), O.read(twin, 0));
 assert.deepEqual(Safety.evaluate(g, 0), Safety.evaluate(twin, 0));
-assert.deepEqual(Defense.inspect(g, 0, 13), Defense.inspect(twin, 0, 13));
 for (const level of ['easy', 'normal', 'hard'])
   assert.equal(
     AI.chooseDiscard(structuredClone(g), 0, level),
@@ -128,9 +126,9 @@ for (const level of ['easy', 'normal', 'hard'])
     level + ' must not use the shuffle seed or hidden kan',
   );
 assert.deepEqual(
-  Value.evaluate(g, 0, { trials: 8, tiles: [33, 4] }),
-  Value.evaluate(twin, 0, { trials: 8, tiles: [33, 4] }),
-  'default simulation randomness must not depend on the shuffle seed or private events',
+  [...A.decide(g, 0).worth].map(([t, w]) => [t, w.income]),
+  [...A.decide(twin, 0).worth].map(([t, w]) => [t, w.income]),
+  'hand value must not depend on the shuffle seed or private events',
 );
 
 // Pending opponents' decisions are not observable; one's own legal options and

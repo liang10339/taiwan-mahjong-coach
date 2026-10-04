@@ -1,8 +1,9 @@
 const assert = require('node:assert/strict'),
   E = require('../src/core/engine.js'),
   C = require('../src/core/coach.js');
+// 固定用舊配牌程序（engine-v1）的起手牌當題目
 for (const seed of [2, 5]) {
-  const g = E.create(seed);
+  const g = E.create(seed, { dealing: 'engine-v1' });
   g.phase = 'claim';
   g.pending = { from: 3, tile: g.hands[0][0], decisions: {} };
   g.rivers[3] = [g.pending.tile];

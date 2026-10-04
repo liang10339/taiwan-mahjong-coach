@@ -43,6 +43,8 @@
   // 結果依該門的牌型快取；四門再合併取最佳。和逐張搜尋整副手牌的結果完全相同，
   // 但同一門的牌型會重複出現，所以快很多（教練、電腦、危險度、未來的期望值模擬都靠它）。
   // 公式：進聽數 = 10 − 2×面子 − min(搭子, 5 − 面子) − 眼；−1 表示已胡牌。
+  // 面子、搭子越多一定不會更差，所以同一門裡「面子和搭子都不比別人多」的拆法可以丟掉（有沒有眼分開比，
+  // 因為眼只能有一個）；合併時面子、搭子都封頂在 5，狀態最多 6×6×2 = 72 種，用固定長度的表去重。
   /** @type {[number, number, boolean][]} 四門在牌型編號中的範圍：[起, 迄, 是否字牌] */
   const SUITS = [
     [0, 9, false],
@@ -50,12 +52,13 @@
     [18, 27, false],
     [27, 34, true],
   ];
-  /** 各門牌型的拆法快取：key 是「字牌與否＋各張數」，value 是 [面子, 搭子, 眼] 的所有組合 */
-  const suitCache = new Map();
+  /** 各門牌型的拆法快取：key 是「各張數的五進位數字」（字牌另一張表），value 是 [面子, 搭子, 眼] 攤平的陣列 */
+  const suitCache = [new Map(), new Map()];
   function suitStates(c, from, to, honor) {
-    let key = honor ? 'h' : 's';
-    for (let i = from; i < to; i++) key += c[i];
-    const cached = suitCache.get(key);
+    let key = 0;
+    for (let i = to - 1; i >= from; i--) key = key * 5 + c[i];
+    const cache = suitCache[honor ? 1 : 0],
+      cached = cache.get(key);
     if (cached) return cached;
     const cnt = c.slice(from, to),
       memo = new Map();
@@ -91,9 +94,20 @@
       memo.set(id, out);
       return out;
     }
-    const states = [...walk()].map((v) => [Math.floor(v / 100), Math.floor(v / 10) % 10, v % 10]);
-    if (suitCache.size > 200000) suitCache.clear(); // 避免長時間使用後記憶體無限增加
-    suitCache.set(key, states);
+    // 面子、搭子封頂 5 之後，只留下沒有被同眼數的其他拆法完全壓過的組合
+    const all = [...walk()].map((v) => [
+      Math.min(5, Math.floor(v / 100)),
+      Math.min(5, Math.floor(v / 10) % 10),
+      v % 10,
+    ]);
+    const kept = all.filter(
+      ([m, t, p], i) =>
+        !all.some(([m2, t2, p2], j) => p2 === p && m2 >= m && t2 >= t && (m2 > m || t2 > t || j < i)),
+    );
+    const states = new Int8Array(kept.length * 3);
+    kept.forEach(([m, t, p], i) => states.set([m, t, p], i * 3));
+    if (cache.size > 200000) cache.clear(); // 避免長時間使用後記憶體無限增加
+    cache.set(key, states);
     return states;
   }
   function standardShanten(hand, open = 0) {
@@ -101,30 +115,65 @@
     if (!validHand(c, hand.length, open)) return Infinity;
     return standardFromCounts(c, open);
   }
-  function standardFromCounts(c, open) {
-    // 逐門合併：面子、搭子最多算到 5（再多也不會更好），眼最多一個
-    let states = new Set([Math.min(open, 5) * 100]);
-    for (const [from, to, honor] of SUITS) {
-      const next = new Set();
-      for (const s of states) {
-        const m = Math.floor(s / 100),
-          t = Math.floor(s / 10) % 10,
-          p = s % 10;
-        for (const [dm, dt, dp] of suitStates(c, from, to, honor)) {
-          if (p && dp) continue;
-          next.add(Math.min(5, m + dm) * 100 + Math.min(5, t + dt) * 10 + (p || dp));
-        }
+  /** 把一門的拆法併進狀態表 cur（編號 = 面子×12 + 搭子×2 + 眼），結果寫進 out */
+  function mergeInto(out, cur, add) {
+    out.fill(0);
+    for (let s = 0; s < 72; s++) {
+      if (!cur[s]) continue;
+      const m = (s / 12) | 0,
+        t = ((s % 12) / 2) | 0,
+        p = s & 1;
+      for (let k = 0; k < add.length; k += 3) {
+        const dp = add[k + 2];
+        if (p && dp) continue;
+        out[Math.min(5, m + add[k]) * 12 + Math.min(5, t + add[k + 1]) * 2 + (p | dp)] = 1;
       }
-      states = next;
     }
+    return out;
+  }
+  /** 狀態表裡最好的進聽數 */
+  function bestOf(states) {
     let best = 10;
-    for (const s of states) {
-      const m = Math.floor(s / 100),
-        t = Math.floor(s / 10) % 10,
-        p = s % 10;
-      best = Math.min(best, 10 - 2 * m - Math.min(t, 5 - m) - p);
+    for (let s = 0; s < 72; s++) {
+      if (!states[s]) continue;
+      const m = (s / 12) | 0,
+        t = ((s % 12) / 2) | 0;
+      best = Math.min(best, 10 - 2 * m - Math.min(t, 5 - m) - (s & 1));
     }
     return best;
+  }
+  /** 只有攤牌組數、還沒放任何一門時的狀態表 */
+  function openStates(open) {
+    const st = new Uint8Array(72);
+    st[Math.min(open, 5) * 12] = 1;
+    return st;
+  }
+  function standardFromCounts(c, open) {
+    // 逐門合併：面子、搭子最多算到 5（再多也不會更好），眼最多一個
+    let cur = openStates(open),
+      next = new Uint8Array(72);
+    for (const [from, to, honor] of SUITS) {
+      mergeInto(next, cur, suitStates(c, from, to, honor));
+      [cur, next] = [next, cur];
+    }
+    return bestOf(cur);
+  }
+  /**
+   * 「其他三門」先合併好的狀態表：others[k] 是除了第 k 門以外的合併結果。
+   * 試摸某張牌時只有那一門會變，再併上那一門就好，不必四門重算。
+   */
+  function othersOf(c, open) {
+    const parts = SUITS.map(([from, to, honor]) => suitStates(c, from, to, honor));
+    return SUITS.map((_, k) => {
+      let cur = openStates(open),
+        next = new Uint8Array(72);
+      parts.forEach((add, j) => {
+        if (j === k) return;
+        mergeInto(next, cur, add);
+        [cur, next] = [next, cur];
+      });
+      return { states: cur, part: parts[k] };
+    });
   }
 
   // 嚦咕嚦咕：未攤牌，七對加一刻；四張相同牌可作兩對。
@@ -164,24 +213,40 @@
   function winning(hand, open = 0, rules = DEFAULT_RULES) {
     return hand.length === 17 - 3 * open && shanten(hand, open, rules) === -1;
   }
+  // memo 參數保留給舊呼叫端（以前用來快取），現在逐門增量計算已經夠快，不再需要。
   function analyze(hand, publicTiles = [], open = 0, memo = new Map(), rules = DEFAULT_RULES) {
     const known = countsOf([...hand, ...publicTiles.filter((t) => t < 34)]);
-    const value = (h) => {
-      const key = (rules.liguLigu !== false ? 'ligu:' : 'standard:') + open + ':' + countsOf(h).join('');
-      if (!memo.has(key)) memo.set(key, shanten(h, open, rules));
-      return memo.get(key);
-    };
+    // 直接在張數陣列上加減一張再算進聽數，不必每次複製手牌
+    const c = countsOf(hand),
+      len = hand.length,
+      ligu = !open && rules.liguLigu !== false,
+      scratch = new Uint8Array(72),
+      suitOf = (t) => (t < 27 ? Math.floor(t / 9) : 3);
     const options = [...new Set(hand)].map((tile) => {
-      const rest = hand.slice();
-      rest.splice(rest.indexOf(tile), 1);
-      const s = value(rest);
+      c[tile]--;
+      let s = Infinity;
       const improving = [];
       let remaining = 0;
-      for (let t = 0; t < 34; t++)
-        if (known[t] < 4 && value([...rest, t]) < s) {
-          improving.push(t);
-          remaining += 4 - known[t];
+      if (validHand(c, len - 1, open)) {
+        const others = othersOf(c, open);
+        s = bestOf(mergeInto(scratch, others[0].states, others[0].part));
+        if (ligu) s = Math.min(s, liguFromCounts(c));
+        const fits = validHand(c, len, open);
+        for (let t = 0; t < 34 && fits; t++) {
+          if (known[t] >= 4 || c[t] >= 4) continue;
+          const k = suitOf(t),
+            [from, to, honor] = SUITS[k];
+          c[t]++;
+          let after = bestOf(mergeInto(scratch, others[k].states, suitStates(c, from, to, honor)));
+          if (ligu && after >= s) after = Math.min(after, liguFromCounts(c));
+          c[t]--;
+          if (after < s) {
+            improving.push(t);
+            remaining += 4 - known[t];
+          }
         }
+      }
+      c[tile]++;
       return {
         tile,
         shanten: s,
@@ -205,6 +270,14 @@
    * @param {RuleOptions} [opts] 莊家、圈風、連莊、保留牌數、過水
    * @returns {Game}
    */
+  /**
+   * 配牌程序（牌譜裡的 dealing 欄位）。同一個種子用不同程序配出來的牌不同，所以牌譜要記下用哪一種。
+   *   engine-v1：每家輪流取一張、共十六輪，取到花立即從牌尾補（v2.8 以前的牌譜）。
+   *   engine-v2：實際牌桌的取牌——從莊家開始每人每次拿兩墩（4 張）、拿四輪；配完再從莊家起依序補花。
+   */
+  const DEALINGS = ['engine-v1', 'engine-v2'];
+  const DEFAULT_DEALING = 'engine-v2';
+
   function create(seed = Date.now(), opts = {}) {
     let n = seed >>> 0;
     const random = () => {
@@ -216,7 +289,9 @@
       streak = opts.streak || 0;
     // 桌規選項：reserve 保留牌尾張數（台灣常見留八墩 16 張即流局）、passWater 過水（放過胡牌後，自己打出一張牌前不能胡別人打的牌）
     const reserve = opts.reserve || 0,
-      passWater = !!opts.passWater;
+      passWater = !!opts.passWater,
+      dealing = opts.dealing || DEFAULT_DEALING;
+    if (!DEALINGS.includes(dealing)) throw Error('Unsupported dealing');
     const wall = [];
     for (let t = 0; t < 34; t++) for (let i = 0; i < 4; i++) wall.push(t);
     for (let t = 34; t < 42; t++) wall.push(t);
@@ -252,12 +327,48 @@
       water: [false, false, false, false],
       cuts: [[], [], [], []],
       fresh: null,
+      dealing,
+      opening: [],
     };
-    for (let r = 0; r < 16; r++) for (let k = 0; k < 4; k++) take(g, (dealer + k) % 4);
+    if (dealing === 'engine-v1')
+      for (let r = 0; r < 16; r++) for (let k = 0; k < 4; k++) take(g, (dealer + k) % 4);
+    else dealBlocks(g);
     g.hands.forEach((h) => h.sort((a, b) => a - b));
     g.lastTake = null;
     endFlowerWin(g);
     return g;
+  }
+  /**
+   * 實際取牌（engine-v2）：從莊家開始逆時針，每人每次拿兩墩（4 張），拿四輪各 16 張，配牌時不補花；
+   * 配完再從莊家起依序補花：花牌攤出、從牌尾補，補到花再補，直到手上沒有花。
+   * 每一步記在 g.opening，開局動畫照這些事件播放，和實際配牌一致。
+   * @param {Game} g
+   */
+  function dealBlocks(g) {
+    for (let round = 0; round < 4; round++)
+      for (let k = 0; k < 4; k++) {
+        const p = (g.dealer + k) % 4,
+          tiles = [];
+        for (let i = 0; i < 4 && g.wall.length; i++) tiles.push(g.wall.pop());
+        g.hands[p].push(...tiles);
+        g.opening.push({ type: 'deal', player: p, round, tiles });
+      }
+    for (let k = 0; k < 4; k++) {
+      const p = (g.dealer + k) % 4;
+      for (;;) {
+        const flowers = g.hands[p].filter((t) => t >= 34);
+        if (!flowers.length || !g.wall.length) break;
+        g.hands[p] = g.hands[p].filter((t) => t < 34);
+        const replacements = [];
+        for (const f of flowers) {
+          g.flowers[p].push(f);
+          flowerWin(g, p);
+          if (g.wall.length) replacements.push(g.wall.shift());
+        }
+        g.hands[p].push(...replacements);
+        g.opening.push({ type: 'flowers', player: p, flowers, replacements });
+      }
+    }
   }
   function take(g, p, tail = false) {
     const kan = tail;
@@ -589,6 +700,8 @@
     publicTiles,
     claimAdvice,
     names,
+    DEALINGS,
+    DEFAULT_DEALING,
     shanten,
     winning,
     analyze,

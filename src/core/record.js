@@ -12,8 +12,8 @@
 
   const FORMAT = 'taiwan-mahjong-coach.record';
   const VERSION = 1;
-  /** 目前的發牌程序（每家輪流取一張、共十六輪，取到花立即補）。改動發牌方式時要換新名字 */
-  const DEALING = 'engine-v1';
+  /** 新牌局的配牌程序；舊牌譜的 engine-v1 仍照舊程序重播（見 engine.js 的 DEALINGS） */
+  const DEALING = E.DEFAULT_DEALING;
 
   /**
    * 從牌局紀錄整理出「玩家的動作」：摸、打、回應（吃碰槓胡或略過）、自摸、暗槓／加槓。
@@ -62,7 +62,7 @@
       format: FORMAT,
       version: VERSION,
       perspective: 'full',
-      dealing: DEALING,
+      dealing: g.dealing || 'engine-v1', // 沒有記錄的舊牌局都是 v1
       seed: g.seed >>> 0,
       options: optionsOf(g),
       commands: commandsOf(g),
@@ -112,7 +112,7 @@
   function replay(record, { upto = Infinity } = {}) {
     const problem = check(record);
     if (problem) return { game: null, applied: 0, error: problem };
-    const opts = { ...record.options };
+    const opts = { ...record.options, dealing: record.dealing };
     if (!opts.rules) delete opts.rules;
     const g = E.create(record.seed, opts);
     let applied = 0;
@@ -132,7 +132,7 @@
     if (!record || record.format !== FORMAT) return '不是本程式的牌譜';
     if (record.version !== VERSION) return '牌譜版本 ' + record.version + ' 不支援（目前為 ' + VERSION + '）';
     if (record.perspective !== 'full') return '這份牌譜只記錄單一玩家看得到的事件，不能用種子重播';
-    if (record.dealing !== DEALING) return '發牌程序 ' + record.dealing + ' 不支援';
+    if (!E.DEALINGS.includes(record.dealing)) return '發牌程序 ' + record.dealing + ' 不支援';
     if (!Number.isInteger(record.seed) || !Array.isArray(record.commands)) return '牌譜內容不完整';
     return null;
   }

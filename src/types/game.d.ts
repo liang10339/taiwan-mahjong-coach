@@ -58,12 +58,18 @@ interface Game {
   rules?: MahjongRuleProfile;
   /** 初級電腦的亂數狀態（存檔接續時保留，讓同一局的電腦行為不變） */
   _ai?: number;
+  /** 電腦對手公開宣告的風格（fast／safe／big，null＝一般），教練讀牌時選用對應的聽牌模型 */
+  playerStyles?: (string | null)[];
   /** 宣告的對手策略假設，不代表觀測到對手能否胡牌。 */
   playerPolicies?: { alwaysWin: boolean }[];
   observationFor?: number;
   handCounts?: number[];
   /** 洗牌種子：同一個種子與同樣的動作可以重現同一局（牌譜分享、公平驗證的基礎） */
   seed: number;
+  /** 配牌程序（見 engine.js 的 DEALINGS） */
+  dealing?: string;
+  /** 開局事件：配牌（每次兩墩）與補花，開局動畫依此播放 */
+  opening?: OpeningEvent[];
   /** 牌牆：陣列尾端是下一張要摸的牌，開頭是牌尾（補花、槓後補牌從這裡拿） */
   wall: Tile[];
   hands: Tile[][];
@@ -103,9 +109,21 @@ interface Game {
 /** 開新局時可調整的桌規（日後的規則設定頁會擴充這裡）。 */
 interface RuleOptions {
   rules?: Partial<MahjongRuleProfile>;
+  /** 配牌程序：engine-v1（舊牌譜）或 engine-v2（實際取墩，預設） */
+  dealing?: string;
   dealer?: Seat;
   roundWind?: number;
   streak?: number;
   reserve?: number;
   passWater?: boolean;
+}
+
+/** 開局事件：deal 某家拿了哪 4 張；flowers 某家攤出的花與從牌尾補進的牌。看不到的牌在觀測中以 null 表示 */
+interface OpeningEvent {
+  type: 'deal' | 'flowers';
+  player: Seat;
+  round?: number;
+  tiles?: (Tile | null)[];
+  flowers?: Tile[];
+  replacements?: (Tile | null)[];
 }

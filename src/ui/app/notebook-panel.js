@@ -32,6 +32,7 @@ function rememberMistake(played, decision = currentDecision()) {
     rules: game.rules,
     context: decision && { ...decision.ctx, base: baseTai() },
     label: roundName(),
+    skills: typeof Skills !== 'undefined' ? Skills.ofDecision(decision, game.hands[0]) : [],
   });
   saveNotebook(Notebook.add(loadNotebook(), item));
   updateNotebookBadge();
@@ -71,6 +72,19 @@ function updateNotebookBadge() {
   tab.title = n ? '錯題本有 ' + n + ' 題待複習' : '';
 }
 
+/** 只練某一種技能的錯題（從成長報告或錯題本進來） */
+function startSkillPractice(tag) {
+  const queue = loadNotebook()
+    .filter((x) => (x.skills || []).includes(tag))
+    .sort((a, b) => a.created - b.created)
+    .map((x) => x.id);
+  if (!queue.length) return;
+  notebookRun = { queue, index: 0, answered: null, right: 0 };
+  renderNotebook();
+  const panel = $('#notebookPanel');
+  if (panel && panel.scrollIntoView) panel.scrollIntoView({ behavior: 'smooth' });
+}
+
 function renderNotebook() {
   const box = $('#notebookPanel');
   if (!box || typeof Notebook === 'undefined') return;
@@ -97,6 +111,19 @@ function renderNotebook() {
       };
       box.append(start);
     } else if (st.total) box.append(el('small', null, '目前沒有到期的題目，之後再回來複習。'));
+    // 針對練習：只練某一種技能的題目（不論是否到期），最早建立的先出
+    if (typeof Skills !== 'undefined' && st.total) {
+      const row = el('div', 'notebook-skills');
+      for (const [tag, info] of Object.entries(Skills.SKILLS)) {
+        const n = book.filter((x) => (x.skills || []).includes(tag)).length;
+        if (!n) continue;
+        const b = el('button', 'secondary-button', '只練' + info.name + '（' + n + '）');
+        b.type = 'button';
+        b.onclick = () => startSkillPractice(tag);
+        row.append(b);
+      }
+      if (row.children.length) box.append(el('small', 'notebook-meta', '針對練習：'), row);
+    }
     return;
   }
   const run = notebookRun,

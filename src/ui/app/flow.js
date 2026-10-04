@@ -29,7 +29,7 @@ function computers() {
   if (game.phase === 'claim') {
     for (let p = 1; p < 4 && game.phase === 'claim'; p++)
       if (!game.pending.decisions[p]) {
-        const choice = AI.chooseClaim(game, p, settings.level);
+        const choice = AI.chooseClaim(game, p, levelFor(p));
         E.respond(game, p, choice);
       }
     analyze();
@@ -41,7 +41,7 @@ function computers() {
   timer = setTimeout(() => {
     if (epoch !== generation) return;
     const snap = game.phase === 'discard' ? snapshot(game.turn) : null;
-    AI.act(game, game.turn, settings.level);
+    AI.act(game, game.turn, levelFor(game.turn));
     render();
     animateDiscard(snap);
     computers();
@@ -73,6 +73,8 @@ $('#discardButton').onclick = () => {
         judge: assessment,
         reason: '', // 完整理由已包含於核心評語
         decision: Advisor.snapshot(decision),
+        // 這手考的技能（孤張順序、搭子取捨、聽牌選擇、台數、防守），累積成技能熟練度
+        skills: typeof Skills !== 'undefined' ? Skills.ofDecision(decision, game.hands[0]) : [],
       }
     : null;
   if (record) {
@@ -130,10 +132,15 @@ $('#winButton').onclick = () => {
     render();
   }
 };
-// 整理手牌：隨時可按；剛摸進、還沒打的那張留在最右邊，其餘排序（有動畫）
+// 整理手牌：隨時可按（有動畫）。
+// 第一次：剛摸進、還沒打的那張留在最右邊（方便摸切），其餘排序；
+// 其餘已經排好時再按一次：連剛摸的那張一起插進去（之後打出它，別家看起來是手切，和實際牌桌一樣）
 $('#sortButton').onclick = () => {
   const h = game.hands[0],
-    keep = game.phase === 'discard' && game.turn === 0 && lastDrawn !== null && h[h.length - 1] === lastDrawn;
+    drawnRight =
+      game.phase === 'discard' && game.turn === 0 && lastDrawn !== null && h[h.length - 1] === lastDrawn,
+    restSorted = h.slice(0, -1).every((t, i, a) => i === 0 || a[i - 1] <= t),
+    keep = drawnRight && !restSorted;
   const before = rectsOf($('#hand')),
     order = h.map((t, i) => ({ t, i }));
   const rest = keep ? order.slice(0, -1) : order.slice();
@@ -268,6 +275,14 @@ function finishHand() {
       tai: ws ? ws.result.total : 0,
       delta: deltas[0],
       ...Growth.summarize(turnLog), // turns、good、mistakes 與各階段一致率
+      // 每種技能 [和教練相同, 次數]：出牌看評分，吃碰看是否和教練建議相同
+      skills:
+        typeof Skills !== 'undefined'
+          ? Skills.tally(
+              turnLog,
+              reviewTimeline.filter((x) => x.kind === 'claim'),
+            )
+          : {},
       won: !!ws && ws.winner === 0,
       dealIn: !!ws && !ws.result.tsumo && ws.result.ctx.from === 0,
       tsumoCuts: ((game.cuts && game.cuts[0]) || []).filter((c) => c === 'tsumo').length,

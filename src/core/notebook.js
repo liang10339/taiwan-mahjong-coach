@@ -23,7 +23,7 @@
    * @typedef {{id: string, hand: number[], open: number, melds: number[][], pub: number[], played: number,
    *   box: number, due: number, created: number, seen: number, right: number, label?: string,
    *   kind?: string, winner?: string, answers?: number[], safety?: {tile: number, dealIn: number, text: string}[],
-   *   decision?: any, rules?: any, context?: any}} NoteItem
+   *   decision?: any, rules?: any, context?: any, skills?: string[]}} NoteItem
    */
 
   /** JSON 存檔不保留參考；固定物件欄位順序，使相同局面不受建立順序影響。 */
@@ -82,6 +82,7 @@
     rules = null,
     context = null,
     label = '',
+    skills = [],
     time = Date.now(),
   }) {
     const savedDecision = decision ? JSON.parse(JSON.stringify(decision)) : null;
@@ -107,6 +108,7 @@
       rules: savedRules,
       context: savedContext,
       label,
+      skills: skills.slice(), // 這題考的技能（skills.js），給「針對練習」篩選
       box: 0,
       due: time, // 新題目馬上可以複習
       created: time,
@@ -136,7 +138,7 @@
     const min = Math.min(...safety.map((r) => r.dealIn));
     const savedSafety = safety.map((r) => ({ tile: r.tile, dealIn: r.dealIn, text: r.text }));
     return {
-      ...fromMistake({ hand, open, melds, pub, played, label, time }),
+      ...fromMistake({ hand, open, melds, pub, played, label, time, skills: ['defense'] }),
       id: identity({
         hand,
         open,

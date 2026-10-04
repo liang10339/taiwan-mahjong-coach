@@ -21,6 +21,7 @@ function dealGame() {
   // 洗牌只用種子的低 32 位元，所以直接存成 32 位元，公開與分享的數字才和這局一致
   const g = deal ? E.create(deal.seed, deal.opts) : E.create(Date.now() >>> 0, ruleOpts());
   publishDealPrint(g);
+  declareStyles(g);
   return { game: g, shared: !!deal };
 }
 

@@ -1,132 +1,56 @@
 'use strict';
-// 教練欄的「胡牌率與台數」：用 src/core/value.js 模擬每種打法，在背景執行緒（Web Worker）計算，
-// 算好後更新教練欄。沒有 Worker 的環境（直接開檔、測試）改成稍後在主執行緒用較少次數計算。
+// 教練欄的「攻守期望值表」：直接列出決策核心（advisor.js → policy.js）選牌時用的數字，
+// 標題的建議就是這張表期望值最高（或差不多時照牌效率）的那張。以前這裡另外跑一套模擬，
+// 會和標題的建議不一致；現在全部出自同一個判斷。
 
-/** 這個檔案載入時的 ?v= 版本參數，讓 Worker 載入同一版的核心檔案 */
-const valueVersion = (() => {
-  try {
-    const src = /** @type {HTMLScriptElement} */ (document.currentScript).src;
-    return src.includes('?') ? src.slice(src.indexOf('?')) : '';
-  } catch (e) {
-    return '';
-  }
-})();
-/** Worker：null 尚未建立、false 無法使用（改用主執行緒） */
-let valueWorker = null;
-let valueJob = 0;
-/** 目前這個局面的模擬結果；key 相同時直接沿用 */
-let valueState = { key: '', report: null };
-
-function valueKey() {
-  return decisionKey();
-}
-
-function getValueWorker() {
-  if (valueWorker !== null) return valueWorker || null;
-  try {
-    valueWorker =
-      typeof Worker === 'undefined' ? false : new Worker('src/workers/value-worker.js' + valueVersion);
-  } catch (e) {
-    valueWorker = false;
-  }
-  return valueWorker || null;
-}
-
-/** 在主執行緒模擬（次數較少，避免卡住畫面） */
-function valueFallback(job, snapshot) {
-  setTimeout(() => {
-    if (job === valueJob) valueDone(job, Value.evaluate(snapshot, 0, { trials: 80 }));
-  }, 0);
-}
-
-function valueDone(job, report) {
-  if (job !== valueJob) return; // 已經換了局面，舊的結果不用
-  valueState.report = report;
-  if (currentMode === 'table' && game.turn === 0 && game.phase === 'discard') coach();
-}
-
-/** 開始模擬目前局面（同一局面只算一次） */
-function requestValue() {
-  const key = valueKey();
-  if (valueState.key === key) return valueState;
-  valueState = { key, report: null };
-  const job = ++valueJob;
-  const snapshot = Advisor.observe(game, 0); // Worker 只收到這個座位可見的資訊
-  const worker = getValueWorker();
-  if (!worker) {
-    valueFallback(job, snapshot);
-    return valueState;
-  }
-  worker.onmessage = (event) => {
-    if (event.data.job !== job) return;
-    if (event.data.error) valueFallback(job, snapshot);
-    else valueDone(job, event.data.report);
-  };
-  worker.onerror = () => {
-    valueWorker = false; // 例如直接開檔時瀏覽器不允許 Worker：改用主執行緒
-    valueFallback(job, snapshot);
-  };
-  worker.postMessage({ job, game: snapshot, player: 0, options: { trials: 400 } });
-  return valueState;
-}
-
-/** 教練欄的「胡牌率與台數」區塊 */
+/** 教練欄的攻守期望值表 */
 function valueSection(body) {
-  if (!settings.value || typeof Value === 'undefined') return;
-  const { report } = requestValue();
+  if (!settings.value) return;
+  const d = currentDecision();
+  if (!d || !d.plan) return;
   const box = el('section', 'value-card');
-  box.append(el('h5', null, '進攻模擬參考（不含放槍代價）'));
-  if (!report) {
-    box.append(el('p', 'value-wait', '正在模擬接下來的巡目…'));
-    body.append(box);
-    return;
-  }
-  const advice = Value.advice(report, Coach.label);
-  if (advice.differs) box.classList.add('differs');
-  box.append(el('p', 'value-advice', '只比較進攻收益：' + advice.text));
-  box.append(el('small', 'value-note', '本區呈現另一個進攻假設；實際出牌與覆盤評分以最上方的綜合建議為準。'));
+  box.append(el('h5', null, '攻守期望值（教練選牌用的數字）'));
   const table = el('div', 'value-table');
   const head = el('div', 'value-row head');
   head.append(
     el('span', null, '打'),
     el('span', null, '胡牌率'),
-    el('span', null, '胡了平均'),
+    el('span', null, '胡了約'),
+    el('span', null, '放槍'),
     el('span', null, '期望'),
   );
   table.append(head);
-  const maxEv = Math.max(0.01, ...report.options.map((o) => o.expectedTai));
-  report.options
-    .slice()
-    .sort((a, b) => b.expectedTai - a.expectedTai)
-    .forEach((o) => {
-      const row = el(
-        'div',
-        'value-row' +
-          (o.tile === advice.richest.tile ? ' rich' : '') +
-          (o.tile === advice.fastest.tile ? ' fast' : ''),
-      );
-      const bar = el('span', 'value-bar'),
-        fill = el('i');
-      fill.style.width = Math.round((o.expectedTai / maxEv) * 100) + '%';
-      bar.append(fill, el('b', null, o.expectedTai.toFixed(2) + ' 台'));
-      row.append(
-        Tiles.node(o.tile, 'xs'),
-        el('span', null, Math.round(o.winRate * 100) + '%'),
-        el('span', null, o.winRate ? o.avgTai.toFixed(1) + ' 台' : '—'),
-        bar,
-      );
-      table.append(row);
-    });
+  const rows = d.plan.rows.slice(0, 6),
+    top = Math.max(0.01, ...rows.map((r) => Math.abs(r.ev)));
+  for (const r of rows) {
+    const tai = d.worth.get(r.tile).tai;
+    const row = el(
+      'div',
+      'value-row' + (r.tile === d.tile ? ' rich' : '') + (r.tile === d.efficiency.tile ? ' fast' : ''),
+    );
+    const bar = el('span', 'value-bar' + (r.ev < 0 ? ' negative' : '')),
+      fill = el('i');
+    fill.style.width = Math.round((Math.abs(r.ev) / top) * 100) + '%';
+    bar.append(fill, el('b', null, (r.ev >= 0 ? '+' : '') + r.ev.toFixed(2) + ' 台'));
+    row.append(
+      Tiles.node(r.tile, 'xs'),
+      el('span', null, Math.round(r.win * 100) + '%'),
+      el('span', null, ((tai.ron + tai.tsumo) / 2).toFixed(1) + ' 台'),
+      el('span', null, (r.dealIn * 100).toFixed(1) + '%'),
+      bar,
+    );
+    table.append(row);
+  }
   box.append(table);
   box.append(
     el(
       'small',
       'value-note',
-      '每種打法模擬 ' +
-        report.trials +
-        ' 次接下來約 ' +
-        report.horizon +
-        ' 巡：看不到的牌隨機排列、別家依平均機率先胡、能加快聽牌時才吃碰。胡牌率偏保守，用來比較打法的好壞，不是實際機率。期望＝胡牌率×胡了平均台數。',
+      '期望＝胡牌率 × 胡了的收入（含底，自摸三家付）－ 這張的放槍代價 － 之後幾巡的放槍代價（有人可能聽牌時，繼續進攻每巡都要冒險；改守可以先打手上的安全牌）。' +
+        '胡牌率依進聽數、有效牌與牌牆剩餘查自戰統計；「胡了約」是自摸與胡別人的平均，聽牌時逐張實際計台。' +
+        '白底是建議打的牌，胡牌率粗體的是只看牌效率的首選；差距不到 ' +
+        Policy.MARGIN +
+        ' 台時照牌效率打。',
     ),
   );
   body.append(box);

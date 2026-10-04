@@ -4,9 +4,20 @@
   const node = typeof module !== 'undefined';
   const E = node ? require('./engine') : root.Mahjong,
     C = node ? require('./coach') : root.Coach,
-    D = node ? require('./defense') : root.Defense,
     Observation = node ? require('./observation') : root.Observation;
   const LEVELS = { easy: '初級', normal: '中級', hard: '高級' };
+  /**
+   * 高級電腦的風格：和教練同一個決策核心，只是參數不同（真人牌桌上常見的三種打法）。
+   * level 傳風格名稱就是「那種風格的高級電腦」；傳 hard 是教練本身的參數。
+   * future：之後幾巡放槍代價的權重；valueWeight：台數的權重；claimMode：吃碰的判斷方式。
+   */
+  const STYLES = {
+    fast: { name: '速攻', note: '能吃碰就吃碰、很少棄胡', opts: { future: 0, claimMode: 'efficiency' } },
+    safe: { name: '保守', note: '有人可能聽牌就收手、不攤牌', opts: { future: 2, claimMode: 'cautious' } },
+    big: { name: '大牌', note: '留字牌對、做一色，台數看得很重', opts: { valueWeight: 2 } },
+  };
+  /** 這個難度是不是用決策核心（高級或某種風格），是的話回傳 advisor 參數 */
+  const coreOpts = (level) => (level === 'hard' ? {} : STYLES[level] ? STYLES[level].opts : null);
 
   // 依公開資訊估計對手離聽牌多近：0 看不出、1 可能接近、2 很可能已聽牌
   const SUITS = ['萬', '筒', '條'];
@@ -65,40 +76,9 @@
     if (left < 55 && r.middleRun) return 1; // 後期連打中張，常是聽牌後的訊號
     return 0;
   }
-  function threats(g, viewer) {
-    return [0, 1, 2, 3].filter((q) => q !== viewer).map((q) => ({ player: q, level: threat(g, q) }));
-  }
-  // 一張牌對各家的危險分數：可成立的胡牌組合數 × 對手威脅程度
-  function danger(g, viewer, t, list = threats(g, viewer)) {
-    g = Observation.forPlayer(g, viewer);
-    const r = D.inspect(g, viewer, t);
-    let score = 0;
-    const per = [];
-    for (const o of r.opponents) {
-      const lv = (list.find((x) => x.player === o.player) || { level: 0 }).level,
-        rd = reading(g, o.player);
-      // 攤牌全同一花色：該花色與字牌加倍小心（清一色／混一色）
-      const suitHit = rd.oneSuit !== null && (t >= 27 || Math.floor(t / 9) === rd.oneSuit),
-        w = o.ways.length * (suitHit ? 2 : 1),
-        s = w * (1 + lv * 2);
-      score += lv ? s : w * 0.2;
-      per.push({ player: o.player, ways: o.ways.length, level: lv, suitHit });
-    }
-    return { tile: t, score, per, excluded: r.excluded };
-  }
-  // 給 UI 的三段危險度
-  // UI 三段危險度：只看「可能已接近聽牌」的對手。沒人有威脅時一律低；
-  // 有威脅時，該家還能用這張胡的組合 0 種為低、1–3 種為中（多半是字牌、么九），4 種以上為高（中張可組多種順子）
-  function dangerLevel(d) {
-    if (d.excluded) return 'safe';
-    let level = 'safe';
-    for (const x of d.per) {
-      if (!x.level || !x.ways) continue;
-      if (x.ways >= 4) return 'high';
-      level = 'mid';
-    }
-    return level;
-  }
+  // 高級電腦和教練用同一個決策核心（advisor.js）：攻守期望值、讀牌、守到底都一樣。
+  // advisor 透過 opponents 會用到本檔的 reading()，所以用到時才載入，避免互相 require 卡住。
+  const advisor = () => (node ? require('./advisor') : root.Advisor);
 
   function rng(g) {
     // Independent policy stream: the shuffle seed must never reach decision logic.
@@ -120,23 +100,8 @@
       const pool = random() < 0.3 ? options : ok;
       return pool[Math.floor(random() * pool.length)].tile;
     }
-    if (level === 'hard') {
-      const list = threats(g, p),
-        mine = options[0].shanten,
-        max = Math.max(...list.map((x) => x.level));
-      const rated = options.map((o) => ({ o, d: danger(g, p, o.tile, list) }));
-      // 棄胡：有人很可能聽牌而自己還遠，完全以安全為先
-      if ((max >= 2 && mine >= 2) || (max >= 1 && mine >= 3))
-        return rated.sort(
-          (a, b) => a.d.score - b.d.score || a.o.shanten - b.o.shanten || b.o.remaining - a.o.remaining,
-        )[0].o.tile;
-      // 攻守兼顧：在不退步且進張不少於首選八成的牌裡，挑最安全的
-      if (max >= 1) {
-        const best = options[0],
-          keep = rated.filter((x) => x.o.shanten === best.shanten && x.o.remaining >= best.remaining * 0.8);
-        return keep.sort((a, b) => a.d.score - b.d.score)[0].o.tile;
-      }
-    }
+    const core = coreOpts(level);
+    if (core) return advisor().decide(g, p, core).tile;
     return options[0].tile;
   }
   function chooseClaim(g, p, level = 'normal') {
@@ -153,14 +118,12 @@
         options.find((a) => a.type === 'pon' || a.type === 'kan') || options.find((a) => a.type === 'chi');
       return take && random() < 0.8 ? take : { type: 'pass' };
     }
-    const a = C.chooseClaim(g, p);
-    if (level === 'hard' && a.type !== 'pass') {
-      // 已有人很可能聽牌、自己還差很遠時，不為了攤牌暴露更多
-      const max = Math.max(...threats(g, p).map((x) => x.level)),
-        mine = E.shanten(g.hands[p], g.melds[p].length, g.rules);
-      if (max >= 2 && mine >= 3) return { type: 'pass' };
+    const core = coreOpts(level);
+    if (core) {
+      const best = advisor().claims(g, p, core).best;
+      return best ? best.action : { type: 'pass' };
     }
-    return a;
+    return C.chooseClaim(g, p);
   }
   function chooseKan(g, p, level = 'normal') {
     g = Observation.forPlayer(g, p);
@@ -193,10 +156,9 @@
     SUITS,
     reading,
     LEVELS,
+    STYLES,
+    coreOpts,
     threat,
-    threats,
-    danger,
-    dangerLevel,
     chooseDiscard,
     chooseClaim,
     chooseKan,

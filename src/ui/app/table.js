@@ -369,7 +369,11 @@ function renderClaims() {
       button.onclick = () => {
         const report = currentClaim(),
           record = decisionRecord(a, report.options, report.summary),
+          advised = report.best ? report.best.action : { type: 'pass' },
           couldWin = a.type === 'pass' && E.claims(game, 0).some((x) => x.type === 'ron');
+        // 吃碰判斷的技能統計：你的選擇和教練建議是否相同（吃的話連用哪兩張也要相同）
+        record.agree =
+          a.type === advised.type && JSON.stringify(a.tiles || []) === JSON.stringify(advised.tiles || []);
         if (E.respond(game, 0, a)) {
           if (couldWin && game.passWater)
             notify('你放過了胡牌：過水中，自己打出一張牌之前不能胡別人打的牌。');

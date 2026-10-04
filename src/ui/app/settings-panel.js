@@ -8,6 +8,7 @@ function mode(name) {
     renderNotebook();
     renderGrowth();
     renderRecords();
+    renderManual();
     renderReview();
   }
 }
@@ -104,6 +105,21 @@ function setupSettings() {
     saveSettings();
     notify('電腦難度：' + AI.LEVELS[settings.level]);
   };
+  const style = $('#styleSelect');
+  if (style) {
+    style.value = settings.style;
+    style.onchange = () => {
+      settings.style = style.value;
+      saveSettings();
+      notify(
+        '高級電腦風格：' +
+          (settings.style === 'mixed'
+            ? '混合（下家速攻、對家大牌、上家保守）'
+            : AI.STYLES[settings.style].name) +
+          '，下一局起生效',
+      );
+    };
+  }
   coachBox.onchange = () => {
     settings.coach = coachBox.checked;
     saveSettings();
